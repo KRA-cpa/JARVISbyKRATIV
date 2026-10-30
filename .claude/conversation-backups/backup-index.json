@@ -1,6 +1,6 @@
 {
-  "last_backup": "2026-10-19T04:39:55+08:00",
-  "total_conversations": 12,
+  "last_backup": "2026-10-30T14:18:19+08:00",
+  "total_conversations": 17,
   "backed_up_sessions": [],
   "backup_files": [
     {
@@ -20,6 +20,12 @@
       "created": "2026-10-19T04:39:55+08:00",
       "sessions_count": 5,
       "size_mb": 5
+    },
+    {
+      "filename": "backup-20261030-141819.enc",
+      "created": "2026-10-30T14:18:19+08:00",
+      "sessions_count": 5,
+      "size_mb": 14
     }
   ]
 }
