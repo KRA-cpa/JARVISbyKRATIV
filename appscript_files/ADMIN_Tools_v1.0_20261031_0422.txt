@@ -1,0 +1,217 @@
+/*
+=================================================================================
+ * JARVISbyERP - Admin Tools menu (second script file of the Apps Script project)
+ *
+ * Version: 1.0 (for AppScript v9.5+: schema rebuild, company locks, SLA escalation setup, proxy auth status)
+ * Last Updated: October 31, 2026 04:22 UTC+8 (file: ADMIN_Tools_v1.0_20261031_0422.txt)
+ *
+ * HOW TO USE (appscript_files/GUIDE_AppScript_Deploy_and_Schema_Rebuild.md §0a)
+ * 1. In the Apps Script editor: Files + -> Script -> name it "admin" -> paste this whole file -> Save.
+ *    It calls the main file's functions (rebuildAllTables, installSLAEscalationTrigger, ...), so the main
+ *    APPSCRIPT file (v9.5 or later) must be in the same project.
+ * 2. Reload the Google Sheet. A "JARVIS Admin" menu appears next to Help (it takes a few seconds).
+ * 3. The first time you click an item, Google asks for authorization - the same permissions as the editor.
+ *
+ * Every "Apply" item shows the dry run first and asks before it changes anything. Results open in a dialog
+ * (the details are also in Apps Script -> Executions). The menu only shows for people who can edit the Sheet;
+ * nothing here is routed to the web app (compliance A4).
+=================================================================================
+*/
+
+/** Builds the menu when the Sheet opens (simple trigger: no authorization needed to show it). */
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('JARVIS Admin')
+    .addItem('Status: version, auth, SLA trigger', 'adminStatus')
+    .addSeparator()
+    .addSubMenu(SpreadsheetApp.getUi().createMenu('1. Schema')
+      .addItem('Check tables (dry run)', 'adminRebuildDryRun')
+      .addItem('Repair tables (apply)...', 'adminRebuildApply')
+      .addItem('Write schema report to xSchema', 'adminSchemaReport')
+      .addItem('Repair company code locks...', 'adminRepairCompanyLocks'))
+    .addSubMenu(SpreadsheetApp.getUi().createMenu('2. SLA escalation')
+      .addItem('Migrate old escalation settings...', 'adminMigrateEscalations')
+      .addItem('Install the 15-minute trigger', 'adminInstallSLATrigger')
+      .addItem('Preview what would fire now', 'adminSLADryRun')
+      .addItem('Remove the trigger...', 'adminRemoveSLATrigger'))
+    .addSubMenu(SpreadsheetApp.getUi().createMenu('3. Proxy auth')
+      .addItem('Set AUTH_MODE (off / warn / enforce)...', 'adminSetAuthMode'))
+    .addToUi();
+}
+
+// --- Helpers -------------------------------------------------------------------------------------------------
+
+function adminUi_() {
+  return SpreadsheetApp.getUi();
+}
+
+/** A dialog with a title and text (long text is cut so the dialog stays readable). */
+function adminShow_(title, lines) {
+  const text = [].concat(lines).filter(line => line !== null && line !== undefined).join('\n');
+  adminUi_().alert(title, text.length > 1800 ? text.slice(0, 1800) + '\n... (full log: Apps Script -> Executions)' : text, adminUi_().ButtonSet.OK);
+}
+
+/** Yes / No question. */
+function adminConfirm_(title, text) {
+  return adminUi_().alert(title, text, adminUi_().ButtonSet.YES_NO) === adminUi_().Button.YES;
+}
+
+/** Table names from a rebuild result list (entries may be names or objects). */
+function adminNames_(list) {
+  return (list || []).map(item => (typeof item === 'string' ? item : (item.table || item.name || JSON.stringify(item))));
+}
+
+function adminRebuildSummary_(result) {
+  return [
+    `${result.created.length} to create: ${adminNames_(result.created).join(', ') || '-'}`,
+    `${result.repaired.length} to repair: ${adminNames_(result.repaired).join(', ') || '-'}`,
+    `${result.ok.length} OK`,
+    result.errors.length ? `ERRORS (${result.errors.length}): ${adminNames_(result.errors).join(', ')}` : 'No errors'
+  ];
+}
+
+/** Runs fn and shows an error dialog instead of the bare "Script error" box. */
+function adminRun_(title, fn) {
+  try {
+    return fn();
+  } catch (error) {
+    adminShow_(`${title} - failed`, [error.message, '', 'Details: Apps Script -> Executions']);
+    return null;
+  }
+}
+
+// --- Status ----------------------------------------------------------------------------------------------------
+
+function adminStatus() {
+  adminRun_('Status', () => {
+    const triggers = ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'runSLAEscalationsTrigger');
+    adminShow_('JARVIS status', [
+      `Code in the editor: API_VERSION ${API_VERSION}`,
+      '(The live web app serves the last DEPLOYED version - check <web app URL>?action=ping)',
+      '',
+      `AUTH_MODE: ${authMode()}`,
+      `PROXY_SECRET: ${scriptProperty('PROXY_SECRET', '') ? 'set' : 'NOT SET'} (the value is never shown)`,
+      `CACHE_ENABLED: ${scriptProperty('CACHE_ENABLED', 'true')}`,
+      `Timestamps real UTC since: ${scriptProperty('TS_UTC_SINCE', '(not yet - first write records it)')}`,
+      '',
+      `SLA escalation trigger: ${triggers.length ? `installed (${triggers.length})` : 'NOT installed'}`,
+      `SLA email by default: ${scriptProperty('SLA_EMAIL_DEFAULT', 'off')}`,
+      `Mail quota left today: ${mailQuotaRemaining()}`
+    ]);
+  });
+}
+
+// --- 1. Schema ---------------------------------------------------------------------------------------------------
+
+function adminRebuildDryRun() {
+  adminRun_('Check tables', () => {
+    const result = rebuildAllTables(true);
+    adminShow_('Check tables (dry run - nothing changed)', adminRebuildSummary_(result).concat(['',
+      result.created.length || result.repaired.length ? 'Next: JARVIS Admin -> 1. Schema -> Repair tables (apply)' : 'Every table matches TABLE_SCHEMAS.']));
+  });
+}
+
+function adminRebuildApply() {
+  adminRun_('Repair tables', () => {
+    const preview = rebuildAllTables(true);
+    if (!preview.created.length && !preview.repaired.length) {
+      adminShow_('Repair tables', 'Nothing to do - every table already matches.');
+      return;
+    }
+    const ok = adminConfirm_('Repair tables?', adminRebuildSummary_(preview).concat(['',
+      'Repaired tabs are backed up first (_bak_<table>_<time>). If people are using the app, redeploy the web app first.',
+      '', 'Apply now?']).join('\n'));
+    if (!ok) return;
+    const result = rebuildAllTablesApply();
+    adminShow_('Repair tables - done', adminRebuildSummary_(result).map(line => line.replace(' to ', ' ')).concat(['',
+      'Check: run "Check tables (dry run)" again - everything should be OK.']));
+  });
+}
+
+function adminSchemaReport() {
+  adminRun_('Schema report', () => {
+    const result = analyzeCurrentSchema();
+    adminShow_('Schema report', [result.message || 'Done', `Tables: ${result.totalSheets}, missing: ${result.missingSheets}`,
+      'The details are on the xSchema tab.']);
+  });
+}
+
+function adminRepairCompanyLocks() {
+  adminRun_('Company locks', () => {
+    const preview = repairCompanyLocks(false);
+    const changes = (preview.data && preview.data.changes) || [];
+    if (!changes.length) {
+      adminShow_('Company code locks', 'Nothing to repair.');
+      return;
+    }
+    if (!adminConfirm_('Repair company code locks?', `${changes.length} company row(s) would be fixed (details: Executions log).\n\nApply now?`)) return;
+    const result = repairCompanyLocksApply();
+    adminShow_('Company code locks - done', `${((result.data && result.data.changes) || []).length} company row(s) repaired.`);
+  });
+}
+
+// --- 2. SLA escalation ---------------------------------------------------------------------------------------------
+
+function adminMigrateEscalations() {
+  adminRun_('Migrate escalations', () => {
+    const preview = migrateCompanyEscalationsToRules(true);
+    if (!preview.rules.length) {
+      adminShow_('Migrate old escalation settings', [`Nothing to migrate (${preview.skipped_existing} already done).`]);
+      return;
+    }
+    const lines = preview.rules.slice(0, 15).map(r => `- ${r.ticket_type_id} / ${r.step_id || 'all steps'}: level ${r.level} ${r.trigger} ${r.trigger_value}`);
+    if (!adminConfirm_('Migrate old escalation settings?', [`${preview.rules.length} escalation level(s) would be created:`]
+      .concat(lines, ['', 'Apply now?']).join('\n'))) return;
+    const result = migrateCompanyEscalationsToRulesApply();
+    adminShow_('Migrate old escalation settings - done', `${result.created} escalation level(s) created. Edit them in the app: Admin -> SLA Escalations.`);
+  });
+}
+
+function adminInstallSLATrigger() {
+  adminRun_('Install trigger', () => {
+    installSLAEscalationTrigger();
+    adminShow_('SLA escalation trigger', ['Installed: escalations run every 15 minutes.',
+      'Rules: in the app, Admin -> SLA Escalations. Email is off until you turn it on there (Email panel).']);
+  });
+}
+
+function adminSLADryRun() {
+  adminRun_('Preview', () => {
+    const data = runSLAEscalations({ dryRun: true }).data;
+    const lines = (data.fired || []).slice(0, 15).map(f => `- ${f.ticket_number || f.ticket_id}: level ${f.levels.join(', ')} (${f.type.replace('sla_', '')}) to ${f.recipients.length} user(s)`);
+    adminShow_('SLA escalation preview (nothing sent)', [`${data.checked || 0} open ticket(s) with an SLA checked.`,
+      lines.length ? `${data.fired.length} would fire now:` : 'Nothing would fire now.'].concat(lines));
+  });
+}
+
+function adminRemoveSLATrigger() {
+  adminRun_('Remove trigger', () => {
+    if (!adminConfirm_('Remove the SLA escalation trigger?', 'Escalations stop until you install it again. Continue?')) return;
+    const result = removeSLAEscalationTrigger();
+    adminShow_('SLA escalation trigger', `${result.removed} trigger(s) removed.`);
+  });
+}
+
+// --- 3. Proxy auth -------------------------------------------------------------------------------------------------
+
+function adminSetAuthMode() {
+  adminRun_('AUTH_MODE', () => {
+    const ui = adminUi_();
+    const answer = ui.prompt('Set AUTH_MODE', `Now: ${authMode()}. Type off, warn or enforce.\n\n` +
+      'Set the SAME value in Vercel (Settings -> Environment Variables -> AUTH_MODE) and redeploy Vercel.\n' +
+      'enforce refuses every call without the proxy secret or a signed-in user.', ui.ButtonSet.OK_CANCEL);
+    if (answer.getSelectedButton() !== ui.Button.OK) return;
+    const mode = String(answer.getResponseText() || '').trim().toLowerCase();
+    if (!AUTH_MODES.includes(mode)) {
+      adminShow_('AUTH_MODE', `"${mode}" is not off, warn or enforce - nothing changed.`);
+      return;
+    }
+    if (mode === 'enforce' && !scriptProperty('PROXY_SECRET', '')) {
+      adminShow_('AUTH_MODE', 'PROXY_SECRET is not set - enforce would refuse every call. Set it first (Project Settings -> Script Properties).');
+      return;
+    }
+    PropertiesService.getScriptProperties().setProperty('AUTH_MODE', mode);
+    logAdminAction(Session.getActiveUser().getEmail() || 'editor', 'SET_AUTH_MODE', 'settings', 'AUTH_MODE', { mode });
+    adminShow_('AUTH_MODE', `AUTH_MODE is now ${mode} (takes effect at once). Remember Vercel's AUTH_MODE.`);
+  });
+}

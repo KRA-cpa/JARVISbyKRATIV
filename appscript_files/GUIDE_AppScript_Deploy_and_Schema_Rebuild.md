@@ -63,6 +63,18 @@ REVISION HISTORY:
 
 ---
 
+## §0a Optional, once: the "JARVIS Admin" menu in the Sheet (instead of the editor's Run dropdown)
+
+The main file has hundreds of functions, so finding one in the editor's Run dropdown is slow. The Admin Tools file puts the deploy steps in a Sheet menu:
+
+1. Apps Script editor → **Files ➕ → Script** → name it `admin` → paste `appscript_files/ADMIN_Tools_v1.0_20261031_0422.txt` → **Ctrl+S**. (It needs the main file v9.5+ in the same project.)
+2. Reload the Google Sheet → **JARVIS Admin** appears next to Help (after a few seconds). The first click asks for authorization.
+3. Items: **Status** (version in the editor, AUTH_MODE, whether PROXY_SECRET is set - never its value, SLA trigger, mail quota); **1. Schema** - Check tables (= `rebuildAllTables` dry run), Repair tables (shows the dry run, asks, then applies), schema report (xSchema), company code locks; **2. SLA escalation** - migrate old escalation settings, install / remove the trigger, preview; **3. Proxy auth** - set AUTH_MODE (refuses `enforce` while PROXY_SECRET is missing).
+
+Every "apply" item asks Yes / No first. The menu is only visible to people who can edit the Sheet; the editor's Run dropdown keeps working as before (§2–§5c). Offline test: `node appscript_files/tools/ADMIN_TOOLS_TEST.js <APPSCRIPT file> <ADMIN_Tools file>` → 6 PASS.
+
+---
+
 ## §1 Paste the New File into the Apps Script Editor
 
 1. Open the Google Sheet → **Extensions → Apps Script** (or open the project from script.google.com).
