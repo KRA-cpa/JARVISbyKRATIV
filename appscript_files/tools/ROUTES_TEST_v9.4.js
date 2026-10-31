@@ -45,6 +45,8 @@ function seed(properties = {}) {
     const res = rt.ctx.createUserRoleAssignment({ user_id, role_id, company_id: 'co_1' });
     assert.strictEqual(res.status, 'success', res.message);
   });
+  // v9.6 sign-in allow-list: the requester needs a profile (or a role) to pass AUTH_MODE enforce
+  add('user_profiles', { user_id: 'u_req', display_name: 'Rita Requester', is_active: true });
 
   const ok = res => { assert.strictEqual(res.success, true, res.error); return res.data; };
   const createTicket = (extra = {}) => String(ok(rt.post({ action: 'createTicket', title: 'Laptop', ticket_type_id: 'tt_1',

@@ -48,6 +48,8 @@ function seed(options = {}) {
   add('user_profiles', { user_id: 'u_mgr', display_name: 'Mia Manager', email: 'mia@example.com', is_active: true });
   add('user_profiles', { user_id: 'u_lead', display_name: 'Leo Lead', email: 'leo@example.com', is_active: true });
   add('user_profiles', { user_id: 'u_head', display_name: 'Hal Head', email: 'hal@example.com', is_active: true });
+  // v9.6 sign-in allow-list: the requester needs a profile (or a role) to pass AUTH_MODE enforce. No email, as before.
+  add('user_profiles', { user_id: 'u_req', display_name: 'Rita Requester', is_active: true });
 
   const ok = res => { assert.strictEqual(res.success, true, res.error); return res.data; };
   const createTicket = () => String(ok(rt.post({ action: 'createTicket', title: 'Laptop', ticket_type_id: 'tt_1', requester_id: 'u_req', company_id: 'co_1' })).id);
@@ -421,13 +423,13 @@ test('CR2-10: a GET read sent by the proxy as POST (_via_get) reaches doGet, sec
   assert.match(rt.post({ action: 'getDashboard', _via_get: true }).error, /through the app proxy/, 'still checked');
 });
 
-test('ticket type sla_email switch and ping 9.5.0', () => {
+test('ticket type sla_email switch and ping 9.5.0 or later', () => {
   const { rt, ok } = seed();
   assert.match(rt.post({ action: 'setTicketTypeFeatures', ticket_type_id: 'tt_1', user_id: 'u_admin', sla_email: 'maybe' }).error, /sla_email must be/);
   assert.strictEqual(ok(rt.post({ action: 'setTicketTypeFeatures', ticket_type_id: 'tt_1', user_id: 'u_admin', sla_email: 'on' })).sla_email, 'on');
   const settings = ok(rt.get({ action: 'getSLANotificationSettings' }));
   assert.strictEqual(settings.ticket_types[0].email_on, true);
-  assert.strictEqual(rt.get({ action: 'ping' }).version, '9.5.0');
+  assert.ok(rt.get({ action: 'ping' }).version.localeCompare('9.5.0', undefined, { numeric: true }) >= 0);
 });
 
 report();

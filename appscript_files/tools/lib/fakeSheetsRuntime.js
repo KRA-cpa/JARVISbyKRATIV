@@ -5,6 +5,7 @@
 //   detectStaleCache  throw when the v9.4 request cache serves a tab that was written after it was cached
 //                     (a write without invalidateTable - compliance A14). Default: on when the file has the cache
 //   properties        initial Script Properties ({ AUTH_MODE: 'enforce', PROXY_SECRET: 'x' })
+//   noCacheService    (v9.6) leave CacheService undefined, like an Apps Script project without the service
 // Per request (post / get), reads() returns how many full-tab reads (getDataRange().getValues()) each tab had.
 const fs = require('fs');
 const vm = require('vm');
@@ -19,6 +20,13 @@ function makeRuntime(appscriptPath, options = {}) {
   // v9.5: MailApp / ScriptApp fakes - sent mail and installed triggers are recorded; options.mailQuota sets the quota
   const mail = { sent: [], quota: options.mailQuota === undefined ? 100 : options.mailQuota };
   const triggers = [];
+  // v9.6: CacheService.getScriptCache() fake - entries { value, expires } (ms, fake clock = Date.now()); tests inspect cache
+  const cache = new Map();
+  const scriptCache = {
+    get: key => { const e = cache.get(key); if (!e) return null; if (e.expires <= Date.now()) { cache.delete(key); return null; } return e.value; },
+    put: (key, value, ttl = 600) => { cache.set(key, { value: String(value), expires: Date.now() + Math.min(Number(ttl) || 600, 21600) * 1000 }); },
+    remove: key => { cache.delete(key); }
+  };
 
   class Range {
     constructor(sheet, r, c, nr, nc, isDataRange = false) { Object.assign(this, { sheet, r, c, nr: nr || 1, nc: nc || 1, isDataRange }); }
@@ -115,7 +123,7 @@ function makeRuntime(appscriptPath, options = {}) {
     },
     ContentService: {
       MimeType: { JSON: 'json', TEXT: 'text' },
-      createTextOutput: text => ({ text, setMimeType() { return this; } })
+      createTextOutput: text => ({ text, getContent() { return this.text; }, setMimeType() { return this; } })
     },
     LockService: {
       getScriptLock: () => ({
@@ -130,6 +138,7 @@ function makeRuntime(appscriptPath, options = {}) {
       getRemainingDailyQuota: () => mail.quota,
       sendEmail: message => { if (mail.quota <= 0) throw new Error('quota exceeded'); mail.quota--; mail.sent.push(message); }
     },
+    ...(options.noCacheService ? {} : { CacheService: { getScriptCache: () => scriptCache } }),
     ScriptApp: {
       getProjectTriggers: () => triggers.slice(),
       deleteTrigger: trigger => { const i = triggers.indexOf(trigger); if (i !== -1) triggers.splice(i, 1); },
@@ -179,7 +188,7 @@ function makeRuntime(appscriptPath, options = {}) {
   const post = body => { readCounts = {}; return JSON.parse(context.doPost({ postData: { contents: JSON.stringify(body) } }).text); };
   const get = params => { readCounts = {}; return JSON.parse(context.doGet({ parameter: { ...params } }).text); };
   return { ctx: context, ss, sheets, table, json, post, get, lockLog, isLocked: () => lockHeld, props, reads: () => ({ ...readCounts }),
-    mail, triggers, holdLock: held => { lockHeld = held; } };
+    mail, triggers, cache, holdLock: held => { lockHeld = held; } };
 }
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
