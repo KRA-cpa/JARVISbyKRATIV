@@ -1,0 +1,340 @@
+/*
+=================================================================================
+ * JARVISbyERP - Admin Tools menu (second script file of the Apps Script project)
+ *
+ * Version: 1.1 (for AppScript v9.6+: + make a user admin, bootstrap status, recent sign-ins, invites list)
+ * Last Updated: October 31, 2026 15:26 UTC+8 (file: ADMIN_Tools_v1.1_20261031_1526.txt)
+ * v1.1: "4. Users & access" submenu; Status shows whether an admin exists ("No admin yet - bootstrap open").
+ *   Replaces v1.0 in the "admin" script file (paste over it).
+ *
+ * HOW TO USE (appscript_files/GUIDE_AppScript_Deploy_and_Schema_Rebuild.md §0a)
+ * 1. In the Apps Script editor: Files + -> Script -> name it "admin" -> paste this whole file -> Save.
+ *    It calls the main file's functions (rebuildAllTables, installSLAEscalationTrigger, ...), so the main
+ *    APPSCRIPT file (v9.5 or later) must be in the same project.
+ * 2. Reload the Google Sheet. A "JARVIS Admin" menu appears next to Help (it takes a few seconds).
+ * 3. The first time you click an item, Google asks for authorization - the same permissions as the editor.
+ *
+ * Every "Apply" item shows the dry run first and asks before it changes anything. Results open in a dialog
+ * (the details are also in Apps Script -> Executions). The menu only shows for people who can edit the Sheet;
+ * nothing here is routed to the web app (compliance A4).
+=================================================================================
+*/
+
+/** Builds the menu when the Sheet opens (simple trigger: no authorization needed to show it). */
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('JARVIS Admin')
+    .addItem('Status: version, auth, SLA trigger', 'adminStatus')
+    .addSeparator()
+    .addSubMenu(SpreadsheetApp.getUi().createMenu('1. Schema')
+      .addItem('Check tables (dry run)', 'adminRebuildDryRun')
+      .addItem('Repair tables (apply)...', 'adminRebuildApply')
+      .addItem('Write schema report to xSchema', 'adminSchemaReport')
+      .addItem('Repair company code locks...', 'adminRepairCompanyLocks'))
+    .addSubMenu(SpreadsheetApp.getUi().createMenu('2. SLA escalation')
+      .addItem('Migrate old escalation settings...', 'adminMigrateEscalations')
+      .addItem('Install the 15-minute trigger', 'adminInstallSLATrigger')
+      .addItem('Preview what would fire now', 'adminSLADryRun')
+      .addItem('Remove the trigger...', 'adminRemoveSLATrigger'))
+    .addSubMenu(SpreadsheetApp.getUi().createMenu('3. Proxy auth')
+      .addItem('Set AUTH_MODE (off / warn / enforce)...', 'adminSetAuthMode'))
+    .addSubMenu(SpreadsheetApp.getUi().createMenu('4. Users & access')
+      .addItem('Recent sign-ins (uid + email)', 'adminRecentSignIns')
+      .addItem('Make a user admin...', 'adminMakeUserAdmin')
+      .addItem('Pending invites', 'adminListInvites'))
+    .addToUi();
+}
+
+// --- Helpers -------------------------------------------------------------------------------------------------
+
+function adminUi_() {
+  return SpreadsheetApp.getUi();
+}
+
+/** A dialog with a title and text (long text is cut so the dialog stays readable). */
+function adminShow_(title, lines) {
+  const text = [].concat(lines).filter(line => line !== null && line !== undefined).join('\n');
+  adminUi_().alert(title, text.length > 1800 ? text.slice(0, 1800) + '\n... (full log: Apps Script -> Executions)' : text, adminUi_().ButtonSet.OK);
+}
+
+/** Yes / No question. */
+function adminConfirm_(title, text) {
+  return adminUi_().alert(title, text, adminUi_().ButtonSet.YES_NO) === adminUi_().Button.YES;
+}
+
+/** Table names from a rebuild result list (entries may be names or objects). */
+function adminNames_(list) {
+  return (list || []).map(item => (typeof item === 'string' ? item : (item.table || item.name || JSON.stringify(item))));
+}
+
+function adminRebuildSummary_(result) {
+  return [
+    `${result.created.length} to create: ${adminNames_(result.created).join(', ') || '-'}`,
+    `${result.repaired.length} to repair: ${adminNames_(result.repaired).join(', ') || '-'}`,
+    `${result.ok.length} OK`,
+    result.errors.length ? `ERRORS (${result.errors.length}): ${adminNames_(result.errors).join(', ')}` : 'No errors'
+  ];
+}
+
+/** Runs fn and shows an error dialog instead of the bare "Script error" box. */
+function adminRun_(title, fn) {
+  try {
+    return fn();
+  } catch (error) {
+    adminShow_(`${title} - failed`, [error.message, '', 'Details: Apps Script -> Executions']);
+    return null;
+  }
+}
+
+// --- Status ----------------------------------------------------------------------------------------------------
+
+function adminStatus() {
+  adminRun_('Status', () => {
+    const triggers = ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'runSLAEscalationsTrigger');
+    adminShow_('JARVIS status', [
+      `Code in the editor: API_VERSION ${API_VERSION}`,
+      '(The live web app serves the last DEPLOYED version - check <web app URL>?action=ping)',
+      '',
+      `AUTH_MODE: ${authMode()}`,
+      `PROXY_SECRET: ${scriptProperty('PROXY_SECRET', '') ? 'set' : 'NOT SET'} (the value is never shown)`,
+      `CACHE_ENABLED: ${scriptProperty('CACHE_ENABLED', 'true')}`,
+      `Timestamps real UTC since: ${scriptProperty('TS_UTC_SINCE', '(not yet - first write records it)')}`,
+      '',
+      `Admins: ${adminAccessLine_()}`,
+      `Pending invites: ${adminPendingInvites_().length}`,
+      '',
+      `SLA escalation trigger: ${triggers.length ? `installed (${triggers.length})` : 'NOT installed'}`,
+      `SLA email by default: ${scriptProperty('SLA_EMAIL_DEFAULT', 'off')}`,
+      `Mail quota left today: ${mailQuotaRemaining()}`
+    ]);
+  });
+}
+
+// --- 1. Schema ---------------------------------------------------------------------------------------------------
+
+function adminRebuildDryRun() {
+  adminRun_('Check tables', () => {
+    const result = rebuildAllTables(true);
+    adminShow_('Check tables (dry run - nothing changed)', adminRebuildSummary_(result).concat(['',
+      result.created.length || result.repaired.length ? 'Next: JARVIS Admin -> 1. Schema -> Repair tables (apply)' : 'Every table matches TABLE_SCHEMAS.']));
+  });
+}
+
+function adminRebuildApply() {
+  adminRun_('Repair tables', () => {
+    const preview = rebuildAllTables(true);
+    if (!preview.created.length && !preview.repaired.length) {
+      adminShow_('Repair tables', 'Nothing to do - every table already matches.');
+      return;
+    }
+    const ok = adminConfirm_('Repair tables?', adminRebuildSummary_(preview).concat(['',
+      'Repaired tabs are backed up first (_bak_<table>_<time>). If people are using the app, redeploy the web app first.',
+      '', 'Apply now?']).join('\n'));
+    if (!ok) return;
+    const result = rebuildAllTablesApply();
+    adminShow_('Repair tables - done', adminRebuildSummary_(result).map(line => line.replace(' to ', ' ')).concat(['',
+      'Check: run "Check tables (dry run)" again - everything should be OK.']));
+  });
+}
+
+function adminSchemaReport() {
+  adminRun_('Schema report', () => {
+    const result = analyzeCurrentSchema();
+    adminShow_('Schema report', [result.message || 'Done', `Tables: ${result.totalSheets}, missing: ${result.missingSheets}`,
+      'The details are on the xSchema tab.']);
+  });
+}
+
+function adminRepairCompanyLocks() {
+  adminRun_('Company locks', () => {
+    const preview = repairCompanyLocks(false);
+    const changes = (preview.data && preview.data.changes) || [];
+    if (!changes.length) {
+      adminShow_('Company code locks', 'Nothing to repair.');
+      return;
+    }
+    if (!adminConfirm_('Repair company code locks?', `${changes.length} company row(s) would be fixed (details: Executions log).\n\nApply now?`)) return;
+    const result = repairCompanyLocksApply();
+    adminShow_('Company code locks - done', `${((result.data && result.data.changes) || []).length} company row(s) repaired.`);
+  });
+}
+
+// --- 2. SLA escalation ---------------------------------------------------------------------------------------------
+
+function adminMigrateEscalations() {
+  adminRun_('Migrate escalations', () => {
+    const preview = migrateCompanyEscalationsToRules(true);
+    if (!preview.rules.length) {
+      adminShow_('Migrate old escalation settings', [`Nothing to migrate (${preview.skipped_existing} already done).`]);
+      return;
+    }
+    const lines = preview.rules.slice(0, 15).map(r => `- ${r.ticket_type_id} / ${r.step_id || 'all steps'}: level ${r.level} ${r.trigger} ${r.trigger_value}`);
+    if (!adminConfirm_('Migrate old escalation settings?', [`${preview.rules.length} escalation level(s) would be created:`]
+      .concat(lines, ['', 'Apply now?']).join('\n'))) return;
+    const result = migrateCompanyEscalationsToRulesApply();
+    adminShow_('Migrate old escalation settings - done', `${result.created} escalation level(s) created. Edit them in the app: Admin -> SLA Escalations.`);
+  });
+}
+
+function adminInstallSLATrigger() {
+  adminRun_('Install trigger', () => {
+    installSLAEscalationTrigger();
+    adminShow_('SLA escalation trigger', ['Installed: escalations run every 15 minutes.',
+      'Rules: in the app, Admin -> SLA Escalations. Email is off until you turn it on there (Email panel).']);
+  });
+}
+
+function adminSLADryRun() {
+  adminRun_('Preview', () => {
+    const data = runSLAEscalations({ dryRun: true }).data;
+    const lines = (data.fired || []).slice(0, 15).map(f => `- ${f.ticket_number || f.ticket_id}: level ${f.levels.join(', ')} (${f.type.replace('sla_', '')}) to ${f.recipients.length} user(s)`);
+    adminShow_('SLA escalation preview (nothing sent)', [`${data.checked || 0} open ticket(s) with an SLA checked.`,
+      lines.length ? `${data.fired.length} would fire now:` : 'Nothing would fire now.'].concat(lines));
+  });
+}
+
+function adminRemoveSLATrigger() {
+  adminRun_('Remove trigger', () => {
+    if (!adminConfirm_('Remove the SLA escalation trigger?', 'Escalations stop until you install it again. Continue?')) return;
+    const result = removeSLAEscalationTrigger();
+    adminShow_('SLA escalation trigger', `${result.removed} trigger(s) removed.`);
+  });
+}
+
+// --- 3. Proxy auth -------------------------------------------------------------------------------------------------
+
+function adminSetAuthMode() {
+  adminRun_('AUTH_MODE', () => {
+    const ui = adminUi_();
+    const answer = ui.prompt('Set AUTH_MODE', `Now: ${authMode()}. Type off, warn or enforce.\n\n` +
+      'Set the SAME value in Vercel (Settings -> Environment Variables -> AUTH_MODE) and redeploy Vercel.\n' +
+      'enforce refuses every call without the proxy secret or a signed-in user.', ui.ButtonSet.OK_CANCEL);
+    if (answer.getSelectedButton() !== ui.Button.OK) return;
+    const mode = String(answer.getResponseText() || '').trim().toLowerCase();
+    if (!AUTH_MODES.includes(mode)) {
+      adminShow_('AUTH_MODE', `"${mode}" is not off, warn or enforce - nothing changed.`);
+      return;
+    }
+    if (mode === 'enforce' && !scriptProperty('PROXY_SECRET', '')) {
+      adminShow_('AUTH_MODE', 'PROXY_SECRET is not set - enforce would refuse every call. Set it first (Project Settings -> Script Properties).');
+      return;
+    }
+    PropertiesService.getScriptProperties().setProperty('AUTH_MODE', mode);
+    logAdminAction(Session.getActiveUser().getEmail() || 'editor', 'SET_AUTH_MODE', 'settings', 'AUTH_MODE', { mode });
+    adminShow_('AUTH_MODE', `AUTH_MODE is now ${mode} (takes effect at once). Remember Vercel's AUTH_MODE.`);
+  });
+}
+
+// --- 4. Users & access (v1.1, AppScript v9.6) ------------------------------------------------------------------------
+
+/** Active admin-role holders, or the bootstrap note when there are none. */
+function adminAccessLine_() {
+  if (adminBootstrapOpen()) return 'No admin yet - bootstrap open (any signed-in user can use admin screens). Use 4. Users & access -> Make a user admin.';
+  const roles = readTable(SHEETS.ROLES);
+  const adminRoleIds = (roles ? roles.records : []).filter(r => isActiveFlag(r.is_active) && String(r.name || '').toLowerCase().includes('admin')).map(r => String(r.id));
+  const assignments = readTable(SHEETS.USER_ROLE_ASSIGNMENTS);
+  const now = new Date();
+  const holders = unique((assignments ? assignments.records : []).filter(a => adminRoleIds.includes(String(a.role_id)) && isAssignmentActive(a, now)).map(a => String(a.user_id)));
+  return `${holders.length} (${holders.slice(0, 5).join(', ')}${holders.length > 5 ? ', ...' : ''})`;
+}
+
+/** Pending, unexpired invites. */
+function adminPendingInvites_() {
+  const table = readTable(SHEETS.USER_INVITES);
+  const now = new Date();
+  return (table ? table.records : []).filter(i => inviteStatus(i, now) === 'pending');
+}
+
+/** The last USER_LOGIN rows: who signed in (uid + email), newest first - to find the uid of the first admin. */
+function adminRecentSignIns() {
+  adminRun_('Recent sign-ins', () => {
+    const table = readTable(SHEETS.ADMIN_ACTION_LOGS);
+    const logins = (table ? table.records : []).filter(r => r.action_type === 'USER_LOGIN')
+      .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)));
+    const seen = {};
+    const lines = [];
+    logins.forEach(r => {
+      const uid = String(r.target_id || r.admin_user_id || '');
+      if (!uid || seen[uid] || lines.length >= 15) return;
+      seen[uid] = true;
+      let email = '';
+      try { email = JSON.parse(r.details || '{}').email || ''; } catch (error) { email = ''; }
+      const when = r.timestamp ? Utilities.formatDate(new Date(r.timestamp), 'Asia/Manila', 'yyyy-MM-dd HH:mm') : '';
+      lines.push(`- ${uid}  ${email}  (${when} Manila)`);
+    });
+    adminShow_('Recent sign-ins', lines.length
+      ? ['Copy the uid for "Make a user admin":', ''].concat(lines)
+      : ['No sign-ins recorded yet. Sign in to the app once (while no admin exists, the bootstrap lets you in), then check again.']);
+  });
+}
+
+/**
+ * Give a user the admin role (closes the bootstrap). Asks for the uid (or the email of an existing profile) and the
+ * company code (blank = the only / first company); uses the first active role whose name contains "admin",
+ * creating "System Admin" when there is none. Asks before writing.
+ */
+function adminMakeUserAdmin() {
+  adminRun_('Make a user admin', () => {
+    const ui = adminUi_();
+    const who = ui.prompt('Make a user admin', 'Firebase uid of the user (see 4. Users & access -> Recent sign-ins), or the email of an existing user profile:', ui.ButtonSet.OK_CANCEL);
+    if (who.getSelectedButton() !== ui.Button.OK) return;
+    const entered = String(who.getResponseText() || '').trim();
+    if (!entered) return;
+    const userId = entered.includes('@') ? findUserIdByEmail(entered) : entered;
+    if (!userId) {
+      adminShow_('Make a user admin', `No user profile has the email ${entered}. Use the uid instead.`);
+      return;
+    }
+    const companies = liveRecords(SHEETS.COMPANIES);
+    if (!companies.length) {
+      adminShow_('Make a user admin', 'There is no company yet. Create one first (in the app while bootstrap is open, or in the companies tab).');
+      return;
+    }
+    let company = companies[0];
+    if (companies.length > 1) {
+      const answer = ui.prompt('Make a user admin', `Company code for the assignment (blank = ${companies[0].code}):\n` +
+        companies.slice(0, 10).map(c => `- ${c.code}  ${c.name}`).join('\n'), ui.ButtonSet.OK_CANCEL);
+      if (answer.getSelectedButton() !== ui.Button.OK) return;
+      const code = String(answer.getResponseText() || '').trim().toUpperCase();
+      if (code) company = companies.find(c => String(c.code).toUpperCase() === code);
+      if (!company) {
+        adminShow_('Make a user admin', `No company with code ${code} - nothing changed.`);
+        return;
+      }
+    }
+    const roles = liveRecords(SHEETS.ROLES).filter(r => String(r.name || '').toLowerCase().includes('admin') &&
+      (!r.company_id || sameId(r.company_id, company.id)));
+    const role = roles[0];
+    if (!adminConfirm_('Make a user admin?', [`User: ${userId}`, `Company: ${company.code} (${company.name})`,
+      `Role: ${role ? role.name : 'System Admin (will be created)'}`, '', 'Apply now?'].join('\n'))) return;
+    const editor = Session.getActiveUser().getEmail() || 'editor';
+    const result = withScriptLock(() => {
+      let roleId = role ? role.id : null;
+      if (!roleId) {
+        roleId = generateId('role');
+        appendRecord(SHEETS.ROLES, { id: roleId, name: 'System Admin', company_id: '', is_active: true, created_at: new Date(),
+          created_by: editor, updated_at: new Date(), updated_by: editor });
+      }
+      const assigned = createUserRoleAssignment({ user_id: userId, role_id: roleId, company_id: company.id,
+        assigned_by_user_id: editor, assignment_notes: 'JARVIS Admin menu: make a user admin' });
+      if (assigned.status === 'success') {
+        dropAllowCache(userId);
+        logAdminAction(editor, 'MAKE_USER_ADMIN', 'user', userId, { role_id: roleId, company_id: company.id, via: 'JARVIS Admin menu' });
+      }
+      return assigned;
+    });
+    adminShow_('Make a user admin', result.status === 'success'
+      ? [`${userId} is now an admin.`, 'The bootstrap is closed: from now on only admins use admin screens, and new people get in by invite (Admin -> Users -> Invite).']
+      : [`Nothing changed: ${result.message}`]);
+  });
+}
+
+/** Pending invites (email, company, expiry). */
+function adminListInvites() {
+  adminRun_('Pending invites', () => {
+    const invites = adminPendingInvites_();
+    const lines = invites.slice(0, 20).map(i => `- ${i.email}  company ${i.company_id}  until ${i.expires_at ? Utilities.formatDate(new Date(i.expires_at), 'Asia/Manila', 'yyyy-MM-dd') : '-'}`);
+    adminShow_('Pending invites', lines.length ? [`${invites.length} pending:`].concat(lines, ['', 'Manage them in the app: Admin -> Users -> Invite.'])
+      : ['No pending invites. Create them in the app: Admin -> Users -> Invite.']);
+  });
+}
