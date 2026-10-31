@@ -7,8 +7,10 @@ const DEV_CONFIG = {
   // Authentication bypass for development
   DISABLE_AUTH: process.env.REACT_APP_DISABLE_AUTH === 'true' || process.env.NODE_ENV === 'development',
 
-  // Allow direct access to pages without authentication (for setup phase)
-  ALLOW_DIRECT_ACCESS: process.env.REACT_APP_ALLOW_DIRECT_ACCESS !== 'false',
+  // Allow direct access to pages without authentication (for setup phase). Closed by default in production builds
+  // (31 Oct 2026: an unset variable left the live site open to anyone); open by default in `npm start` unless 'false'
+  ALLOW_DIRECT_ACCESS: process.env.REACT_APP_ALLOW_DIRECT_ACCESS === 'true' ||
+    (process.env.NODE_ENV === 'development' && process.env.REACT_APP_ALLOW_DIRECT_ACCESS !== 'false'),
 
   // API configuration
   USE_MOCK_DATA: process.env.REACT_APP_USE_MOCK_DATA === 'true',

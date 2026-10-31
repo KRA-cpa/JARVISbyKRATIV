@@ -44,7 +44,7 @@ Details and the warn → enforce rollout: deploy guide §5b.
 
 #### **🧪 Development switches** (`src/config/development.js`)
 - `REACT_APP_DISABLE_AUTH=true` - mock user, no Firebase sign-in (never in production).
-- `REACT_APP_ALLOW_DIRECT_ACCESS` - pages open without signing in unless set to `false`. Set it to `false` in Vercel once Google sign-in works.
+- `REACT_APP_ALLOW_DIRECT_ACCESS` - since 31 Oct 2026 production builds require sign-in unless this is `true` (before, an unset value left the site open); `npm start` stays open unless it is `false`. The data itself is protected by `AUTH_MODE=enforce`, not by this switch.
 
 ---
 
