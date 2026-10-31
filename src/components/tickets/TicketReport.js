@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useUser } from '../../contexts/UserContext';
-import { useTicketTypes, useCompanies, useTickets } from '../../hooks/useAPI';
+import { useTicketTypes, useCompanies, useTicketLookup } from '../../hooks/useAPI';
 import { API } from '../../api/googleSheet';
 import { downloadCSV } from '../../utils/csvExport';
 import Icons from '../shared/Icons';
@@ -22,14 +22,14 @@ const DATE_COLUMNS = ['created_at', 'updated_at', 'step_due_date'];
  * Pick a ticket type (columns come from its report configuration - Admin -> Reports - via AppScript v9.2
  * getReportData), optionally a company, status and created-date range, then view the rows, open a ticket's
  * details and workflow history, or export the rows to CSV. Admins see every ticket; others see the tickets
- * they requested, acted on or can approve (the backend decides).
+ * they can see (AppScript v10.0 canViewTicket - the backend decides). Without dates the backend reports the last 90
+ * days (max 1 year, 5,000 rows).
  */
 const TicketReport = () => {
   const { user } = useUser();
   const userId = user?.uid || user?.id;
   const { data: ticketTypes } = useTicketTypes();
   const { data: companies } = useCompanies();
-  const { data: tickets, refetch: refetchTickets } = useTickets();
 
   const [criteria, setCriteria] = useState({ ticketTypeId: '', companyId: '', status: '', dateFrom: '', dateTo: '' });
   const [report, setReport] = useState(null);
@@ -37,7 +37,9 @@ const TicketReport = () => {
   const [error, setError] = useState('');
   const [openTicketId, setOpenTicketId] = useState(null);
 
-  const openTicket = openTicketId ? (tickets || []).find(t => String(t.id) === String(openTicketId)) : null;
+  // v10.0: the opened ticket is fetched on its own (the report no longer loads every ticket)
+  const { data: lookedUp, refetch: refetchOpenTicket } = useTicketLookup(openTicketId);
+  const openTicket = openTicketId && lookedUp && String(lookedUp.id) === String(openTicketId) ? lookedUp : null;
   const ticketType = (ticketTypes || []).find(t => String(t.id) === String(criteria.ticketTypeId));
 
   const setCriterion = (key, value) => setCriteria(prev => ({ ...prev, [key]: value }));
@@ -86,7 +88,7 @@ const TicketReport = () => {
         <TicketDetail
           ticket={openTicket}
           onClose={() => setOpenTicketId(null)}
-          onStatusChange={() => { refetchTickets(); runReport(); }}
+          onStatusChange={() => { refetchOpenTicket(); runReport(); }}
         />
       )}
 
@@ -168,12 +170,20 @@ const TicketReport = () => {
       {report && (
         <div className="bg-white border border-gray-200 rounded-lg">
           <div className="px-4 py-3 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2 text-sm text-gray-600">
-            <span>{report.total} ticket{report.total !== 1 ? 's' : ''}</span>
             <span>
-              {report.scope === 'all' ? 'All tickets (admin)' : 'Tickets you requested, acted on or can approve'}
+              {report.total} ticket{report.total !== 1 ? 's' : ''}
+              {!criteria.dateFrom && !criteria.dateTo ? ' · last 90 days' : ''}
+            </span>
+            <span>
+              {report.scope === 'all' ? 'All tickets (admin)' : 'Tickets you can see'}
               {report.config_source === 'default' ? ' · default columns' : ''}
             </span>
           </div>
+          {report.truncated && (
+            <div className="px-4 py-2 text-sm bg-amber-50 text-amber-800 border-b border-amber-200">
+              Only the first {report.total} tickets are shown - narrow the dates to see the rest.
+            </div>
+          )}
           {report.rows.length === 0 ? (
             <div className="p-6 text-center text-gray-500">No tickets match</div>
           ) : (

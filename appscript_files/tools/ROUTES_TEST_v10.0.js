@@ -421,6 +421,106 @@ test('M2 backfill on the SEED data matches a history replay of the live writers'
   assert.strictEqual(rows().length, 0, 'seed removal takes its participants too (SEED v1.1)');
 });
 
+// --- M3: paging + search ------------------------------------------------------------------------------------------
+
+/** n tickets of tt_collab by u_req, created a minute apart (oldest first); returns their ids. */
+function manyTickets(env, n, titleOf = i => `Ticket ${i}`) {
+  const base = Date.now() - n * 60 * 1000;
+  const ids = [];
+  for (let i = 0; i < n; i++) {
+    const id = String(env.ok(env.as('u_req', { action: 'createTicket', title: titleOf(i), ticket_type_id: 'tt_collab',
+      requester_id: 'u_req', company_id: 'co_1' })).id);
+    env.rt.ctx.updateRecordFields('tickets', id, { created_at: new Date(base + i * 60 * 1000) });
+    ids.push(id);
+  }
+  return ids;
+}
+
+test('M3 paging: newest first, limit pages, no gaps or duplicates while new tickets are created between pages', () => {
+  const env = seed();
+  const ids = manyTickets(env, 7);
+  const page = (cursor, limit = 3) => env.ok(env.asGet('u_peer', { action: 'getTickets', limit, ...(cursor ? { cursor } : {}) }));
+  const p1 = page();
+  assert.deepStrictEqual(p1.items.map(t => String(t.id)), [ids[6], ids[5], ids[4]]);
+  assert.strictEqual(p1.has_more, true);
+  manyTickets(env, 1); // a new ticket (newest) arrives between pages: it must not shift the next page
+  const p2 = page(p1.next_cursor);
+  assert.deepStrictEqual(p2.items.map(t => String(t.id)), [ids[3], ids[2], ids[1]]);
+  const p3 = page(p2.next_cursor);
+  assert.deepStrictEqual(p3.items.map(t => String(t.id)), [ids[0]]);
+  assert.strictEqual(p3.has_more, false);
+  assert.strictEqual(p3.next_cursor, null);
+  assert.ok(!('total' in p1), 'no total count (design §4.3)');
+  // same created_at: the id breaks the tie, still no duplicates across pages
+  const tied = new Date('2026-10-01T00:00:00Z');
+  ids.forEach(id => env.rt.ctx.updateRecordFields('tickets', id, { created_at: tied }));
+  const seen = [];
+  let cursor = null;
+  do {
+    const p = env.ok(env.asGet('u_peer', { action: 'getTickets', limit: 2, filters: JSON.stringify({ date_to: '2026-10-02' }), ...(cursor ? { cursor } : {}) }));
+    p.items.forEach(t => seen.push(String(t.id)));
+    cursor = p.next_cursor;
+  } while (cursor);
+  assert.deepStrictEqual(seen.slice().sort(), ids.slice().sort());
+  assert.strictEqual(new Set(seen).size, seen.length, 'no duplicates');
+});
+
+test('M3 limit: default 50, max 100; a bad cursor starts from the top', () => {
+  const env = seed();
+  manyTickets(env, 3);
+  assert.strictEqual(env.ok(env.asGet('u_req', { action: 'getTickets', limit: 'x' })).items.length, 3);
+  assert.strictEqual(env.ok(env.asGet('u_req', { action: 'getTickets', limit: 500, cursor: 'garbage' })).items.length, 3);
+  const source = fs.readFileSync(FILE, 'utf8');
+  assert.match(source, /const TICKET_PAGE_DEFAULT = 50;/);
+  assert.match(source, /const TICKET_PAGE_MAX = 100;/);
+});
+
+test('M3 filters + search: status (open / closed / exact), company, type, mine, involved, dates, q', () => {
+  const env = seedFlow();
+  const [a, b] = manyTickets(env, 2, i => ['Laptop for Ana', 'Office chairs'][i]);
+  const priv = env.createTicket('tt_priv', 'u_peer');
+  env.decide('u_mgr', priv, 'reject');
+  const ids = (uid, filters) => env.ok(env.asGet(uid, { action: 'getTickets', limit: 50, filters: JSON.stringify(filters) })).items.map(t => String(t.id)).sort();
+  assert.deepStrictEqual(ids('u_mgr', { status: ['closed'] }), [priv]);
+  assert.deepStrictEqual(ids('u_mgr', { status: 'open' }), [a, b].sort());
+  assert.deepStrictEqual(ids('u_mgr', { status: ['Rejected'] }), [priv]);
+  assert.deepStrictEqual(ids('u_mgr', { ticket_type_id: 'tt_priv' }), [priv]);
+  assert.deepStrictEqual(ids('u_mgr', { company_id: 'co_2' }), []);
+  assert.deepStrictEqual(ids('u_peer', { mine: true }), [priv]);
+  assert.deepStrictEqual(ids('u_mgr', { involved: true }), [priv], 'u_mgr acted on it');
+  assert.deepStrictEqual(ids('u_mgr', { q: 'laptop' }), [a]);
+  assert.deepStrictEqual(ids('u_mgr', { q: 'chairs office' }), [b], 'every word, any order');
+  const number = env.rows('tickets').find(t => String(t.id) === priv).ticket_number;
+  assert.deepStrictEqual(ids('u_mgr', { q: number.slice(0, 8).toLowerCase() }).includes(priv), true, 'ticket number prefix');
+  assert.deepStrictEqual(ids('u_mgr', { date_from: '2999-01-01' }), []);
+  // top-level keys work too (POST bodies), and the visibility filter still applies to pages
+  assert.deepStrictEqual(env.ok(env.as('u_req', { action: 'getTickets', limit: 10, status: 'closed' })).items, []);
+  assert.deepStrictEqual(ids('u_far', {}), []);
+});
+
+test('M3 compat: without limit the old array answer stays for v10.0 (logged DEPRECATED); links only for the page', () => {
+  const env = seed();
+  const [a, b] = manyTickets(env, 2);
+  env.add('ticket_links', { id: 'lk_c', parent_ticket_id: a, child_ticket_id: b, link_type: 'chained', company_id: 'co_1', is_active: true });
+  const old = env.ok(env.asGet('u_req', { action: 'getTickets' }));
+  assert.ok(Array.isArray(old));
+  assert.ok(env.logs.some(l => /DEPRECATED getTickets without limit/.test(l)));
+  const page = env.ok(env.asGet('u_req', { action: 'getTickets', limit: 1 })).items;
+  assert.deepStrictEqual(page.map(t => String(t.id)), [b]);
+  assert.strictEqual(String(page[0].chained_parent), a, 'the page item still carries its links');
+});
+
+test('M3 read budget (P10): a page reads each tab once and at most 10 tabs (design §5.4 + shares + escalation grants)', () => {
+  const env = seed();
+  manyTickets(env, 5);
+  const ask = () => env.asGet('u_peer', { action: 'getTickets', limit: 2, filters: JSON.stringify({ involved: true, q: 'ticket' }) });
+  ask(); // warms the v9.6 allow-list cache (CacheService allow:<uid>), as for every request after a user's first
+  ask();
+  const reads = env.rt.reads();
+  Object.entries(reads).forEach(([tab, n]) => assert.ok(n <= 1, `${tab} read ${n} times`));
+  assert.ok(Object.keys(reads).length <= 10, JSON.stringify(reads));
+});
+
 test('ping reports 10.0.0 = header Version; the file has one definition of each new helper (A20)', () => {
   const env = seed();
   assert.strictEqual(env.rt.get({ action: 'ping' }).version, '10.0.0');

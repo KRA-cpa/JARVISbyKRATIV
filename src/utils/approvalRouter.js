@@ -471,8 +471,8 @@ export const checkPendingWorkflows = async (api, ticketIds = null) => {
     if (ticketIds) {
       tickets = await Promise.all(ticketIds.map(id => api.Tickets.getById(id)));
     } else {
-      // Get all active tickets
-      tickets = await api.Tickets.getAll();
+      // Open tickets only, read page by page (AppScript v10.0)
+      tickets = await api.Tickets.getAll({ status: 'open' });
       tickets = tickets.filter(ticket =>
         ticket.current_step_id &&
         ![

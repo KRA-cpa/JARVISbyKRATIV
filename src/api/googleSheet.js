@@ -841,9 +841,35 @@ class TicketAPI extends BaseAPI {
     super('tickets');
   }
 
-  async getAll(filters = {}) {
-    const response = await this.makeRequest('getTickets', filters);
-    return response.data || [];
+  // One page of tickets, newest first (AppScript v10.0 M3): { items, next_cursor, has_more }. filters go to the server:
+  // status (one or a list, 'open' / 'closed' too), company_id, ticket_type_id, requester_id, mine, involved,
+  // date_from, date_to, q (ticket number prefix or title words). Only the tickets the user may see come back.
+  async getPage({ limit = 50, cursor = null, filters = {} } = {}) {
+    const clean = Object.fromEntries(Object.entries(filters || {}).filter(([, v]) => v !== undefined && v !== null && v !== '' &&
+      !(Array.isArray(v) && v.length === 0)));
+    const response = await this.makeRequest('getTickets', {
+      limit,
+      ...(cursor ? { cursor } : {}),
+      ...(Object.keys(clean).length ? { filters: JSON.stringify(clean) } : {})
+    });
+    const data = response.data;
+    if (Array.isArray(data)) return { items: data, next_cursor: null, has_more: false }; // mock / older backend
+    return { items: (data && data.items) || [], next_cursor: (data && data.next_cursor) || null, has_more: Boolean(data && data.has_more) };
+  }
+
+  // Every matching ticket as an array, read page by page (v10.0: getTickets is never called without a limit - its old
+  // array answer goes away in v10.1). Capped at maxPages x 100 tickets; pass filters (e.g. { status: 'open' }) to keep
+  // it small. Lists on screen should use getPage + "Load more" instead.
+  async getAll(filters = {}, { maxPages = 10 } = {}) {
+    const all = [];
+    let cursor = null;
+    for (let page = 0; page < maxPages; page++) {
+      const result = await this.getPage({ limit: 100, cursor, filters });
+      all.push(...result.items);
+      if (!result.has_more || !result.next_cursor) break;
+      cursor = result.next_cursor;
+    }
+    return all;
   }
 
   async getById(id) {

@@ -3,7 +3,7 @@
  * Provides reusable hooks for common API interactions
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { API } from '../api/googleSheet';
 import { APILoopDetector } from '../utils/infiniteLoopPrevention';
 
@@ -338,12 +338,63 @@ export const useCustomFieldMutations = () => {
 };
 
 // Tickets hooks
+// Every matching ticket as an array (read page by page, capped - AppScript v10.0). For a list on screen prefer
+// useTicketList (one page + "Load more"); pass filters such as { status: 'open' } to keep this small.
 export const useTickets = (filters = {}) => {
   return useAPI(() => API.Tickets.getAll(filters), [JSON.stringify(filters)], 'getTickets');
 };
 
+/**
+ * One page of tickets at a time, newest first (AppScript v10.0 M3, getTickets with limit). filters are applied by the
+ * server (status, company_id, ticket_type_id, mine, involved, date_from, date_to, q); changing them starts again from
+ * the first page. loadMore() appends the next page. -> { data, loading, loadingMore, error, hasMore, loadMore, refetch }
+ */
+export const useTicketList = (filters = {}, pageSize = 50) => {
+  const [items, setItems] = useState(null);
+  const [cursor, setCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState(null);
+  const requestRef = useRef(0); // a newer request wins over a slower older one
+  const key = JSON.stringify([filters, pageSize]);
+
+  const load = useCallback(async (fromCursor) => {
+    const request = ++requestRef.current;
+    const append = Boolean(fromCursor);
+    if (append) setLoadingMore(true); else setLoading(true);
+    setError(null);
+    try {
+      const [currentFilters, size] = JSON.parse(key);
+      const page = await API.Tickets.getPage({ limit: size, cursor: fromCursor, filters: currentFilters });
+      if (request !== requestRef.current) return;
+      setItems(prev => (append ? [...(prev || []), ...page.items] : page.items));
+      setCursor(page.next_cursor);
+      setHasMore(page.has_more);
+    } catch (err) {
+      if (request === requestRef.current) setError(err.message);
+    } finally {
+      if (request === requestRef.current) {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    }
+  }, [key]);
+
+  const refetch = useCallback(() => load(null), [load]);
+  useEffect(() => { refetch(); }, [refetch]);
+  const loadMore = useCallback(() => (hasMore && cursor ? load(cursor) : Promise.resolve()), [hasMore, cursor, load]);
+
+  return { data: items, loading, loadingMore, error, hasMore, loadMore, refetch };
+};
+
 export const useTicket = (id) => {
   return useAPI(() => API.Tickets.getById(id), [id], 'getTicket');
+};
+
+// One ticket by id, fetched only when an id is given (e.g. a ?ticket= link to a ticket that isn't in the loaded page)
+export const useTicketLookup = (id) => {
+  return useAPIData(['ticket_lookup', id], () => API.Tickets.getById(id), { enabled: !!id });
 };
 
 export const useTicketMutations = () => {
@@ -763,8 +814,8 @@ export const useSLAOverdueTickets = () => {
   return useAPIData(
     ['sla_overdue_tickets'],
     async () => {
-      // Get all active tickets
-      const tickets = await API.Tickets.getAll();
+      // Open tickets only, read page by page (AppScript v10.0)
+      const tickets = await API.Tickets.getAll({ status: 'open' });
       if (!tickets || tickets.length === 0) return [];
 
       // Filter for overdue tickets
@@ -794,8 +845,8 @@ export const useSLADueTodayTickets = () => {
   return useAPIData(
     ['sla_due_today_tickets'],
     async () => {
-      // Get all active tickets
-      const tickets = await API.Tickets.getAll();
+      // Open tickets only, read page by page (AppScript v10.0)
+      const tickets = await API.Tickets.getAll({ status: 'open' });
       if (!tickets || tickets.length === 0) return [];
 
       // Filter for tickets due today
@@ -1126,6 +1177,8 @@ const useAPIModule = {
   useDropdownOptions,
   useDropdownMutations,
   useTicket,
+  useTicketList,
+  useTicketLookup,
   useTicketMutations,
   useTicketHistory,
   useTicketsForApproval,

@@ -22,7 +22,7 @@ const formatTime = iso => {
 const SLANotificationSystem = () => {
   const { user, hasPermission } = useUser();
   const userId = user?.uid || user?.id;
-  const { data: tickets } = useTickets();
+  const { data: tickets } = useTickets({ status: 'open' }); // v10.0: open tickets only, read page by page
   const { notifications, markRead } = useNotifications(userId);
   // Its own toast container: useToast keeps its toasts in this component's state
   const { ToastContainer, warning, error } = useToast();

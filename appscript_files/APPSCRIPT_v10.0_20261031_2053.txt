@@ -136,6 +136,10 @@
  *     shared on a user share (ended on revoke; access still follows the share's expiry), pool windows per approver role
  *     opened / closed as the ticket moves (start, approve, return, reject, cancel, reopen = a new window). Editor:
  *     backfillTicketParticipantsDryRun() / backfillTicketParticipantsApply() (idempotent; run after the rebuild apply)
+ *   M3 (paging + search): getTickets with `limit` (default 50, max 100) answers one page newest first { items, next_cursor,
+ *     has_more } (cursor "<created ms>~<id>", no total); filters (object / JSON text / top-level keys): status (list,
+ *     open / closed), company_id, ticket_type_id, requester_id, mine, involved, date_from, date_to, q (ticket number
+ *     prefix or title words); links only for the page. Without `limit`: the old array, logged DEPRECATED, for v10.0 only
  *   - Rebuild apply needed: 2 new tabs (ticket_participants, email_outbox); ticket_types + 4, tickets + 3, custom_fields + 1,
  *     notifications + 1 columns
  *
@@ -1851,20 +1855,58 @@ function createTicket(payload, options = {}) {
  * Fetches all tickets with their links.
  * v9.2: only active links count; chained_children / chained_parent carry the links a step created
  * (link_type 'chained') for the dashboard's parent/child view. children / parent keep every active link.
- * v10.0: only the tickets the caller may see (canViewTicket; design §4.2).
- * @param {object} params - Optional filters ({ status }) + user_id.
- * @returns {Array} - Ticket objects.
+ * v10.0: only the tickets the caller may see (canViewTicket; design §4.2). With `limit` (M3, design §4.3) it answers one
+ * page, newest first: { items, next_cursor, has_more } (no total - the dashboard counts come from getDashboard).
+ * Without `limit` it keeps the old array for v10.0 only (logged "DEPRECATED"; removed in v10.1 - build plan D6).
+ * @param {object} params - user_id; limit (default 50, max 100), cursor; filters (object or JSON text, or the same keys
+ *   at the top level): status (one or a list; 'open' / 'closed' too), company_id, ticket_type_id, requester_id, mine,
+ *   involved, date_from, date_to (created, yyyy-MM-dd, inclusive), q (ticket number prefix or title words)
+ * @returns {Array|Object} ticket objects, or a page
  */
 function getTickets(params) {
+  params = params || {};
   const ss = openSpreadsheet();
-  const scope = requestScope(params && (params.user_id || params.userId), 'getTickets');
-  const tickets = getSheetDataAsJSON(ss.getSheetByName(SHEETS.TICKETS)).filter(t => canViewTicket(scope, t) !== 'none');
-  const links = activeTicketLinks();
-  // v9.4 (reco P7): index the links once instead of filtering all links for every ticket
+  const scope = requestScope(params.user_id || params.userId, 'getTickets');
+  let tickets = getSheetDataAsJSON(ss.getSheetByName(SHEETS.TICKETS)).filter(t => canViewTicket(scope, t) !== 'none');
+  const paged = params.limit !== undefined && params.limit !== null && params.limit !== '';
+
+  if (!paged) {
+    console.log('DEPRECATED getTickets without limit: use the paged form (the array answer is removed in v10.1)');
+    if (params.status) tickets = tickets.filter(t => t.status === params.status);
+    return withTicketLinks(tickets);
+  }
+
+  const limit = Math.min(Math.max(Math.floor(Number(params.limit)) || TICKET_PAGE_DEFAULT, 1), TICKET_PAGE_MAX);
+  const filters = ticketFilterParams(params);
+  const after = decodeTicketCursor(params.cursor);
+  const matching = applyTicketFilters(tickets, filters, scope)
+    .map(t => ({ ticket: t, at: (toDate(t.created_at) || new Date(0)).getTime() }))
+    .sort((a, b) => (b.at - a.at) || compareTicketIds(b.ticket.id, a.ticket.id))
+    .filter(e => !after || e.at < after.at || (e.at === after.at && compareTicketIds(e.ticket.id, after.id) < 0));
+  const page = matching.slice(0, limit);
+  const hasMore = matching.length > limit;
+  const last = page[page.length - 1];
+  return {
+    items: withTicketLinks(page.map(e => e.ticket)),
+    next_cursor: hasMore && last ? encodeTicketCursor(last.at, last.ticket.id) : null,
+    has_more: hasMore
+  };
+}
+
+const TICKET_PAGE_DEFAULT = 50;
+const TICKET_PAGE_MAX = 100;
+
+/**
+ * Tickets + their active links. v9.4 (reco P7): links indexed once; v10.0 (reco P7 in the paged form): only for the
+ * tickets passed in (the page).
+ */
+function withTicketLinks(tickets) {
+  const ids = {};
+  tickets.forEach(t => { ids[String(t.id)] = true; });
+  const links = activeTicketLinks().filter(l => ids[String(l.parent_ticket_id)] || ids[String(l.child_ticket_id)]);
   const childLinksOf = groupBy(links, l => String(l.parent_ticket_id));
   const parentLinksOf = groupBy(links, l => String(l.child_ticket_id));
-
-  const ticketsWithLinks = tickets.map(ticket => {
+  return tickets.map(ticket => {
     const childLinks = childLinksOf[String(ticket.id)] || [];
     const parentLinks = parentLinksOf[String(ticket.id)] || [];
     const chainedParent = parentLinks.find(l => String(l.link_type) === 'chained');
@@ -1876,11 +1918,88 @@ function getTickets(params) {
       chained_parent: chainedParent ? chainedParent.parent_ticket_id : null
     };
   });
+}
 
-  if (params && params.status) {
-    return ticketsWithLinks.filter(t => t.status === params.status);
+/** Ticket ids in sort order: numbers by value, others as text. */
+function compareTicketIds(a, b) {
+  const x = Number(a);
+  const y = Number(b);
+  if (!isNaN(x) && !isNaN(y) && String(a).trim() !== '' && String(b).trim() !== '') return x - y;
+  return String(a).localeCompare(String(b));
+}
+
+/** The paging cursor: an opaque "<created ms>~<id>" (real UTC, A17). */
+function encodeTicketCursor(at, id) {
+  return `${at}~${encodeURIComponent(String(id))}`;
+}
+
+/** @returns {Object|null} { at, id } or null for a blank / unreadable cursor (= the first page) */
+function decodeTicketCursor(cursor) {
+  const match = String(cursor || '').match(/^(\d+)~(.+)$/);
+  return match ? { at: Number(match[1]), id: decodeURIComponent(match[2]) } : null;
+}
+
+/** getTickets filters from `filters` (an object, or JSON text from a GET) and / or the top-level keys. */
+function ticketFilterParams(params) {
+  let filters = params.filters || {};
+  if (typeof filters === 'string') {
+    try {
+      filters = JSON.parse(filters);
+    } catch (error) {
+      filters = {};
+    }
   }
-  return ticketsWithLinks;
+  const pick = key => (filters[key] !== undefined && filters[key] !== '' ? filters[key] : params[key]);
+  return {
+    status: listParam(pick('status')),
+    company_id: pick('company_id') || '',
+    ticket_type_id: pick('ticket_type_id') || '',
+    requester_id: pick('requester_id') || '',
+    mine: boolFlag(pick('mine')),
+    involved: boolFlag(pick('involved')),
+    date_from: pick('date_from') || '',
+    date_to: pick('date_to') || '',
+    q: String(pick('q') || '').trim().toLowerCase()
+  };
+}
+
+/**
+ * Apply getTickets filters (design §4.3). q: the ticket number starts with it, or every word of it is in the title.
+ * 'mine' = requested by the caller; 'involved' = the caller's participant rows (any reason) or an active share to them.
+ */
+function applyTicketFilters(tickets, f, scope) {
+  const from = f.date_from ? toDate(f.date_from) : null;
+  const toEnd = f.date_to ? endOfTerm(f.date_to) : null;
+  const words = f.q ? f.q.split(/\s+/).filter(Boolean) : [];
+  const involvedIds = {};
+  if (f.involved && scope.actor) {
+    ((readTable(SHEETS.TICKET_PARTICIPANTS) || {}).records || [])
+      .filter(p => sameId(p.user_id, scope.actor) && isActiveFlag(p.is_active))
+      .forEach(p => { involvedIds[String(p.ticket_id)] = true; });
+    Object.keys(scope.sharedTicketIds).forEach(id => { involvedIds[id] = true; });
+  }
+  return tickets.filter(t => {
+    if (!isActiveFlag(t.is_active)) return false;
+    if (f.status.length) {
+      const closed = TERMINAL_TICKET_STATUSES.includes(t.status) || Boolean(t.cancelled_at);
+      const ok = f.status.some(s => (s === 'open' ? !closed : s === 'closed' ? closed : String(t.status) === s));
+      if (!ok) return false;
+    }
+    if (f.company_id && !sameId(t.company_id, f.company_id)) return false;
+    if (f.ticket_type_id && !sameId(t.ticket_type_id, f.ticket_type_id)) return false;
+    if (f.requester_id && !sameId(t.requester_id, f.requester_id)) return false;
+    if (f.mine && !(scope.actor && sameId(t.requester_id, scope.actor))) return false;
+    if (f.involved && !(scope.actor && (sameId(t.requester_id, scope.actor) || involvedIds[String(t.id)]))) return false;
+    const created = toDate(t.created_at);
+    if (from && (!created || created < from)) return false;
+    if (toEnd && (!created || created >= toEnd)) return false;
+    if (words.length) {
+      const number = String(t.ticket_number || '').toLowerCase();
+      const title = String(t.title || '').toLowerCase();
+      if (!number.startsWith(f.q) && !words.every(w => title.includes(w))) return false;
+    }
+    return true;
+  });
 }
 
 /**

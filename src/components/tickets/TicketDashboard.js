@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useUser } from '../../contexts/UserContext';
-import { useTickets, useCompanies, useTicketTypes, useTicketsForApproval, useTags, useSharedTickets } from '../../hooks/useAPI';
+import { useTicketList, useTicketLookup, useCompanies, useTicketTypes, useTicketsForApproval, useTags, useSharedTickets } from '../../hooks/useAPI';
 import { API } from '../../api/googleSheet';
 import { useToast } from '../shared/Toast';
 import { useConfirmation } from '../shared/ConfirmationModal';
@@ -24,11 +24,15 @@ const TERMINAL_STATUSES = ['completed', 'rejected', 'cancelled'];
  * - Tag filter (when a ticket type has tags on) and "Shared with me" (AppScript v9.3)
  * - Chained view (spec 3.4): a ticket created by a workflow step (AppScript v9.2 chained_children /
  *   chained_parent) is listed under its parent, which expands to show it
+ * - AppScript v10.0 (M3): the list is read 50 at a time, newest first, with "Load more"; search (ticket number prefix or
+ *   title words, 300 ms debounce), company, status and "My tickets" are filtered by the server, the other filters on
+ *   the loaded tickets. "Waiting for my approval" / "Shared with me" list their own endpoints' tickets
  */
+const SEARCH_DEBOUNCE_MS = 300;
+
 const TicketDashboard = () => {
   const { user } = useUser();
   const currentUserId = user?.uid || user?.id;
-  const { data: tickets, loading, error, refetch } = useTickets();
   const { data: companies } = useCompanies();
   const { data: ticketTypes } = useTicketTypes();
   const { data: approvalInbox, refetch: refetchInbox } = useTicketsForApproval(currentUserId);
@@ -57,6 +61,23 @@ const TicketDashboard = () => {
     slaStatus: SLA_FILTERS.includes(searchParams.get('sla')) ? searchParams.get('sla') : 'all'
   }));
 
+  // Server-side part of the filters (v10.0 paged getTickets); the search waits 300 ms after the last key
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(filters.search.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [filters.search]);
+  const serverFilters = {
+    q: debouncedSearch,
+    company_id: filters.company,
+    status: filters.status,
+    ...(filters.show === 'mine' ? { mine: true } : {})
+  };
+  const { data: listTickets, loading: listLoading, loadingMore, error, hasMore, loadMore, refetch } = useTicketList(serverFilters, 50);
+  // The list on screen: the paged tickets, or the approval inbox / shared tickets for those views
+  const tickets = filters.show === 'approval' ? approvalInbox : filters.show === 'shared' ? sharedWithMe : listTickets;
+  const loading = filters.show === 'approval' || filters.show === 'shared' ? !tickets : listLoading;
+
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState('desc');
   const [selectedTickets, setSelectedTickets] = useState([]);
@@ -75,7 +96,8 @@ const TicketDashboard = () => {
 
   const approvalIds = new Set((approvalInbox || []).map(t => String(t.id)));
   const sharedIds = new Set((sharedWithMe || []).map(t => String(t.id)));
-  const ticketById = new Map((tickets || []).map(t => [String(t.id), t]));
+  // Every ticket loaded on this screen (paged list + inbox + shared), so chained children and links resolve
+  const ticketById = new Map([...(listTickets || []), ...(approvalInbox || []), ...(sharedWithMe || [])].map(t => [String(t.id), t]));
 
   const toggleExpanded = (ticketId) => setExpandedIds(prev => {
     const next = new Set(prev);
@@ -84,7 +106,11 @@ const TicketDashboard = () => {
     else next.add(key);
     return next;
   });
-  const openTicket = openTicketId ? (tickets || []).find(t => String(t.id) === String(openTicketId)) : null;
+  // A ?ticket= link to a ticket that isn't in the loaded page is fetched on its own (v10.0)
+  const loadedOpenTicket = openTicketId ? ticketById.get(String(openTicketId)) : null;
+  const { data: lookedUpTicket } = useTicketLookup(openTicketId && !loadedOpenTicket ? openTicketId : null);
+  const openTicket = loadedOpenTicket ||
+    (openTicketId && lookedUpTicket && String(lookedUpTicket.id) === String(openTicketId) ? lookedUpTicket : null);
 
   const refreshAll = () => {
     refetch();
@@ -780,6 +806,19 @@ const TicketDashboard = () => {
             </div>
           )}
         </div>
+
+        {/* More from the server (v10.0 paged getTickets) */}
+        {hasMore && filters.show !== 'approval' && filters.show !== 'shared' && (
+          <div className="text-center">
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="px-4 py-2 text-sm font-medium text-blue-600 bg-white border border-gray-200 hover:bg-blue-50 rounded-lg disabled:opacity-50"
+            >
+              {loadingMore ? 'Loading...' : `Load more tickets (${(listTickets || []).length} loaded)`}
+            </button>
+          </div>
+        )}
 
         {/* Pagination */}
         {totalPages > 1 && (
