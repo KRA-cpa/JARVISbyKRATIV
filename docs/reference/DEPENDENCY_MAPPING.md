@@ -383,6 +383,23 @@ Until v9.1 nothing imported the ticket components or `AdminWorkflowBuilder`; `np
 
 - **Unmounted now**: 8 components + 2 icons (`AdminSLAEscalationManager` mounted in v9.5).
 
+### **🔒 TICKET ACCESS, PAGING, RESTRICTED, NOTIFICATIONS (November 1, 2026 — AppScript v10.0)**
+
+| File | Layer | Imports (new in bold) | Used by |
+|---|---|---|---|
+| `src/config/labels.js` | Config (new) | - (`RESTRICTED_LABEL`, `RESTRICTED_MASK`, `RESTRICTED_TICKET_MESSAGE`, `RESTRICTED_MODES`, `RESTRICTED_ADMIN_ACCESS`, `isRestrictedStub`) | components below |
+| `src/api/googleSheet.js` | API | `Tickets.getPage` / `getAll` (page walk, capped), **`Tickets.reveal`**, **`Tickets.setRestricted`**, `TicketTypes.getCreatable`, `setFeatures` + visibility / Restricted, `CustomFields.create` + `is_confidential`, `Notifications.getAll` + cursor; `getCreatableTicketTypes` in `readActions` | hooks, components |
+| `src/hooks/useAPI.js` | Hooks | new **`useTicketList`** (pages + Load more), **`useTicketLookup`**, **`useTicketTypeChoices`**; SLA hooks read open tickets only | components below |
+| `src/components/tickets/TicketDashboard.js` | Component | **`useTicketList`**, **`useTicketLookup`**, **`labels`** (server search / filters, Load more, stub rows) | `TicketsPage` |
+| `src/components/tickets/TicketForm.js` | Component | **`useTicketTypeChoices`**, **`labels`** (creatable types only, Restricted tick) | `TicketDashboard` |
+| `src/components/tickets/TicketDetail.js` | Component | **`API`**, **`labels`** (stub screen + admin reveal, Restricted badge + admin switch, no Sharing on Restricted) | `TicketDashboard`, `TicketReport` |
+| `src/components/tickets/TicketReport.js` | Component | **`useTicketLookup`** (no full ticket list), 90-day / truncated notes | `/reports` |
+| `src/components/admin/AdminTicketTypeList.js` | Component | **`labels`** (Visibility chip, Restricted mode + admin access) | `AdminPage` → Ticket Types |
+| `src/pages/AdminTicketTypeCreatePage.js` | Page | visibility select | `App.js` |
+| `src/pages/AdminCustomFieldCreatePage.js` | Page | **`labels`** (Restricted field switch) | `App.js` |
+| `src/pages/DashboardPage.js` | Page | **`labels`** (stub rows) | `App.js` |
+| `src/components/shared/SLANotificationSystem.js`, `src/utils/approvalRouter.js` | Component / Util | open tickets only (`getAll({ status: 'open' })`) | `DashboardPage` |
+
 ### **🔐 ADMIN CHECKS, INVITES, LINKS, COMPANY EMAIL, SESSIONS (October 31, 2026 — AppScript v9.6)**
 
 | File | Layer | Imports (new in bold) | Used by |

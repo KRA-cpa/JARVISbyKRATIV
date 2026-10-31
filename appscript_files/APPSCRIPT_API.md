@@ -1848,6 +1848,28 @@ responses carry the handler's `code` at the top level. Proxy 401 codes: `NOT_SIG
 
 **v9.7 link rules:** `addTicketAttachmentLink` / `updateAttachmentLink` accept only https URLs whose host is in Script Property `LINK_ALLOWED_HOSTS` (default `docs.google.com,drive.google.com`; exact host; `*` = any http(s), the v9.6 rule) and require `file_name`. `getTicketAttachments` rows carry `link_allowed` (false for a link saved earlier on a host not allowed now).
 
+**v10.0 (ticket access + volume):** every ticket read checks visibility on the server (`canViewTicket`) - a ticket the
+caller can't see answers `Ticket not found` like a missing one; a Restricted ticket outside its chain answers its stub
+(`{ id, ticket_number, status, company_id, ticket_type_id, created_at, confidential: true }`) on getTicket / lists /
+reports / links and `code: 'RESTRICTED'` on history, approvals, tags, shares, attachments and the system log.
+createTicket needs a role on the ticket type in that company (enforce refuses) and takes `is_confidential` (types in
+'optional' mode).
+
+| Action | Method | Request | Returns (`data`) |
+|---|---|---|---|
+| getTickets | GET / POST | `limit` (default 50, max 100), `cursor`, `filters` (object or JSON text, or top-level keys): status (one or a list; open / closed too), company_id, ticket_type_id, requester_id, mine, involved, date_from, date_to, q (number prefix or title words) | `{ items, next_cursor, has_more }` newest first (no total). Without `limit`: the old array (v10.0 only, logged DEPRECATED) |
+| getCreatableTicketTypes | GET | company_id? | active types the user may create, each with `creatable_company_ids`, `visibility`, `confidential_mode` |
+| getReportData | GET | as v9.2 | + `truncated`, `date_from`, `date_to`; default the last 90 days, max 1 year, 5,000 rows; stub rows `restricted: true`; Restricted field columns `•••••• Restricted` outside the chain |
+| getNotifications | GET | user_id, unread_only?, limit?, cursor? | `{ items, unread_count, total, next_cursor, has_more }` - own rows + the role notifications of the user's roles (`role_notification: true`) |
+| setTicketTypeFeatures | POST (admin) | + `visibility`, `confidential_mode`, `confidential_admin_access` | the switches; `restricted_existing` when 'always' restricted the existing tickets |
+| setTicketRestricted | POST (admin) | ticket_id, is_confidential, reason | `{ ticket_id, is_confidential, shares_revoked }` (on: every share revoked; off: not restored; refused for an 'always' type) |
+| revealConfidential | POST (admin, per type) | ticket_id, reason (needed for reveal_with_reason) | `{ ticket, field_values, history }` - logged REVEAL_RESTRICTED; refused when the type's admin access is 'never' |
+| createCustomField / updateCustomField | POST (admin) | + `is_confidential` (ticket fields); createCustomField now reads `entityTypeId` / `entityCategory` | as before |
+
+Editor / JARVIS Admin only (not routed): backfillTicketParticipantsDryRun / Apply, drainEmailOutboxNow, emailOutboxStatus,
+spreadsheetSizeReport, archiveOldLogsDryRun / Apply. Script Properties: EMAIL_OUTBOX_ENABLED (default true),
+ARCHIVE_SPREADSHEET_ID.
+
 **GET - new in v9.6:**
 
 | Action | Query | Returns (`data`) |

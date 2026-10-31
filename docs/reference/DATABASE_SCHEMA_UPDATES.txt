@@ -28,11 +28,29 @@
 
 ---
 
-## ✅ AUTHORITATIVE COLUMN LIST (October 17, 2026 — AppScript v8.1+, latest v9.6)
+## ✅ AUTHORITATIVE COLUMN LIST (October 17, 2026 — AppScript v8.1+, latest v10.0)
 
-`TABLE_SCHEMAS` in the latest `appscript_files/APPSCRIPT_v9.6_20261031_1510.txt` is now the single source of truth
+`TABLE_SCHEMAS` in the latest `appscript_files/APPSCRIPT_v10.0_20261031_2053.txt` is now the single source of truth
 for the headers of all 40 tables (v9.3 moved the tag / sharing names from TAG_SHEETS into SHEETS). Where this
 document and the code disagree, the code wins.
+
+**v10.0 (November 1, 2026) — ticket access + volume: 2 new tables, ticket_types: 13 → 17, tickets: 28 → 31, custom_fields: 19 → 20, notifications: 14 → 15 columns.**
+- `ticket_participants` (12): id, ticket_id, user_id (blank on pool rows), role_id, step_id, reason (requester | head | acted |
+  shared | watcher | pool), window_start, window_end (pool rows: when the ticket reached / left the step), company_id,
+  ticket_type_id, created_at, is_active. Written at the action (createTicket, approvals, return, reject, cancel, reopen,
+  share / revoke); `backfillTicketParticipants` fills it for existing tickets. Who is involved, without a history scan.
+- `email_outbox` (14): id, recipient_user_id, recipient_email (filled when sent), company_id, ticket_id, event, subject,
+  body, status (pending | sending | sent | skipped | failed), attempts, last_error, created_at, sent_at, updated_at.
+- `ticket_types` + `visibility` (private | collaborative; COLUMN_DEFAULTS 'private' - every existing type becomes private),
+  `require_immediate_head_approval` (false; routed from v10.3), `confidential_mode` (off | optional | always; 'off'),
+  `confidential_admin_access` (reveal_with_reason | always | never; 'reveal_with_reason').
+- `tickets` + `head_approver_id`, `head_backup_id` (snapshot of the requester's profile at create), `is_confidential`
+  (Restricted; false).
+- `custom_fields` + `is_confidential` (Restricted field; ticket fields only; false).
+- `notifications` + `recipient_role_id` (one row for a whole role above 25 approvers; `user_id` blank). Rows with
+  type 'read_marker' record that one user read a role notification (`link` = its id).
+- New admin_action_logs types: RESTRICT_TICKET / UNRESTRICT_TICKET, REVEAL_RESTRICTED, RESTRICTED_FIELD_OFF.
+- Archive (optional): `archive_<table>` tabs in the spreadsheet of Script Property ARCHIVE_SPREADSHEET_ID.
 
 **v9.6 (October 31, 2026) — onboarding, links, company email: 1 new table, ticket_attachments: 19 → 23, companies: 15 → 20 columns.**
 - `user_invites` (23): id, email (lower-case), display_name, company_id, user_profile_type_id, role_grants (JSON:

@@ -2,8 +2,8 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_AppScript_Deploy_and_Schema_Rebuild.md | Author: Kenneth R. Advento | Version: 1.8.0
-Created: 17 October 2026 UTC+8 (Philippine Standard Time) | Modified: 31 October 2026 UTC+8 (Philippine Standard Time)
+Document: GUIDE_AppScript_Deploy_and_Schema_Rebuild.md | Author: Kenneth R. Advento | Version: 1.9.0
+Created: 17 October 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Step-by-step guide to paste a new AppScript version and rebuild all Google Sheet tables safely | Status: Active
 
 REVISION HISTORY:
@@ -17,6 +17,7 @@ REVISION HISTORY:
 - v1.6.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v9.3 (v9.2 routing / reports / audit log + v9.3 dropdown access, company SLA rules, config export / import / backup, tags & sharing); 2 new tabs, ticket_types 10 → 12 columns; Drive permission for backups; §5a turn tags / sharing on per ticket type; v9.0–v9.2 may be skipped
 - v1.7.0 | 30 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v9.5 (v9.4 request cache, proxy auth, real UTC + v9.5 SLA escalation); 4 new tabs, tickets 27 → 28, ticket_types 12 → 13 columns; §5b proxy auth rollout (Script Properties PROXY_SECRET / AUTH_MODE + Vercel env, warn → enforce); §5c SLA escalation setup (migration, trigger with mail + trigger permissions, holidays, email); v9.4 may be skipped
 - v1.8.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v9.6 (admin-only routes + bootstrap, sign-in allow-list + invites, attachment links, company email); 1 new tab, ticket_attachments + 4, companies + 5 columns; new §5d (make yourself admin BEFORE the redeploy, then invites / company email / test email); Vercel env MAX_SESSION_HOURS; ADMIN_Tools v1.1
+- v1.9.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v10.0 (ticket visibility per type, who can create, participants + backfill, paged getTickets + search, Restricted tickets / fields, workflow notifications + email outbox, volume ops); 2 new tabs + 9 columns; new §5e (give requesters roles, backfill participants BEFORE the redeploy, visibility / Restricted per type, outbox); ADMIN_Tools v1.3, SEED v1.1
 ===============================================================================
 -->
 
@@ -24,7 +25,15 @@ REVISION HISTORY:
 
 > Use this guide every time a new `APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt` file is created.
 > **Latest file is the one with the newest timestamp** in `appscript_files/`.
-> Current: `APPSCRIPT_v9.7_20261031_1748.txt` (contains v9.0–v9.6 - deploy it directly; nothing in between has to be deployed first)
+> Current: `APPSCRIPT_v10.0_20261031_2053.txt` (contains v9.0–v9.7 - deploy it directly; nothing in between has to be deployed first)
+
+> ⚠️ **v10.0 - do §5e. It changes who sees and who may create tickets, so the order matters:**
+> 1. Paste `ADMIN_Tools_v1.3_20261101_0042.txt` over the `admin` script file (§0a) and the v10.0 main file (§1). Save.
+> 2. §2 dry run → §3 apply: new tabs `ticket_participants`, `email_outbox`; `ticket_types` + 4 (`visibility` = private for every existing type, `require_immediate_head_approval`, `confidential_mode` = off, `confidential_admin_access`), `tickets` + 3, `custom_fields` + 1, `notifications` + 1.
+> 3. **Before redeploying:** JARVIS Admin → **6. Volume → Backfill ticket participants** (dry run, then apply), so people who acted on a ticket keep seeing it. And **give every real requester a role on the ticket types they file** (Admin → Users → roles): from v10.0 a ticket can only be created with a role on its type in that company (`AUTH_MODE=enforce` refuses; `warn` logs).
+> 4. §5 redeploy (description from the header) → `?action=ping` says `10.0.0` → push the frontend from the same commit (Vercel) - the lists read pages (`getTickets` with `limit`).
+> 5. **Tell your users:** on a `private` ticket type (the default) a requester now sees only their own tickets and the ones they're involved in. Switch a type to `collaborative` in Admin → Ticket Types if everyone with a role on it should see all its tickets.
+> No new Google permission (mail and triggers were allowed in v9.5).
 
 > **v9.7 (on top of a live v9.6):** paste the file (§1) → §5 redeploy with the header's Deploy description → `?action=ping` says `9.7.0`. No rebuild apply, no new permission. Links are then accepted only for **https://docs.google.com** and **https://drive.google.com** (and need a name). To allow another host: Project Settings → Script Properties → `LINK_ALLOWED_HOSTS` = comma-separated hosts (e.g. `docs.google.com,drive.google.com,sharepoint.example.com`; takes effect at once). Push the frontend afterwards so older links on other hosts show as ⚠️ not clickable.
 
@@ -50,14 +59,15 @@ REVISION HISTORY:
 > An older frontend keeps working for everything except approvals and the new screens.
 >
 > Offline tests (all must pass on the file you paste; run them with `TZ=Asia/Manila` - one v9.0 date test assumes Manila midnight):
-> - `node appscript_files/tools/ROUTES_TEST_v9.7.js appscript_files/APPSCRIPT_v9.7_20261031_1748.txt` → 6 PASS
+> - `node appscript_files/tools/ROUTES_TEST_v10.0.js appscript_files/APPSCRIPT_v10.0_20261031_2053.txt` → 43 PASS (it also uses the newest `SEED_TestData` file next to it)
+> - `ROUTES_TEST_v9.7.js` → 6 PASS
 > - `ROUTES_TEST_v9.6.js` → 24 PASS
 > - `ROUTES_TEST_v9.5.js` → 25 PASS
 > - `ROUTES_TEST_v9.4.js` → 20 PASS, `ROUTES_TEST_v9.3.js` → 10 PASS
 > - `ROUTES_TEST_v9.2.js` → 14 PASS, `ROUTES_TEST_v9.1.js` → 18 PASS
 > - `ROUTES_AND_APPROVALS_TEST_v9.0.js` → 21 PASS
 > - `CODE_REVIEW_FIXES_TEST_v8.3.js` → 11 PASS (same file)
-> - `SEED_TEST.js` → 4 PASS, `ADMIN_TOOLS_TEST.js` (with ADMIN_Tools v1.1) → 10 PASS
+> - `SEED_TEST.js` (with SEED v1.1) → 4 PASS, `ADMIN_TOOLS_TEST.js` (with ADMIN_Tools v1.3) → 17 PASS
 > - `node scripts/test-proxy-auth.js` → 26 PASS (the Vercel proxy)
 >
 > Checks: `npm run check:api-contract` → OK, `npm run check:code-rules` → OK. Never apply with v8.2.
@@ -265,6 +275,15 @@ Never give these a `REACT_APP_` prefix: Create React App bakes `REACT_APP_*` int
 
 ---
 
+## §5e After v10.0: participants, roles, visibility, Restricted, email outbox
+
+1. **Backfill participants** (before the redeploy): JARVIS Admin → 6. Volume → *Backfill ticket participants* - the dry run lists requester / head / acted / shared / pool rows; apply; a second run adds nothing. Editor: `backfillTicketParticipantsDryRun()` / `backfillTicketParticipantsApply()`.
+2. **Roles to create tickets:** a user needs a role on the ticket type in that company (a role assignment without a ticket type covers every type of that company). The New Ticket form lists only what the user may create (`getCreatableTicketTypes`).
+3. **Visibility per ticket type** (Admin → Ticket Types, the *Visibility* chip): `private` (default) = requesters see their own + the ones they're involved in, approvers of the type see all; `collaborative` = anyone with a role on the type sees all. Admins always see everything.
+4. **Restricted** (Admin → Ticket Types, the 🔒 selects; field builder: *Restricted field*): mode off / optional (the requester ticks it) / always (also restricts the type's existing tickets and removes their shares); admin access *reveal with a reason* (logged) / always / never. People outside a Restricted ticket's approval chain see only its number and status. Admins can make one ticket Restricted (or not) in the ticket's Actions tab; removing it doesn't restore shares.
+5. **Email outbox:** workflow notices (waiting for approval, approved / completed / rejected / returned / cancelled, shared) go to the bell and to `email_outbox`. The SLA trigger from §5c sends them every 15 minutes when the company / ticket type email is on and the user hasn't turned email off - one digest per address, at most 80 % of the day's quota. JARVIS Admin → 6. Volume → *Email outbox status* / *Send the email outbox now*. To stop sending: Script Property `EMAIL_OUTBOX_ENABLED` = `false`.
+6. **Volume:** *Spreadsheet size* shows cells per tab and the migrate signals (a tab over 20k rows, over 5M cells - plan the Postgres migration then). *Archive old logs* moves read notifications and finished emails over 90 days and action logs over a year to the spreadsheet in Script Property `ARCHIVE_SPREADSHEET_ID` (tabs `archive_<table>`; dry run first). Every request logs one `[perf]` line (action, ms, tab reads) in Executions.
+
 ## §6 If Something Goes Wrong
 
 **Restore one table from its backup**
@@ -293,12 +312,12 @@ Never give these a `REACT_APP_` prefix: Create React App bakes `REACT_APP_*` int
 
 ---
 
-## §8 Optional: Test Data — `SEED_TestData_v1.0_<stamp>.txt`
+## §8 Optional: Test Data — `SEED_TestData_v1.1_<stamp>.txt` (v1.1 with AppScript v10.0: removal also takes participants, notifications and outbox rows)
 
 A separate script file that fills the Sheet with a complete test setup, so every screen has something to show. It
 needs the main file v9.3+ in the same project and §3 done. Offline test: `node appscript_files/tools/SEED_TEST.js <APPSCRIPT file> <SEED file>` → 4 PASS.
 
-1. Apps Script editor → **Files +** → **Script** → name it `seed` → paste the whole `appscript_files/SEED_TestData_v1.0_*.txt` → **Ctrl+S**. (Don't paste it into `Code.gs` - it is a second file.)
+1. Apps Script editor → **Files +** → **Script** → name it `seed` → paste the whole newest `appscript_files/SEED_TestData_v*.txt` → **Ctrl+S**. (Don't paste it into `Code.gs` - it is a second file.)
 2. Optional: set `SEED_MY_USER_ID` at the top to your Firebase uid, so you get admin + Manager + Finance + IT roles in both seed companies and can approve / complete the seeded tickets yourself.
 3. Function dropdown → **`seedTestData`** → **Run** (dry run: lists what it would add).
 4. **`seedTestDataApply`** → **Run**. It adds:

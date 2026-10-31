@@ -267,5 +267,51 @@ if (hasV12) {
   });
 }
 
+// v1.3 (AppScript v10.0): "6. Volume (v10.0)" - only when the menu file has it and the main file is v10.0+
+if (/function adminBackfillParticipants\(/.test(fs.readFileSync(ADMIN, 'utf8')) && /function backfillTicketParticipants\(/.test(fs.readFileSync(MAIN, 'utf8'))) {
+  /** A rebuilt Sheet with one ticket (requester row missing as before v10.0: participants cleared). */
+  const volume = options => {
+    const env = fresh(options);
+    env.rt.ctx.rebuildAllTablesApply();
+    const S = env.rt.ctx.__TABLE_SCHEMAS;
+    env.rt.sheets.get('companies').appendRow(env.rt.ctx.rowFromRecord(S.companies, { id: 'co_1', name: 'Co', code: 'CO', is_active: true }));
+    env.rt.sheets.get('ticket_types').appendRow(env.rt.ctx.rowFromRecord(S.ticket_types, { id: 'tt_1', code: 'T', name: 'T', is_active: true }));
+    env.rt.ctx.createTicket({ title: 'x', ticket_type_id: 'tt_1', company_id: 'co_1', requester_id: 'u_r' });
+    const p = env.rt.sheets.get('ticket_participants');
+    p.rows = p.rows.slice(0, 1);
+    p.dirty = true;
+    return env;
+  };
+
+  test('v1.3 Backfill participants: No changes nothing, Yes adds the rows, a second run has nothing to do', () => {
+    const no = volume({ answer: 'NO' });
+    no.rt.ctx.adminBackfillParticipants();
+    assert.strictEqual(no.rt.ctx.readTable('ticket_participants').records.length, 0);
+    assert.match(no.dialogs.pop().text, /Would add: 1 requester/);
+    const yes = volume({ answer: 'YES' });
+    yes.rt.ctx.adminBackfillParticipants();
+    assert.match(yes.dialogs.pop().text, /1 participant row\(s\) added/);
+    yes.rt.ctx.adminBackfillParticipants();
+    assert.match(yes.dialogs.pop().text, /Nothing to add/);
+  });
+
+  test('v1.3 Outbox status / send, spreadsheet size, archive (needs the archive id); Status shows them', () => {
+    const env = volume({ answer: 'YES' });
+    env.rt.ctx.adminOutboxStatus();
+    assert.match(env.dialogs.pop().text, /Sending: on/);
+    env.rt.ctx.adminSendOutbox();
+    assert.match(env.dialogs.pop().text, /Nothing pending/);
+    env.rt.ctx.adminSpreadsheetSize();
+    assert.match(env.dialogs.pop().text, /cells \(/);
+    env.rt.ctx.adminArchiveLogs();
+    assert.match(env.dialogs.pop().text, /ARCHIVE_SPREADSHEET_ID/);
+    env.rt.props.ARCHIVE_SPREADSHEET_ID = 'arch';
+    env.rt.ctx.adminArchiveLogs();
+    assert.match(env.dialogs.pop().text, /Nothing old enough/);
+    env.rt.ctx.adminStatus();
+    assert.match(env.dialogs.pop().text, /Email outbox: 0 pending[\s\S]*Spreadsheet: \d+ cells/);
+  });
+}
+
 report();
 fs.unlinkSync(combined);

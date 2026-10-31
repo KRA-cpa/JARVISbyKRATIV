@@ -2,12 +2,13 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_v10.0_Build_20261031.md | Author: Kenneth R. Advento | Version: 1.1.0
-Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 31 October 2026 UTC+8 (Philippine Standard Time)
-Purpose: Build plan for AppScript v10.0 against the live v9.6 code - scope recap, what changed since the design, code map, milestones, tests, deploy, open decisions | Status: Approved 31 Oct 2026 (D1-D6 decided) - building
+Document: PLAN_v10.0_Build_20261031.md | Author: Kenneth R. Advento | Version: 1.2.0
+Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
+Purpose: Build plan for AppScript v10.0 against the live v9.6 code - scope recap, what changed since the design, code map, milestones, tests, deploy, open decisions | Status: Built 1 Nov 2026 (session ff4c803f, M1-M5 + close) - deploy pending
 REVISION HISTORY:
 - v1.0.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (cloud session 017zmKf7) from PLAN_FeatureGaps_Volume_20261031.md §4 / §5.1 / §7 / §9 / §11 and a read of APPSCRIPT_v9.6_20261031_1510.txt
 - v1.1.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User decisions: D1 D2 D3 D5 D6 as recommended; D4 Restricted stays in v10.0 with no v10.0.1 fallback
+- v1.2.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §9 as built (session ff4c803f): commits, deviations from the design, tests
 ===============================================================================
 -->
 
@@ -156,3 +157,26 @@ PROGRESS recalculation at v10.0 live (expected 88.0 % spec / 80.9 % roadmap, des
 > - Head approval / delegation / bulk moves to **v10.3**, and comments and the rest to **v10.4**.
 > - D6 still holds: the `getTickets` compat shape is removed in the version after v10.0, now v10.1.
 > - With the roadmap total now 154, the expected roadmap figure at v10.0 live is **73.5 %** (spec unchanged at 88.0 %). See PROGRESS §2.
+---
+
+## §9 As built (1 Nov 2026, session ff4c803f)
+
+File `appscript_files/APPSCRIPT_v10.0_20261031_2053.txt` (one file for the whole of v10.0). Commits: M1 `bc0d2dc`, M2 `468a60f`, M3 `eab57f1`, M4 `b2187cd`, M5 `6320162`, close part 1 `2241c9b` (volume ops), close part 2 (ADMIN_Tools v1.3, docs, review).
+
+**Where it differs from the design (and why):**
+
+| # | Design | Built | Why |
+|---|---|---|---|
+| B1 | createTicket refuses a type without a role | enforce refuses, **warn logs and continues** | same rollout stance as the v9.6 admin gate; the older suites run in warn |
+| B2 | shares through participants | visibility from `ticket_collaborations` directly (shares in force, expiry, company shares); participant `shared` rows are informational | company shares have no user row; expiry must win (build plan C1) |
+| B3 | cursor = base64 of created_at + id | `<created ms>~<id>` (opaque text) | no base64 in the offline runtime; same order guarantees |
+| B4 | getTickets reads ≤ 8 tabs | ≤ 10 (+ `ticket_collaborations`, `sla_escalation_events` for escalate_role grants) | B2, and the v9.5 grants must keep visibility; each tab once (asserted) |
+| B5 | email decided when queued | every user notice gets an outbox row; **the drain** decides (company / type switch, address, preference) and marks the rest `skipped` | keeps the approval at 12 tab reads (v9.4 budget) - no profile / preference / company read on the write path |
+| B6 | watchers notified | requester only | watchers arrive with v10.4 (comments / watchers) |
+| B7 | Restricted mode 'always' | also restricts the type's **existing** tickets (shares revoked) | 'always' should mean every ticket |
+| B8 | chained child copies Restricted values only into Restricted fields | no values are copied at all (as before); a Restricted parent's title is not copied into the child's title | nothing to mask |
+| B9 | - | `EMAIL_OUTBOX_ENABLED=false` kill switch | rollout / incidents, like `CACHE_ENABLED` |
+| B10 | - | fix: `createCustomField` read only `entity_type_id` / `entity_category`; the builder sends `entityTypeId` / `entityCategory` | fields made in the builder had no ticket type |
+| B11 | - | compliance **A21** + `check:code-rules` rule: a ticket-returning route reaches a visibility check | design ST-3 |
+
+**Tests:** `ROUTES_TEST_v10.0.js` 43 (visibility matrix, hidden = missing, participants + backfill = SEED replay, paging without gaps, Restricted leak checks, notifications + outbox, volume ops); older suites adjusted only for decisions 1-2 and the new notices (requester roles in enforce seeds, approver sees all of its type, SLA-only counts); SEED v1.1 4, ADMIN_TOOLS (v1.3) 17, proxy 26; `check:api-contract`, `check:code-rules`, `build:ci` green.
