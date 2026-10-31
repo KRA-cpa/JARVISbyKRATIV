@@ -150,6 +150,15 @@
  *     restore); Restricted field values masked (•••••• Restricted) in reports and the system log outside the chain; titles
  *     kept out of chained-child titles and SLA notices. New: setTicketRestricted (admin), revealConfidential (admin, logged).
  *     Fix: createCustomField reads the frontend's entityTypeId / entityCategory (fields had no ticket type)
+ *   M5 (notifications, design §4.4): triggerWorkflowNotifications rewired (it only logged) -> queueNotifications, one write
+ *     per tab per action: awaiting_approval to the step's eligible approvers (create, approve to the next step, return,
+ *     reopen), approved_step / completed / rejected / returned / cancelled / reopened to the requester, shared to the
+ *     share target; the actor is never told; a role with more than 25 eligible users gets one role notification
+ *     (notifications.recipient_role_id, per-user read markers). Every user notice gets an email_outbox row; the 15-minute
+ *     trigger (runSLAEscalations) drains it: the company / type switch, address and the user's email preference are
+ *     checked there (else 'skipped'), one digest per address, rows claimed 'sending' first (never sent twice; stale ->
+ *     failed), 80 % of the remaining quota, 3 attempts. Script Property EMAIL_OUTBOX_ENABLED=false stops sending. SLA
+ *     digests stay direct (D3). getNotifications paged (cursor) + role notifications
  *   - Rebuild apply needed: 2 new tabs (ticket_participants, email_outbox); ticket_types + 4, tickets + 3, custom_fields + 1,
  *     notifications + 1 columns
  *
@@ -1874,6 +1883,8 @@ function createTicket(payload, options = {}) {
       customFieldErrors.push(`${fieldId}: ${result.message}`);
     }
   });
+  // v10.0 M5: the first step's approvers are told (after the values are saved)
+  if (workflow.data && workflow.data.started) triggerWorkflowNotifications(newTicketId, workflow.data.step_id, 'created', requesterId);
 
   return {
     id: newTicketId,
@@ -7564,7 +7575,7 @@ function progressTicketWorkflow(ticketId, action, payload) {
       toStepId: nextStep ? nextStep.id : null, now });
 
     const completion = stepCompleted ? processStepCompletion(ticketId, ticket.current_step_id, 'approve') : null;
-    triggerWorkflowNotifications(ticketId, nextStep ? nextStep.id : null, decision);
+    triggerWorkflowNotifications(ticketId, nextStep ? nextStep.id : null, decision, userId); // v10.0 M5
 
     return {
       status: 'success',
@@ -7649,6 +7660,7 @@ function cancelTicketWithReason(ticketId, reason, userId) {
       }
     });
     recordParticipants(ticket, { fromStepId: ticket.current_step_id || null, toStepId: null, now }); // v10.0: pool window closes
+    triggerWorkflowNotifications(ticketId, null, 'cancel', userId); // v10.0 M5
 
     return {
       status: 'success',
@@ -7753,6 +7765,7 @@ function reopenTicketToStep(ticketId, stepId, userId) {
     });
     // v10.0: a reopen is a new visit (review R-06) - a new pool window, even back to the same step
     recordParticipants(ticket, { fromStepId: ticket.current_step_id || null, toStepId: step.id, reopen: true, now });
+    triggerWorkflowNotifications(ticketId, step.id, 'reopen', userId); // v10.0 M5
 
     return {
       status: 'success',
@@ -8278,59 +8291,36 @@ function processStepCompletion(ticketId, stepId, action) {
 }
 
 /**
- * Trigger workflow notifications for step changes
+ * Workflow event notifications (v10.0 M5, design §4.4 - this function is rewired, not duplicated: A20). It used to only
+ * Logger.log. Now: the ticket reaching a step -> awaiting_approval to that step's eligible approvers; the decision ->
+ * approved_step / completed / rejected / returned / cancelled / reopened to the requester (+ watchers). The person who
+ * acted is never notified. Rows are written by queueNotifications (one write per tab; email only through the outbox).
  * @param {string} ticketId - Ticket ID
- * @param {string} stepId - New step ID (null if workflow complete)
- * @param {string} action - Action that triggered the change
- * @returns {Object} Response with notification results
+ * @param {string|null} stepId - The step the ticket is at now (null when the workflow ended / the ticket left it)
+ * @param {string} action - approve | complete | reject | return | cancel | reopen | created
+ * @param {string} actor - Who acted (not notified)
+ * @returns {Object} { status, data: { notifications, emails } }
  */
-function triggerWorkflowNotifications(ticketId, stepId, action) {
+function triggerWorkflowNotifications(ticketId, stepId, action, actor = null) {
   try {
-    const notifications = [];
-
-    // Get ticket details
-    const currentTicket = getTicketById(ticketId);
-    if (currentTicket.status !== 'success') {
-      return currentTicket;
+    const found = findRecord(SHEETS.TICKETS, ticketId);
+    if (!found) return { status: 'error', message: `Ticket ${ticketId} not found` };
+    const ticket = found.record;
+    const events = [];
+    if (stepId) events.push({ event: 'awaiting_approval', stepId: stepId });
+    const toRequester = event => events.push({ event, users: requesterAndWatchers(ticket) });
+    switch (String(action || '').toLowerCase()) {
+      case 'approve':
+      case 'complete':
+        toRequester(stepId ? 'approved_step' : 'completed');
+        break;
+      case 'reject': toRequester('rejected'); break;
+      case 'return': toRequester('returned'); break;
+      case 'cancel': toRequester('cancelled'); break;
+      case 'reopen': toRequester('reopened'); break;
+      default: break; // 'created': only the first step's approvers
     }
-
-    const ticket = currentTicket.data;
-
-    // Notify requester of status change
-    notifications.push({
-      type: 'STATUS_CHANGE',
-      recipient: ticket.requester_id,
-      message: `Ticket ${ticket.ticket_number}: ${action}d`,
-      ticket_id: ticketId
-    });
-
-    // If there's a new step, notify the approvers
-    if (stepId) {
-      const stepApprovers = getUsersForStep(stepId);
-      if (stepApprovers.status === 'success') {
-        stepApprovers.data.forEach(approver => {
-          notifications.push({
-            type: 'APPROVAL_REQUEST',
-            recipient: approver.user_id,
-            message: `New approval required for ticket ${ticket.ticket_number}`,
-            ticket_id: ticketId,
-            step_id: stepId
-          });
-        });
-      }
-    }
-
-    // Log notifications (in a real system, these would be sent via email/SMS/push)
-    notifications.forEach(notification => {
-      Logger.log(`NOTIFICATION: ${notification.type} to ${notification.recipient} - ${notification.message}`);
-    });
-
-    return {
-      status: 'success',
-      data: notifications,
-      message: `Triggered ${notifications.length} notifications`
-    };
-
+    return queueNotifications(ticket, events, actor);
   } catch (error) {
     Logger.log('Error in triggerWorkflowNotifications: ' + error.toString());
     return { status: 'error', message: error.toString() };
@@ -15548,7 +15538,10 @@ function shareTicketAction(payload) {
   createTicketActionLog({ ticket_id: checked.ticket.id, user_id: actor, action_type: 'TICKET_SHARED',
     details: { with_user: userTarget, with_company: companyTarget, permission: permission, expires: payload.expiration_date || '' } });
   // v10.0 (design §4.1): a user share is a participant row (visibility itself follows the share and its expiry)
-  if (userTarget) recordParticipants(checked.ticket, { users: [{ user_id: userTarget, reason: 'shared' }], now });
+  if (userTarget) {
+    recordParticipants(checked.ticket, { users: [{ user_id: userTarget, reason: 'shared' }], now });
+    queueNotifications(checked.ticket, [{ event: 'shared', users: [userTarget] }], actor); // v10.0 M5
+  }
   return { status: 'success', data: shareView(share, recordsById(SHEETS.USER_PROFILES, 'user_id'), recordsById(SHEETS.COMPANIES)), message: 'Ticket shared' };
 }
 
@@ -16015,24 +16008,56 @@ function getSLAEscalationEvents(params = {}) {
 
 // --- Notifications (in-app, D1) ---------------------------------------------------------------------
 
-/** getNotifications route: the caller's own notifications, newest first. */
+/**
+ * The caller's notifications: their own rows plus the role notifications (v10.0 M5, recipient_role_id) of the roles
+ * they hold in the notification's company; a role notification's read state is the caller's 'read_marker' row.
+ * Reads notifications + user_role_assignments only (design §5.4).
+ */
+function notificationsFor(userId, now = new Date()) {
+  const rows = ((readTable(SHEETS.NOTIFICATIONS) || { records: [] }).records).filter(n => isActiveFlag(n.is_active));
+  const myRoles = {};
+  ((readTable(SHEETS.USER_ROLE_ASSIGNMENTS) || { records: [] }).records)
+    .filter(a => sameId(a.user_id, userId) && isAssignmentActive(a, now))
+    .forEach(a => { myRoles[`${a.role_id}|${a.company_id}`] = true; });
+  const readRoleNotes = {};
+  rows.filter(n => n.type === 'read_marker' && sameId(n.user_id, userId)).forEach(n => { readRoleNotes[String(n.link)] = true; });
+  return rows.filter(n => n.type !== 'read_marker' && (n.user_id
+    ? sameId(n.user_id, userId)
+    : !!(n.recipient_role_id && myRoles[`${n.recipient_role_id}|${n.company_id}`])))
+    .map(n => ({ ...n, id: String(n.id), role_notification: !n.user_id,
+      is_read: n.user_id ? boolFlag(n.is_read) : !!readRoleNotes[String(n.id)],
+      created_at: isoOrBlank(n.created_at), read_at: isoOrBlank(n.read_at) }));
+}
+
+/**
+ * getNotifications route: the caller's notifications, newest first, paged (v10.0 M5: limit default 50 / max 200, cursor
+ * "<created ms>~<id>", next_cursor / has_more) - own rows plus their roles' notifications.
+ * @returns {Object} { status, data: { items, unread_count, total, next_cursor, has_more } }
+ */
 function getNotifications(params = {}) {
   const userId = actorId(params.user_id || params.userId);
   if (!userId) return { status: 'error', message: 'user_id is required' };
   const unreadOnly = String(params.unread_only) === 'true';
   const limit = Math.min(Math.max(Number(params.limit) || 50, 1), 200);
-  const mine = ((readTable(SHEETS.NOTIFICATIONS) || { records: [] }).records)
-    .filter(n => sameId(n.user_id, userId) && isActiveFlag(n.is_active));
-  const unread = mine.filter(n => !boolFlag(n.is_read)).length;
-  const items = mine
-    .filter(n => !unreadOnly || !boolFlag(n.is_read))
-    .map(n => ({ ...n, id: String(n.id), is_read: boolFlag(n.is_read), created_at: isoOrBlank(n.created_at), read_at: isoOrBlank(n.read_at) }))
-    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
-    .slice(0, limit);
-  return { status: 'success', data: { items, unread_count: unread, total: mine.length }, message: `${unread} unread` };
+  const after = decodeTicketCursor(params.cursor);
+  const mine = notificationsFor(userId);
+  const unread = mine.filter(n => !n.is_read).length;
+  const ordered = mine
+    .filter(n => !unreadOnly || !n.is_read)
+    .map(n => ({ n, at: (toDate(n.created_at) || new Date(0)).getTime() }))
+    .sort((a, b) => (b.at - a.at) || String(b.n.id).localeCompare(String(a.n.id)))
+    .filter(e => !after || e.at < after.at || (e.at === after.at && String(e.n.id).localeCompare(after.id) < 0));
+  const page = ordered.slice(0, limit);
+  const hasMore = ordered.length > limit;
+  const last = page[page.length - 1];
+  return { status: 'success', data: { items: page.map(e => e.n), unread_count: unread, total: mine.length,
+    next_cursor: hasMore && last ? encodeTicketCursor(last.at, last.n.id) : null, has_more: hasMore }, message: `${unread} unread` };
 }
 
-/** markNotificationsRead route: the caller's own notifications (ids, or all: true). */
+/**
+ * markNotificationsRead route: the caller's notifications (ids, or all: true). Own rows are marked read; a role
+ * notification gets a 'read_marker' row for the caller (others holding the role still see it unread). One write each.
+ */
 function markNotificationsRead(payload = {}) {
   const userId = actorId(payload.user_id || payload.userId);
   if (!userId) return { status: 'error', message: 'user_id is required' };
@@ -16043,14 +16068,21 @@ function markNotificationsRead(payload = {}) {
   if (!table) return { status: 'success', data: { marked: 0 }, message: 'No notifications' };
   const now = new Date();
   const changes = {};
-  table.records.forEach(n => {
-    if (!sameId(n.user_id, userId) || boolFlag(n.is_read)) return;
+  const markers = [];
+  notificationsFor(userId, now).forEach(n => {
+    if (n.is_read) return;
     if (!all && !ids.some(id => sameId(id, n.id))) return;
-    changes[String(n.id)] = { is_read: true, read_at: now, updated_at: now };
+    if (n.role_notification) {
+      markers.push({ id: generateId('ntf'), user_id: userId, company_id: n.company_id || '', ticket_id: n.ticket_id || '', type: 'read_marker',
+        title: '', message: '', link: n.id, is_read: true, read_at: now, email_status: 'none', is_active: true, created_at: now, updated_at: now });
+    } else {
+      changes[String(n.id)] = { is_read: true, read_at: now, updated_at: now };
+    }
   });
   // One write per contiguous run of rows (review CR2-07: one setValues per notification held the lock for seconds)
   const marked = writeRecordsById(SHEETS.NOTIFICATIONS, changes);
-  return { status: 'success', data: { marked }, message: `${marked} notification(s) marked read` };
+  if (markers.length) appendRecords(SHEETS.NOTIFICATIONS, markers);
+  return { status: 'success', data: { marked: marked + markers.length }, message: `${marked + markers.length} notification(s) marked read` };
 }
 
 // --- Holidays (D4) ---------------------------------------------------------------------------------------
@@ -16329,6 +16361,15 @@ function runSLAEscalations(options = {}) {
   const pending = result.pendingMail;
   delete result.pendingMail;
   if (pending && !dryRun) sendSLAEmails(pending, result.data);
+  // v10.0 M5: the same trigger sends the workflow emails waiting in the outbox (SLA digests stay direct - D3)
+  if (result && result.data && !result.data.skipped) {
+    try {
+      result.data.outbox = drainEmailOutbox({ dryRun, now });
+    } catch (error) {
+      Logger.log(`Outbox drain failed: ${error.message}`);
+      result.data.outbox = { error: error.message };
+    }
+  }
   return result;
 }
 
@@ -17853,4 +17894,183 @@ function revealConfidential(payload = {}) {
   const history = getTicketHistory(id);
   return { status: 'success', data: { ticket: withTicketLinks([found.record])[0], field_values: customFieldDisplayValues([id])[id] || {},
     history: history.status === 'success' ? history.data : [] }, message: 'Revealed - this was logged' };
+}
+
+// --- Workflow notifications + email outbox (design §4.4, build plan M5) -------------------------------------------
+
+/** Above this many eligible users a step's approver role gets one role notification instead of one row each. */
+const NOTIFY_ROLE_FANOUT_CAP = 25;
+const OUTBOX_BATCH = 100;
+const OUTBOX_MAX_ATTEMPTS = 3;
+const OUTBOX_QUOTA_SHARE = 0.8; // use at most 80 % of the remaining daily MailApp quota per run
+const OUTBOX_STALE_MS = 30 * 60 * 1000;
+const WORKFLOW_EVENT_TITLES = {
+  awaiting_approval: 'needs your action', approved_step: 'step approved', completed: 'completed', rejected: 'rejected',
+  returned: 'returned', cancelled: 'cancelled', reopened: 'reopened', shared: 'shared with you'
+};
+
+/**
+ * Who hears about a ticket's decisions: the requester (watchers - participant rows 'watcher' - join here in v10.4, from
+ * the participant rows the action already read, so the write path reads no extra tab).
+ */
+function requesterAndWatchers(ticket) {
+  return ticket && ticket.requester_id ? [String(ticket.requester_id)] : [];
+}
+
+/**
+ * Write the notifications of one action in one batch (one write to notifications, one to email_outbox - design §4.4).
+ * awaiting_approval goes to the step's eligible approvers (getUsersForStep: roles in force for the ticket's company +
+ * type, escalate_role grants included); a role with more than NOTIFY_ROLE_FANOUT_CAP of them gets one role notification
+ * (recipient_role_id, read through the actor's roles; in-app only). Every user notification gets an outbox row; whether it
+ * is mailed (company / ticket type switch, the user's address and email_notifications preference) is decided by the
+ * drain in the 15-minute trigger, so this write path reads no profile / preference / company tab (design §5.4 budget).
+ * A Restricted ticket's title never goes into a notice or email; email subjects never carry a title.
+ * @param {Object} ticket - ticket record
+ * @param {Array} events - [{ event, stepId } | { event, users: [user ids] }]
+ * @param {string} actor - not notified
+ * @returns {Object} { status, data: { notifications, emails } }
+ */
+function queueNotifications(ticket, events, actor) {
+  const now = new Date();
+  const label = ticket.ticket_number || `#${ticket.id}`;
+  const about = isRestrictedTicket(ticket) ? `${RESTRICTED_LABEL} ticket ${label}` : `${label} "${ticket.title || ''}"`;
+  const link = `/tickets?ticket=${encodeURIComponent(String(ticket.id))}`;
+  const notes = [];
+  const mails = [];
+  let roleRowsOk = null;
+  const base = event => ({ company_id: ticket.company_id || '', ticket_id: String(ticket.id), type: event,
+    title: `${label}: ${WORKFLOW_EVENT_TITLES[event] || event}`, message: `${about} - ${WORKFLOW_EVENT_TITLES[event] || event}`,
+    link: link, is_read: false, read_at: '', is_active: true, created_at: now, updated_at: now });
+
+  (events || []).forEach(e => {
+    let users = [];
+    const roleIds = [];
+    if (e.event === 'awaiting_approval') {
+      const eligible = getUsersForStep(e.stepId, ticket);
+      const byRole = groupBy(eligible.status === 'success' ? eligible.data : [], a => String(a.role_id));
+      Object.keys(byRole).forEach(roleId => {
+        const ids = unique(byRole[roleId].map(a => String(a.user_id)));
+        // the notifications tab is read only in this (fan-out) case; before the rebuild: one row each (C4, no loss)
+        if (ids.length > NOTIFY_ROLE_FANOUT_CAP && roleRowsOk === null) roleRowsOk = !requireColumns(SHEETS.NOTIFICATIONS, ['recipient_role_id']);
+        if (ids.length > NOTIFY_ROLE_FANOUT_CAP && roleRowsOk) roleIds.push(roleId);
+        else users = users.concat(ids);
+      });
+    } else {
+      users = e.users || [];
+    }
+    unique(users.map(String)).filter(uid => uid && !sameId(uid, actor)).forEach(uid => {
+      const note = { ...base(e.event), id: generateId('ntf'), user_id: uid, email_status: 'outbox' };
+      notes.push(note);
+      mails.push({ id: generateId('mail'), recipient_user_id: uid, recipient_email: '', company_id: ticket.company_id || '',
+        ticket_id: String(ticket.id), event: e.event, subject: `[JARVIS] ${label} ${WORKFLOW_EVENT_TITLES[e.event] || e.event}`,
+        body: `${note.message}\n\nOpen: ${appUrl()}${link}`, status: 'pending', attempts: 0, last_error: '',
+        created_at: now, sent_at: '', updated_at: now });
+    });
+    roleIds.forEach(roleId => notes.push({ ...base(e.event), id: generateId('ntf'), user_id: '', recipient_role_id: roleId, email_status: 'none' }));
+  });
+
+  if (notes.length) appendRecords(SHEETS.NOTIFICATIONS, notes);
+  if (mails.length) appendRecords(SHEETS.EMAIL_OUTBOX, mails);
+  return { status: 'success', data: { notifications: notes.length, emails: mails.length }, message: `${notes.length} notification(s), ${mails.length} email(s) queued` };
+}
+
+/**
+ * Send what waits in email_outbox (design §4.4), from the 15-minute trigger (runSLAEscalations) - idempotent (A19):
+ * 1. under the lock, up to OUTBOX_BATCH pending rows are claimed ('sending', attempts + 1); a 'sending' row older than
+ *    30 minutes (a run that died mid-way) becomes 'failed' - never sent twice;
+ * 2. outside the lock, one digest per company + address, within 80 % of the remaining daily quota (the rest stays
+ *    pending for the next run);
+ * 3. under the lock, the outcomes in one batch: sent | pending (quota, or an error before the last attempt) | failed.
+ * @param {Object} options - { dryRun, now }
+ * @returns {Object} { pending, claimed, sent, failed, deferred }
+ */
+function drainEmailOutbox(options = {}) {
+  const dryRun = options.dryRun === true;
+  const now = options.now ? new Date(options.now) : new Date();
+  const summary = { pending: 0, claimed: 0, sent: 0, failed: 0, deferred: 0 };
+  // Kill switch (like CACHE_ENABLED): Script Property EMAIL_OUTBOX_ENABLED=false stops sending; rows keep waiting
+  if (String(scriptProperty('EMAIL_OUTBOX_ENABLED', 'true')).toLowerCase() === 'false') return { ...summary, disabled: true };
+  if (!ss().getSheetByName(SHEETS.EMAIL_OUTBOX)) return summary;
+
+  const claimed = withScriptLock(() => withRequestScope(() => {
+    const rows = ((readTable(SHEETS.EMAIL_OUTBOX) || {}).records || []);
+    const pending = rows.filter(r => String(r.status) === 'pending')
+      .sort((a, b) => (toDate(a.created_at) || 0) - (toDate(b.created_at) || 0));
+    summary.pending = pending.length;
+    if (dryRun) return [];
+    const changes = {};
+    rows.filter(r => String(r.status) === 'sending' && now - (toDate(r.updated_at) || now) > OUTBOX_STALE_MS).forEach(r => {
+      changes[String(r.id)] = { status: 'failed', last_error: 'interrupted run - not resent', updated_at: now };
+      summary.failed++;
+    });
+    // Who is mailed is decided here, once per run (each tab read once): the company / ticket type switch
+    // (companyEmailEnabled), the user's address and email_notifications preference. The rest -> 'skipped'.
+    const tickets = recordsById(SHEETS.TICKETS);
+    const companies = recordsById(SHEETS.COMPANIES);
+    const types = recordsById(SHEETS.TICKET_TYPES);
+    const profiles = recordsById(SHEETS.USER_PROFILES, 'user_id');
+    const preferences = recordsById(SHEETS.USER_PREFERENCES, 'user_id');
+    const batch = [];
+    summary.skipped = 0;
+    pending.slice(0, OUTBOX_BATCH * 5).forEach(r => {
+      if (batch.length >= OUTBOX_BATCH) return;
+      const ticket = tickets[String(r.ticket_id)] || {};
+      const pref = preferences[String(r.recipient_user_id)];
+      const prefOff = pref && (pref.email_notifications === false || String(pref.email_notifications).toUpperCase() === 'FALSE');
+      const address = normalizeEmail(r.recipient_email || (profiles[String(r.recipient_user_id)] || {}).email);
+      const on = companyEmailEnabled(companies[String(r.company_id || ticket.company_id)], types[String(ticket.ticket_type_id)]);
+      if (!on || !address || prefOff) {
+        changes[String(r.id)] = { status: 'skipped', last_error: !on ? 'email off for the company / ticket type' : !address ? 'no email address' : 'user turned email off',
+          updated_at: now };
+        summary.skipped++;
+        return;
+      }
+      changes[String(r.id)] = { status: 'sending', recipient_email: address, attempts: (Number(r.attempts) || 0) + 1, updated_at: now };
+      batch.push({ ...r, recipient_email: address, attempts: (Number(r.attempts) || 0) + 1 });
+    });
+    writeRecordsById(SHEETS.EMAIL_OUTBOX, changes);
+    return batch;
+  }));
+  summary.claimed = claimed.length;
+  if (dryRun || !claimed.length) return summary;
+
+  const companies = recordsById(SHEETS.COMPANIES);
+  const groups = groupBy(claimed, r => `${r.company_id}|${r.recipient_email}`);
+  let budget = Math.floor(mailQuotaRemaining() * OUTBOX_QUOTA_SHARE);
+  const outcome = {};
+  Object.keys(groups).forEach(key => {
+    const rows = groups[key];
+    if (budget <= 0) {
+      rows.forEach(r => { outcome[String(r.id)] = { status: 'pending', attempts: r.attempts - 1, updated_at: new Date() }; summary.deferred++; });
+      return;
+    }
+    const first = rows[0];
+    const message = rows.length === 1
+      ? { to: first.recipient_email, subject: first.subject, body: first.body }
+      : { to: first.recipient_email, subject: `[JARVIS] ${rows.length} ticket updates`, body: rows.map(r => r.body).join('\n\n----\n\n') };
+    const result = sendCompanyEmail(companies[String(first.company_id)], message);
+    budget--;
+    rows.forEach(r => {
+      if (result.status === 'sent') {
+        outcome[String(r.id)] = { status: 'sent', sent_at: new Date(), last_error: '', updated_at: new Date() };
+        summary.sent++;
+      } else if (result.status === 'quota') {
+        outcome[String(r.id)] = { status: 'pending', attempts: r.attempts - 1, updated_at: new Date() };
+        summary.deferred++;
+      } else {
+        const failed = r.attempts >= OUTBOX_MAX_ATTEMPTS;
+        outcome[String(r.id)] = { status: failed ? 'failed' : 'pending', last_error: String(result.error || 'send failed').slice(0, 300), updated_at: new Date() };
+        if (failed) summary.failed++; else summary.deferred++;
+      }
+    });
+  });
+  withScriptLock(() => withRequestScope(() => writeRecordsById(SHEETS.EMAIL_OUTBOX, outcome)));
+  return summary;
+}
+
+/** Editor: send what waits in the outbox now (the 15-minute trigger does this too). */
+function drainEmailOutboxNow() {
+  const result = drainEmailOutbox({});
+  Logger.log(JSON.stringify(result));
+  return result;
 }

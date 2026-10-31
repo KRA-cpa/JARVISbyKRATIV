@@ -352,7 +352,8 @@ test('company email settings: validation, save, test email with name / Reply-To 
 });
 
 test('SLA email: company on overrides the type default (global off) and uses the sender settings; company off wins over type on', () => {
-  const env = seed();
+  // v10.0+: workflow emails go through the outbox - off here, this test is about the SLA digest
+  const env = seed({ properties: { EMAIL_OUTBOX_ENABLED: 'false' } });
   const { rt, as, ok, add } = env;
   add('user_profiles', { user_id: 'u_mgr', display_name: 'Mia', email: 'mia@example.com', is_active: true });
   ok(as('u_admin', { action: 'createSLAEscalationRule', company_id: 'co_1', ticket_type_id: 'tt_1', level: 1, trigger: 'percent_elapsed',
@@ -368,7 +369,7 @@ test('SLA email: company on overrides the type default (global off) and uses the
   assert.match(rt.mail.sent[0].body, /Footer$/);
   assert.ok(env.rows('notifications').some(n => n.user_id === 'u_mgr' && n.email_status === 'sent'));
 
-  const off = seed();
+  const off = seed({ properties: { EMAIL_OUTBOX_ENABLED: 'false' } });
   off.add('user_profiles', { user_id: 'u_mgr', display_name: 'Mia', email: 'mia@example.com', is_active: true });
   off.ok(off.as('u_admin', { action: 'createSLAEscalationRule', company_id: 'co_1', ticket_type_id: 'tt_1', level: 1, trigger: 'percent_elapsed',
     trigger_value: 50, notify_current_approvers: true }));

@@ -5,7 +5,7 @@
  * Version: 1.1 (seed for AppScript v9.3+: companies, ticket types, custom fields, dropdown, roles, users,
  *   workflows with a branch + task step + chained ticket, SLAs, comment rules, report columns, company SLA rule,
  *   tags, and tickets driven through the real workflow engine)
- *   v1.1 (AppScript v10.0): removal also deletes the seed tickets' ticket_participants rows
+ *   v1.1 (AppScript v10.0): removal also deletes the seed tickets' ticket_participants, notifications and email_outbox rows
  * Last Updated: October 31, 2026 21:22 UTC+8 (file: SEED_TestData_v1.1_20261031_2122.txt)
  *
  * HOW TO USE (see appscript_files/GUIDE_AppScript_Deploy_and_Schema_Rebuild.md §8)
@@ -301,9 +301,12 @@ function runSeedRemoval(apply) {
     [SHEETS.TICKET_COLLABORATIONS, r => shareIds[String(r.id)]],
     [SHEETS.COLLABORATION_NOTIFICATIONS, r => shareIds[String(r.collaboration_id)]],
     [SHEETS.SEQUENCE_COUNTERS, r => counterNames.some(prefix => String(r.sequence_name).indexOf(prefix) === 0)],
-    // v1.1: AppScript v10.0 participants (requester / head / acted / shared / pool rows of the seed tickets)
-    [SHEETS.TICKET_PARTICIPANTS, r => ticketIds[String(r.ticket_id)]]
-  ].filter(([sheetName]) => !!sheetName); // a main file before v10.0 has no SHEETS.TICKET_PARTICIPANTS
+    // v1.1: AppScript v10.0 participants (requester / head / acted / shared / pool rows of the seed tickets), and the
+    // workflow notifications + outbox emails the seed tickets caused
+    [SHEETS.TICKET_PARTICIPANTS, r => ticketIds[String(r.ticket_id)]],
+    [SHEETS.NOTIFICATIONS, r => ticketIds[String(r.ticket_id)]],
+    [SHEETS.EMAIL_OUTBOX, r => ticketIds[String(r.ticket_id)]]
+  ].filter(([sheetName]) => !!sheetName); // a main file before v10.0 has no SHEETS.TICKET_PARTICIPANTS / EMAIL_OUTBOX
 
   const removed = {};
   rules.forEach(([sheetName, match]) => {

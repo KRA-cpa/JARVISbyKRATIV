@@ -24,11 +24,14 @@ const hours = h => h * 60 * 60 * 1000;
  * u_head (Head - not an approver), u_admin (admin), u_req (requester). Profiles with emails for u_mgr / u_head.
  */
 function seed(options = {}) {
-  const rt = lib.makeRuntime(FILE, options);
+  // v10.0+: workflow events add their own notifications and outbox email - this suite tests the SLA ones, so the
+  // outbox drain is off (EMAIL_OUTBOX_ENABLED) and `rows('notifications')` lists SLA notices only
+  const rt = lib.makeRuntime(FILE, { ...options, properties: { EMAIL_OUTBOX_ENABLED: 'false', ...(options.properties || {}) } });
   rt.ctx.rebuildAllTablesApply();
   const S = rt.ctx.__TABLE_SCHEMAS;
   const add = (tableName, record) => rt.sheets.get(tableName).appendRow(rt.ctx.rowFromRecord(S[tableName], record));
-  const rows = tableName => rt.ctx.readTable(tableName).records;
+  const rows = tableName => rt.ctx.readTable(tableName).records
+    .filter(r => tableName !== 'notifications' || String(r.type || '').indexOf('sla_') === 0);
 
   add('companies', { id: 'co_1', name: 'Main Co', code: 'MYCO', is_active: true });
   add('ticket_types', { id: 'tt_1', code: 'PR', name: 'Purchase', is_active: true, sla_email: 'default' });
@@ -282,14 +285,16 @@ test('notifications: own only, unread count, mark read (ids / all)', () => {
   const id = createTicket();
   timeTicket(id, '2027-03-01T00:00:00Z', '2027-03-01T10:00:00Z');
   run('2027-03-01T06:00:00Z');
+  // v10.0+: workflow events add their own notices (awaiting_approval) - count the SLA ones
+  const sla = res => res.items.filter(n => String(n.type).indexOf('sla_') === 0);
   const mine = ok(rt.get({ action: 'getNotifications', user_id: 'u_mgr' }));
-  assert.strictEqual(mine.unread_count, 1);
-  assert.strictEqual(mine.items[0].link, `/tickets?ticket=${id}`);
-  const leadId = ok(rt.get({ action: 'getNotifications', user_id: 'u_lead' })).items[0].id;
+  assert.strictEqual(sla(mine).filter(n => !n.is_read).length, 1);
+  assert.strictEqual(sla(mine)[0].link, `/tickets?ticket=${id}`);
+  const leadId = sla(ok(rt.get({ action: 'getNotifications', user_id: 'u_lead' })))[0].id;
   assert.strictEqual(ok(rt.post({ action: 'markNotificationsRead', user_id: 'u_mgr', ids: [leadId] })).marked, 0, "can't mark someone else's");
-  assert.strictEqual(ok(rt.post({ action: 'markNotificationsRead', user_id: 'u_mgr', all: true })).marked, 1);
+  assert.ok(ok(rt.post({ action: 'markNotificationsRead', user_id: 'u_mgr', all: true })).marked >= 1);
   assert.strictEqual(ok(rt.get({ action: 'getNotifications', user_id: 'u_mgr' })).unread_count, 0);
-  assert.strictEqual(ok(rt.get({ action: 'getNotifications', user_id: 'u_lead' })).unread_count, 1);
+  assert.strictEqual(sla(ok(rt.get({ action: 'getNotifications', user_id: 'u_lead' }))).filter(n => !n.is_read).length, 1);
 });
 
 test('trigger install is idempotent; editor dry run', () => {

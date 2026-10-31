@@ -103,7 +103,7 @@ Version line since 31 Oct 2026 (session ff4c803f): v10.0 → **v10.1** country c
 | 22 | Idle sign-out | 1 | 0 % | 100 % | v9.6 |
 | 23 | Visibility (private / collaborative) + who can create | 3 | 0 % | 100 % | v10.0 - **M1 built** (`bc0d2dc`, not live): counts once deployed + checked |
 | 24 | Pagination + search | 3 | 0 % | 100 % | v10.0 - **M3 built** (paged getTickets + filters + q; ticket list "Load more" + debounced search; every getTickets caller paged) |
-| 25 | Workflow event notifications + email outbox | 3 | 0 % | 100 % | v10.0 |
+| 25 | Workflow event notifications + email outbox | 3 | 0 % | 100 % | v10.0 - **M5 built** (events, role fan-out, outbox drained by the 15-min trigger, paged bell) |
 | 26 | Restricted fields | 2 | 0 % | 100 % | v10.0 - **M4 built** (masked outside the chain in reports + system log; field builder switch) |
 | 27 | Restricted tickets | 3 | 0 % | 100 % | v10.0 - **M4 built** (chain rule, stub, no sharing, reveal + 3 admin options, type modes) |
 | 28 | Volume ops on Sheets (participants, archive, size check, perf log) | 2 | 30 % | 100 % | v10.0 (cache + read-count tests exist since v9.4) - **M2 built** (participants + backfill; archive / size check / perf log at the v10.0 close) |
@@ -148,6 +148,7 @@ Table C's effort-point totals aren't used for the headline: they gave the spec 9
 | 31 Oct 2026 | v10.0 M2 built, not live | 87.0 % | 60.5 % | session ff4c803f: ticket_participants written at every action + idempotent backfill (feature 28 ≈ 30 → 60 %). Built-only 63.4 % (+0.7 pt in "Pagination + search + volume ops") |
 | 31 Oct 2026 | v10.0 M3 built, not live | 87.0 % | 60.5 % | session ff4c803f: paged getTickets + search (feature 24). Built-only: spec 88.0 % (3.4 → 100), roadmap 66.2 % ("Pagination + search + volume ops" ≈ 5.0 / 6 pts) |
 | 31 Oct 2026 | v10.0 M4 built, not live | 87.0 % | 60.5 % | session ff4c803f: Restricted tickets + fields (features 26, 27) + the createCustomField key fix. Built-only: spec 88.0 %, roadmap 70.3 % ("Visibility + who creates + Restricted" 10 / 10 pts) |
+| 31 Oct 2026 | v10.0 M5 built, not live | 87.0 % | 60.5 % | session ff4c803f: workflow notifications + email outbox (feature 25). Built-only: spec 88.0 %, roadmap 72.9 % ("Notifications" 6 / 6 pts) |
 
 ---
 

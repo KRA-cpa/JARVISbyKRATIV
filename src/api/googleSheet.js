@@ -2953,9 +2953,11 @@ class NotificationsAPI extends BaseAPI {
     super('notifications');
   }
 
-  async getAll(userId, { unreadOnly = false, limit = 50 } = {}) {
-    const response = await this.makeRequest('getNotifications', { user_id: userId, unread_only: unreadOnly, limit });
-    return response.data || { items: [], unread_count: 0, total: 0 };
+  // AppScript v10.0: paged (cursor -> next_cursor / has_more) and it includes the notifications of the user's roles
+  // (role_notification: true - one row for a whole role above 25 approvers; marking it read is per user)
+  async getAll(userId, { unreadOnly = false, limit = 50, cursor = null } = {}) {
+    const response = await this.makeRequest('getNotifications', { user_id: userId, unread_only: unreadOnly, limit, ...(cursor ? { cursor } : {}) });
+    return response.data || { items: [], unread_count: 0, total: 0, next_cursor: null, has_more: false };
   }
 
   // ids: the notifications to mark; null / undefined = all of them; [] = nothing (review CR2-06)

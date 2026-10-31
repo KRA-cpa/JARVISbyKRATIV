@@ -28,7 +28,8 @@ const SECRET = 's';
  * options.mode: AUTH_MODE (default enforce)
  */
 function seed(options = {}) {
-  const rt = lib.makeRuntime(FILE, { properties: { AUTH_MODE: options.mode || 'enforce', PROXY_SECRET: SECRET, LINK_ALLOWED_HOSTS: '*' } });
+  const rt = lib.makeRuntime(FILE, { properties: { AUTH_MODE: options.mode || 'enforce', PROXY_SECRET: SECRET, LINK_ALLOWED_HOSTS: '*',
+    ...(options.properties || {}) }, ...(options.mailQuota !== undefined ? { mailQuota: options.mailQuota } : {}) });
   rt.ctx.rebuildAllTablesApply();
   const S = rt.ctx.__TABLE_SCHEMAS;
   const add = (tableName, record) => rt.sheets.get(tableName).appendRow(rt.ctx.rowFromRecord(S[tableName], record));
@@ -742,6 +743,150 @@ test('M4 chained child of a Restricted parent: its own type decides; the parent 
   assert.ok(child, 'chained child created');
   assert.ok(!String(child.title).includes(SECRET_TITLE), child.title);
   assert.notStrictEqual(child.is_confidential, true, 'the child follows its own type (off)');
+});
+
+// --- M5: workflow notifications + email outbox --------------------------------------------------------------------
+
+/** seed() + company email on (unless options.emailOff); notices / outbox rows; a run of the 15-minute trigger. */
+function seedNotify(options = {}) {
+  const env = seed(options);
+  if (!options.emailOff) env.rt.ctx.updateRecordFields('companies', 'co_1', { email_enabled: 'on' });
+  const notes = uid => env.ok(env.asGet(uid, { action: 'getNotifications' })).items;
+  const outbox = () => env.rows('email_outbox');
+  const run = () => env.rt.ctx.runSLAEscalations({});
+  const decide = (uid, id, decision) => env.ok(env.as(uid, { action: 'submitStepApproval', ticket_id: id, user_id: uid, decision, comment: 'ok' }));
+  return { ...env, notes, outbox, run, decide };
+}
+
+test('M5 events: create -> awaiting_approval to the step approvers (not the actor); decisions -> the requester', () => {
+  const env = seedNotify();
+  const id = env.createTicket('tt_collab');
+  assert.deepStrictEqual(env.notes('u_mgr').map(n => n.type), ['awaiting_approval']);
+  assert.deepStrictEqual(env.notes('u_req'), [], 'the actor (requester) is not told about their own ticket');
+  const subject = env.outbox().find(m => m.recipient_user_id === 'u_mgr').subject;
+  assert.ok(!subject.includes('tt_collab ticket'), 'no title in the subject');
+  assert.match(subject, /^\[JARVIS\] .+ needs your action$/);
+  env.decide('u_mgr', id, 'approve');
+  assert.deepStrictEqual(env.notes('u_req').map(n => n.type), ['completed']);
+  assert.ok(!env.notes('u_mgr').some(n => n.type === 'completed'), 'the approver who acted is not told');
+
+  const second = env.createTicket('tt_collab');
+  env.decide('u_mgr', second, 'reject');
+  assert.ok(env.notes('u_req').some(n => n.type === 'rejected'));
+  const third = env.createTicket('tt_collab');
+  env.decide('u_mgr', third, 'return');
+  assert.ok(env.notes('u_req').some(n => n.type === 'returned'));
+  const fourth = env.createTicket('tt_collab');
+  env.ok(env.as('u_admin', { action: 'updateTicketStatus', ticket_id: fourth, status: 'Cancelled', reason: 'dup', user_id: 'u_admin' }));
+  assert.ok(env.notes('u_req').some(n => n.type === 'cancelled' && String(n.ticket_id) === fourth));
+});
+
+test('M5 fan-out: a role with more than 25 eligible users gets one role notification; each user reads it on their own', () => {
+  const env = seedNotify();
+  for (let i = 0; i < 26; i++) env.rt.ctx.createUserRoleAssignment({ user_id: `u_m${i}`, role_id: 'r_mgr', company_id: 'co_1' });
+  for (let i = 0; i < 2; i++) env.add('user_profiles', { user_id: `u_m${i}`, display_name: `m${i}`, email: `m${i}@example.com`, status: 'active', is_active: true });
+  env.rt.cache.clear();
+  const before = env.rows('notifications').length;
+  env.createTicket('tt_collab');
+  const added = env.rows('notifications').slice(before);
+  assert.strictEqual(added.length, 1, 'one row for the whole role');
+  assert.strictEqual(added[0].recipient_role_id, 'r_mgr');
+  assert.strictEqual(added[0].user_id, '');
+  assert.strictEqual(env.notes('u_m0').length, 1);
+  assert.strictEqual(env.notes('u_far').length, 0, 'no role in that company: nothing');
+  env.ok(env.as('u_m0', { action: 'markNotificationsRead', all: true }));
+  assert.strictEqual(env.ok(env.asGet('u_m0', { action: 'getNotifications' })).unread_count, 0);
+  assert.strictEqual(env.ok(env.asGet('u_m1', { action: 'getNotifications' })).unread_count, 1, 'still unread for another holder');
+  assert.strictEqual(env.outbox().length, 0, 'role notifications are in-app only');
+});
+
+test('M5 Restricted ticket: notices and emails never carry the title', () => {
+  const env = seedSecret();
+  env.rt.ctx.updateRecordFields('companies', 'co_1', { email_enabled: 'on' });
+  const id = env.create(true);
+  env.decide('u_mgr', id);
+  const text = JSON.stringify([env.rows('notifications'), env.rows('email_outbox')]);
+  assert.ok(text.length > 50);
+  assert.ok(!text.includes(SECRET_TITLE));
+  assert.ok(!text.includes(SECRET_VALUE));
+});
+
+test('M5 outbox drain: one digest per address, sent once; preference off / no address / company off are skipped', () => {
+  const env = seedNotify();
+  env.add('user_preferences', { user_id: 'u_peer', email_notifications: false });
+  env.rt.ctx.updateRecordFields('user_profiles', 'u_admin', { email: '' }, 'user_id');
+  env.createTicket('tt_collab');
+  env.createTicket('tt_collab'); // two notices for u_mgr -> one digest
+  env.ok(env.as('u_req', { action: 'shareTicket', ticket_id: env.createTicket('tt_priv'), shared_with_user_id: 'u_peer', permission_level: 'view' }));
+  const first = env.run().data.outbox;
+  const toMgr = env.rt.mail.sent.filter(m => m.to === 'u_mgr@example.com');
+  assert.strictEqual(toMgr.length, 1, 'one digest');
+  assert.match(toMgr[0].subject, /3 ticket updates/);
+  assert.ok(first.skipped >= 1, JSON.stringify(first));
+  assert.ok(env.outbox().filter(m => m.recipient_user_id === 'u_peer').every(m => m.status === 'skipped'), 'preference off');
+  assert.ok(env.outbox().filter(m => m.recipient_user_id === 'u_mgr').every(m => m.status === 'sent'));
+  const sentBefore = env.rt.mail.sent.length;
+  env.run();
+  assert.strictEqual(env.rt.mail.sent.length, sentBefore, 'a second run sends nothing (A19)');
+
+  const off = seedNotify({ emailOff: true });
+  off.rt.ctx.updateRecordFields('companies', 'co_1', { email_enabled: 'off' });
+  off.createTicket('tt_collab');
+  off.run();
+  assert.strictEqual(off.rt.mail.sent.length, 0);
+  assert.ok(off.outbox().every(m => m.status === 'skipped'));
+});
+
+test('M5 outbox drain: quota guard defers the rest; errors retry then fail; a stale sending row is never resent; kill switch', () => {
+  const env = seedNotify({ mailQuota: 12 }); // 80 % = 9, and sendCompanyEmail keeps 10 in reserve
+  for (let i = 0; i < 4; i++) {
+    env.rt.ctx.createUserRoleAssignment({ user_id: `u_a${i}`, role_id: 'r_mgr', company_id: 'co_1' });
+    env.add('user_profiles', { user_id: `u_a${i}`, display_name: `a${i}`, email: `a${i}@example.com`, status: 'active', is_active: true });
+  }
+  env.rt.cache.clear();
+  env.createTicket('tt_collab');
+  const result = env.run().data.outbox;
+  assert.ok(result.deferred > 0, JSON.stringify(result));
+  assert.ok(env.outbox().some(m => m.status === 'pending'), 'the rest waits for the next run');
+  env.rt.mail.quota = 100;
+  env.run();
+  assert.ok(env.outbox().every(m => m.status === 'sent'), JSON.stringify(env.outbox().map(m => m.status)));
+
+  const bad = seedNotify();
+  bad.createTicket('tt_collab');
+  bad.rt.ctx.MailApp = { getRemainingDailyQuota: () => 100, sendEmail: () => { throw new Error('service down'); } };
+  bad.run();
+  bad.run();
+  assert.ok(bad.outbox().every(m => m.status === 'pending' && /service down/.test(m.last_error)));
+  bad.run();
+  assert.ok(bad.outbox().every(m => m.status === 'failed'), 'failed after 3 attempts');
+
+  const stale = seedNotify();
+  stale.createTicket('tt_collab');
+  stale.outbox().forEach(m => stale.rt.ctx.updateRecordFields('email_outbox', m.id, { status: 'sending', updated_at: new Date(Date.now() - 3600e3).toISOString() }));
+  stale.run();
+  assert.strictEqual(stale.rt.mail.sent.length, 0, 'never sent twice');
+  assert.ok(stale.outbox().every(m => m.status === 'failed'));
+
+  const killed = seedNotify({ properties: { EMAIL_OUTBOX_ENABLED: 'false' } });
+  killed.createTicket('tt_collab');
+  assert.strictEqual(killed.run().data.outbox.disabled, true);
+  assert.strictEqual(killed.rt.mail.sent.length, 0);
+  assert.ok(killed.outbox().every(m => m.status === 'pending'));
+});
+
+test('M5 getNotifications: paged (limit + cursor); reads notifications + assignments only (P10)', () => {
+  const env = seedNotify();
+  for (let i = 0; i < 3; i++) env.createTicket('tt_collab');
+  const p1 = env.ok(env.asGet('u_mgr', { action: 'getNotifications', limit: 2 }));
+  assert.strictEqual(p1.items.length, 2);
+  assert.strictEqual(p1.has_more, true);
+  const p2 = env.ok(env.asGet('u_mgr', { action: 'getNotifications', limit: 2, cursor: p1.next_cursor }));
+  assert.strictEqual(p2.items.length, 1);
+  assert.strictEqual(new Set(p1.items.concat(p2.items).map(n => n.id)).size, 3);
+  env.asGet('u_mgr', { action: 'getNotifications' });
+  const reads = env.rt.reads();
+  assert.deepStrictEqual(Object.keys(reads).sort(), ['notifications', 'user_role_assignments']);
 });
 
 test('ping reports 10.0.0 = header Version; the file has one definition of each new helper (A20)', () => {
