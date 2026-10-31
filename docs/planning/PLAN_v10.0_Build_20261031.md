@@ -2,11 +2,12 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_v10.0_Build_20261031.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: PLAN_v10.0_Build_20261031.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 31 October 2026 UTC+8 (Philippine Standard Time)
-Purpose: Build plan for AppScript v10.0 against the live v9.6 code - scope recap, what changed since the design, code map, milestones, tests, deploy, open decisions | Status: Draft for approval (no v10.0 code yet)
+Purpose: Build plan for AppScript v10.0 against the live v9.6 code - scope recap, what changed since the design, code map, milestones, tests, deploy, open decisions | Status: Approved 31 Oct 2026 (D1-D6 decided) - building
 REVISION HISTORY:
 - v1.0.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (cloud session 017zmKf7) from PLAN_FeatureGaps_Volume_20261031.md §4 / §5.1 / §7 / §9 / §11 and a read of APPSCRIPT_v9.6_20261031_1510.txt
+- v1.1.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User decisions: D1 D2 D3 D5 D6 as recommended; D4 Restricted stays in v10.0 with no v10.0.1 fallback
 ===============================================================================
 -->
 
@@ -66,7 +67,7 @@ v10.0 is about **3× v9.6**: ~12 new helpers, 14 changed read paths, 2 new tabs 
 | M4 | Restricted fields + tickets: `isInChain`, stub, masking (ticket, list, report + CSV, search, history, action logs, notifications, chained copy), share refusal + revoke on turn-on, `revealConfidential` + 3 admin options; field builder + ticket type switches | the "real value appears nowhere in the JSON" string-search tests for every viewer type |
 | M5 | Event notifications (rewired `triggerWorkflowNotifications`, fan-out cap, role notifications) + `email_outbox` + drain in `runSLAEscalations` + paged bell | outbox idempotent, quota guard, A19 |
 
-- **Fallback if it runs long:** ship M1–M3 + M5 as v10.0 and M4 (Restricted) as v10.0.1 *before* v10.1. Restricted only narrows access, so shipping it second never exposes more than v9.6 does today. Decide at the M3 gate, not now.
+- ~~Fallback: M4 as v10.0.1.~~ **Decided 31 Oct 2026 (D4): Restricted ships in v10.0, no fallback.**
 
 ---
 
@@ -131,7 +132,7 @@ v10.0 is about **3× v9.6**: ~12 new helpers, 14 changed read paths, 2 new tabs 
 
 ---
 
-## §7 Decisions to confirm before coding (recommended default first)
+## §7 Decisions (decided 31 Oct 2026: D1, D2, D3, D5, D6 = recommended; D4 = Restricted in v10.0, no fallback)
 
 | # | Question | Recommended | Alternative |
 |---|---|---|---|
