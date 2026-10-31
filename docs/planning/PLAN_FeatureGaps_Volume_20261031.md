@@ -283,6 +283,15 @@ Same as §5.1 / §5.2 plus `tickets.version int` (optimistic lock), `tickets.sea
 ## §9 Order
 v9.6 (as decided) → **v10.0** (§5.1) → **v10.1** (§5.2) → v10.2 (§5.3).
 
+> **Version line changed 31 Oct 2026 (session ff4c803f, user decision):**
+> - v10.0 as above;
+> - **v10.1 = country calendars + time zones** (`docs/planning/PLAN_CountryCalendars_TimeZones_20261031.md`);
+> - **v10.2 = Basic / Advanced / Enterprise plans + subscriptions** (`docs/planning/PLAN_PlanTiers_Subscriptions_20261031.md`);
+> - §5.2 (head approval, delegation, bulk) becomes **v10.3**;
+> - §5.3 (comments and the rest) becomes **v10.4**.
+>
+> Those features ship already gated to their plan level. Version numbers elsewhere in this document are the original ones.
+
 **What the major bump changes:**
 - File `APPSCRIPT_v10.0_<YYYYMMDD>_<HHMM>.txt`, header `Version: 10.0.0`, `API_VERSION = '10.0.0'`, `Deploy description: v10.0 …`. No check compares version numbers: `scripts/check-api-contract.js:53` and `scripts/check-code-rules.js:53` pick the newest file by its **timestamp**, and their regex `v(\d+)\.(\d+)` already matches `v10.0` (checked). `ROUTES_TEST_v10.0.js` etc. run alongside all the v8.3–v9.6 suites on the new file.
 - **Breaking change handled:** `getTickets` without `limit` returns the old array (logged as deprecated) **only in v10.0**. It's removed in v10.1. The frontend ships from the same commit (as always).

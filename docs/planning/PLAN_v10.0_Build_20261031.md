@@ -149,3 +149,10 @@ v10.0 is about **3× v9.6**: ~12 new helpers, 14 changed read paths, 2 new tabs 
 ## §8 After v10.0
 
 PROGRESS recalculation at v10.0 live (expected 88.0 % spec / 80.9 % roadmap, design §10 / PROGRESS §2), then **v10.1** (head approval, delegation, bulk approve) on the v10.0 scope / participants.
+
+> **Changed 31 Oct 2026 (session ff4c803f, user decision):**
+> - The next version after v10.0 is **v10.1 = country calendars + time zones** (`docs/planning/PLAN_CountryCalendars_TimeZones_20261031.md`).
+> - Then **v10.2 = plans + subscriptions** (`docs/planning/PLAN_PlanTiers_Subscriptions_20261031.md`).
+> - Head approval / delegation / bulk moves to **v10.3**, and comments and the rest to **v10.4**.
+> - D6 still holds: the `getTickets` compat shape is removed in the version after v10.0, now v10.1.
+> - With the roadmap total now 154, the expected roadmap figure at v10.0 live is **73.5 %** (spec unchanged at 88.0 %). See PROGRESS §2.
