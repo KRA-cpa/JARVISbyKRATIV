@@ -6,6 +6,7 @@
  *
  * Runs api/_lib/proxyCore.js against a local RSA key set (no network): valid / forged / expired / wrong-audience /
  * missing tokens in each AUTH_MODE, client-sent _auth_uid / _proxy_secret stripped, GET and POST forwarding.
+ * v9.6: _auth_email only for a verified email, the 12-hour sign-in cap (MAX_SESSION_HOURS), 401 codes.
  * Exit: 0 = all pass, 1 = a case failed.
  */
 
@@ -70,11 +71,11 @@ async function main() {
     catch (e) { results.push(`FAIL  ${name}\n      ${e.message}`); process.exitCode = 1; }
   }
 
-  async function call(mode, token, { method = 'POST', input = { action: 'getTickets' } } = {}) {
+  async function call(mode, token, { method = 'POST', input = { action: 'getTickets' }, env = {} } = {}) {
     const fetchImpl = fakeFetch();
     const logs = [];
     const handler = createProxyHandler({
-      env: { AUTH_MODE: mode, PROXY_SECRET: SECRET, APPS_SCRIPT_URL: 'https://gas.example/exec', FIREBASE_PROJECT_ID: PROJECT },
+      env: { AUTH_MODE: mode, PROXY_SECRET: SECRET, APPS_SCRIPT_URL: 'https://gas.example/exec', FIREBASE_PROJECT_ID: PROJECT, ...env },
       fetchImpl,
       adapters: [firebaseAdapter(PROJECT, keySet)],
       log: line => logs.push(JSON.parse(line))
@@ -141,6 +142,47 @@ async function main() {
   await run('a token without a subject is refused', async () => {
     const { res } = await call('enforce', await sign(good.privateKey, {}, { sub: '' }));
     assert.strictEqual(res.statusCode, 401);
+  });
+
+  // --- v9.6 ---------------------------------------------------------------------------------------------
+  await run('v9.6: a verified email is forwarded lower-case as _auth_email; an unverified one is not', async () => {
+    const verified = await call('enforce', await sign(good.privateKey, { email: 'New.User@Example.com', email_verified: true }));
+    assert.strictEqual(verified.forwarded._auth_email, 'new.user@example.com');
+    const unverified = await call('enforce', await sign(good.privateKey, { email: 'x@example.com', email_verified: false }));
+    assert.strictEqual(unverified.forwarded._auth_email, undefined);
+    assert.strictEqual(unverified.forwarded._auth_uid, 'uid_123');
+  });
+
+  await run('v9.6: a client-sent _auth_email is stripped (no token, and with a token whose email is unverified)', async () => {
+    const { forwarded } = await call('warn', null, { input: { action: 'getTickets', _auth_email: 'admin@corp.com' } });
+    assert.strictEqual(forwarded._auth_email, undefined);
+    const withToken = await call('warn', tokens.valid, { input: { action: 'getTickets', _auth_email: 'admin@corp.com' } });
+    assert.strictEqual(withToken.forwarded._auth_email, undefined, 'the test token has no email_verified');
+  });
+
+  await run('v9.6: enforce refuses a sign-in older than 12 h (SESSION_MAX_AGE); 11 h passes', async () => {
+    const old = await call('enforce', await sign(good.privateKey, { auth_time: now - 13 * 3600 }));
+    assert.strictEqual(old.res.statusCode, 401);
+    assert.strictEqual(old.res.body.code, 'SESSION_MAX_AGE');
+    assert.match(old.res.body.error, /12 hours/);
+    assert.strictEqual(old.fetchImpl.calls.length, 0);
+    assert.strictEqual(old.logs[0].auth, 'max_age');
+    const recent = await call('enforce', await sign(good.privateKey, { auth_time: now - 11 * 3600 }));
+    assert.strictEqual(recent.res.statusCode, 200);
+  });
+
+  await run('v9.6: MAX_SESSION_HOURS changes the cap; warn forwards an old sign-in without a uid', async () => {
+    const custom = await call('enforce', await sign(good.privateKey, { auth_time: now - 3 * 3600 }), { env: { MAX_SESSION_HOURS: '2' } });
+    assert.strictEqual(custom.res.body.code, 'SESSION_MAX_AGE');
+    assert.match(custom.res.body.error, /2 hours/);
+    const warn = await call('warn', await sign(good.privateKey, { auth_time: now - 13 * 3600 }));
+    assert.strictEqual(warn.res.statusCode, 200);
+    assert.strictEqual(warn.forwarded._auth_uid, undefined);
+  });
+
+  await run('v9.6: 401 codes - NOT_SIGNED_IN without a token, SESSION_EXPIRED for an invalid one', async () => {
+    assert.strictEqual((await call('enforce', null)).res.body.code, 'NOT_SIGNED_IN');
+    assert.strictEqual((await call('enforce', tokens.expired)).res.body.code, 'SESSION_EXPIRED');
   });
 
   console.log(results.join('\n'));

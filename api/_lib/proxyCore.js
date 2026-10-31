@@ -3,6 +3,8 @@
 // shared secret. Apps Script refuses calls without the secret (Script Property AUTH_MODE = enforce), so the
 // public /exec URL can't be used to act as another user. Kept free of Vercel specifics so
 // scripts/test-proxy-auth.js can run it in plain Node.
+// v9.6: forwards the Google-verified email (_auth_email, for invites) and refuses sign-ins older than
+// MAX_SESSION_HOURS (default 12) - the "fresh sign-in daily" cap. 401s carry a code the app reacts to.
 
 const { createRemoteJWKSet, jwtVerify } = require('jose');
 
@@ -10,15 +12,17 @@ const { createRemoteJWKSet, jwtVerify } = require('jose');
 const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyeSHLU8sW3S87yEZ7BAGJWBdaMEvJfkz3OzjPjE8XaP0pOjmGxxYQWmUwvgoIvMQArXA/exec';
 const FIREBASE_JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
 // Fields only the proxy may set: anything a client sends under these names is dropped
-const IDENTITY_FIELDS = ['_auth_uid', '_proxy_secret', '_via_get'];
+const IDENTITY_FIELDS = ['_auth_uid', '_auth_email', '_proxy_secret', '_via_get'];
 const AUTH_MODES = ['off', 'warn', 'enforce'];
+const DEFAULT_MAX_SESSION_HOURS = 12;
 
 /**
  * Identity adapter for Firebase ID tokens (the app's sign-in today). Checks signature (Google's securetoken
  * keys), issuer, audience, expiry and subject.
  * @param {string} projectId - Firebase project id
  * @param {Function} keySet - jose key set (tests pass a local one)
- * @returns {{ name: string, verify: Function }} verify(token) -> { uid, provider, email }
+ * @returns {{ name: string, verify: Function }} verify(token) -> { uid, provider, email, email_verified, auth_time }
+ *   (auth_time = seconds since epoch of the sign-in, null when the token has none)
  */
 function firebaseAdapter(projectId, keySet = createRemoteJWKSet(new URL(FIREBASE_JWKS_URL))) {
   return {
@@ -32,7 +36,8 @@ function firebaseAdapter(projectId, keySet = createRemoteJWKSet(new URL(FIREBASE
       });
       if (!payload.sub) throw new Error('token has no subject');
       if (payload.auth_time && payload.auth_time * 1000 > Date.now() + 60 * 1000) throw new Error('auth_time is in the future');
-      return { uid: payload.sub, provider: 'firebase', email: payload.email || null };
+      return { uid: payload.sub, provider: 'firebase', email: payload.email || null,
+        email_verified: payload.email_verified === true, auth_time: typeof payload.auth_time === 'number' ? payload.auth_time : null };
     }
   };
 }
@@ -80,6 +85,21 @@ function requestInput(req) {
   return input;
 }
 
+/** env MAX_SESSION_HOURS as a positive number of hours (default 12; 0 or invalid -> the default). */
+function maxSessionHours(env) {
+  const hours = Number(env.MAX_SESSION_HOURS);
+  return Number.isFinite(hours) && hours > 0 ? hours : DEFAULT_MAX_SESSION_HOURS;
+}
+
+/**
+ * Is the sign-in behind this identity older than the cap? A token without auth_time can't be judged and passes
+ * (Firebase always sets it).
+ */
+function sessionTooOld(identity, hours, nowMs = Date.now()) {
+  if (!identity || !identity.auth_time) return false;
+  return nowMs - identity.auth_time * 1000 > hours * 60 * 60 * 1000;
+}
+
 /**
  * Build the Vercel handler.
  * @param {Object} options - { env, fetchImpl, adapters, log }
@@ -90,6 +110,7 @@ function createProxyHandler({ env = process.env, fetchImpl = globalThis.fetch, a
   const appsScriptUrl = env.APPS_SCRIPT_URL || DEFAULT_APPS_SCRIPT_URL;
   const secret = env.PROXY_SECRET || '';
   const projectId = env.FIREBASE_PROJECT_ID || env.REACT_APP_FIREBASE_PROJECT_ID || '';
+  const capHours = maxSessionHours(env);
   let identityAdapters = adapters;
 
   return async function handler(req, res) {
@@ -107,26 +128,34 @@ function createProxyHandler({ env = process.env, fetchImpl = globalThis.fetch, a
     // Created on first use, so a cold start that only answers OPTIONS doesn't build the key set
     identityAdapters = identityAdapters || [firebaseAdapter(projectId)];
     const token = bearerToken(req.headers);
-    const { identity, error: authError } = await identify(token, identityAdapters);
+    const { identity: verifiedIdentity, error: authError } = await identify(token, identityAdapters);
+    // v9.6: a sign-in older than MAX_SESSION_HOURS counts as no identity
+    const tooOld = sessionTooOld(verifiedIdentity, capHours);
+    const identity = tooOld ? null : verifiedIdentity;
     const uid = identity ? identity.uid : null;
     const finish = (status, body) => {
       res.setHeader('X-Backend', 'gas');
       res.setHeader('X-Response-Time', `${Date.now() - started}ms`);
       log(JSON.stringify({
         action, duration_ms: Date.now() - started, user_id: uid, company_id: input.company_id || null,
-        auth: uid ? 'verified' : (token ? 'invalid' : 'none'), mode, status, backend: 'gas',
+        auth: uid ? 'verified' : (tooOld ? 'max_age' : (token ? 'invalid' : 'none')), mode, status, backend: 'gas',
         ...(authError ? { auth_error: authError } : {})
       }));
       res.status(status).json(body);
     };
 
     if (mode === 'enforce' && !uid && action !== 'ping') {
-      finish(401, { success: false, status: 'error', error: token ? 'Session expired: sign in again' : 'Not signed in' });
+      const refusal = tooOld
+        ? { code: 'SESSION_MAX_AGE', error: `Your session reached ${capHours} hours. Please sign in again.` }
+        : (token ? { code: 'SESSION_EXPIRED', error: 'Session expired: sign in again' } : { code: 'NOT_SIGNED_IN', error: 'Not signed in' });
+      finish(401, { success: false, status: 'error', ...refusal });
       return;
     }
 
     const forwarded = { ...input };
     if (uid) forwarded._auth_uid = uid;
+    // v9.6: the email only when Google verified it (invite acceptance trusts it)
+    if (uid && identity.email && identity.email_verified) forwarded._auth_email = String(identity.email).toLowerCase();
     if (secret) forwarded._proxy_secret = secret;
 
     try {
@@ -149,4 +178,4 @@ function createProxyHandler({ env = process.env, fetchImpl = globalThis.fetch, a
   };
 }
 
-module.exports = { createProxyHandler, firebaseAdapter, identify, bearerToken, requestInput, IDENTITY_FIELDS };
+module.exports = { createProxyHandler, firebaseAdapter, identify, bearerToken, requestInput, sessionTooOld, maxSessionHours, IDENTITY_FIELDS };
