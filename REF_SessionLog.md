@@ -55,6 +55,7 @@ REVISION HISTORY:
 4. **Choices made (switchable):** handlers of the new admin routes also refuse non-admins in `warn` (no legacy callers); adding / removing links on a closed ticket is admin-only (fixing a reported link stays open to requester / approvers / admin); invite emails are sent even when the company's SLA email is Off; a token without `auth_time` is not capped; links are visible to anyone with a role in the ticket's company or a share (interim until v10.0 `canViewTicket`).
 5. ✅ **Deployed (user, 31 Oct 2026):** AppScript ping `9.6.0`; `main3` fast-forwarded to `c53c738` (user: "merge"). PROGRESS recalculated: 87.0 % spec / 66.5 % roadmap, **provisional** until the browser checks pass. The cloud box can't reach `vercel.app` / `script.google.com` (network policy), so the checks are the user's: sign-in works, a no-profile account gets the invite message, JARVIS Admin → Check tables OK (rebuild applied), company email + test email, an invite, a link on a ticket.
 6. **Close** 2d369f00 + this session when the checks pass (or note what failed).
+7. **Also built after the deploy:** ADMIN_Tools v1.2 ("5. Testing (temporary)", `docs/guides/GUIDE_Testing_SwitchRoles.md`). **Next major: v10.0** - build plan `docs/planning/PLAN_v10.0_Build_20261031.md` (draft; 6 decisions D1-D6 to confirm before coding).
 
 ### Pending — 2d369f00 (31 Oct 2026)
 
