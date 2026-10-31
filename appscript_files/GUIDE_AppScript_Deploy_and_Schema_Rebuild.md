@@ -194,9 +194,19 @@ Both are **off** for every ticket type after the rebuild.
 
 Until v9.4 anyone with the web-app URL could act as any user (the request said who it was). Now the Vercel proxy verifies the Firebase ID token and forwards the uid with a shared secret.
 
-1. Make a secret: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
-2. Apps Script editor → **Project Settings** (gear) → **Script Properties** → add `PROXY_SECRET` = the secret, `AUTH_MODE` = `warn`. (Optional: `CACHE_ENABLED` = `false` turns the v9.4 table cache off without a redeploy.)
-3. Vercel → Project → **Settings → Environment Variables** (Production): `PROXY_SECRET` (same value), `AUTH_MODE` = `warn`, `APPS_SCRIPT_URL` = the web-app `/exec` URL, `FIREBASE_PROJECT_ID` = the Firebase project id (it falls back to `REACT_APP_FIREBASE_PROJECT_ID`). Redeploy the frontend.
+| Setting | Kind | Where |
+|---|---|---|
+| `PROXY_SECRET` | **Secret** - with the `/exec` URL it lets anyone call Apps Script as any user | Script Properties + Vercel (mark **Sensitive**); keep a copy in a password manager; never commit it |
+| `AUTH_MODE` | Config (`off` / `warn` / `enforce`) | Script Properties + Vercel |
+| `APPS_SCRIPT_URL` | Config - already public (fallback in `api/_lib/proxyCore.js`); useless without the secret under `enforce` | Vercel |
+| `FIREBASE_PROJECT_ID` | Config - public (already in the browser bundle) | Vercel (optional: falls back to `REACT_APP_FIREBASE_PROJECT_ID`) |
+| `CACHE_ENABLED` | Config (optional kill switch for the v9.4 table cache) | Script Properties |
+
+Never give these a `REACT_APP_` prefix: Create React App bakes `REACT_APP_*` into the public JavaScript bundle. Without it they exist only in the proxy function.
+
+1. Make a secret **in your own terminal** (not in a chat or a shared log), straight to the clipboard: `node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))" | clip`.
+2. Apps Script editor → **Project Settings** (gear) → **Script Properties** → add `PROXY_SECRET` = the secret, `AUTH_MODE` = `warn` → **Save script properties** (takes effect at once). Script Properties are visible to anyone with edit access to the project - keep the editor list short.
+3. Vercel → Project → **Settings → Environment Variables** (Production, and Preview if used): `PROXY_SECRET` (same value, **Sensitive** on), `AUTH_MODE` = `warn`, `APPS_SCRIPT_URL` = the web-app `/exec` URL (Apps Script **Deploy → Manage deployments**), optionally `FIREBASE_PROJECT_ID`. Env changes apply on the **next** deployment - set them before the push, or **Deployments → ⋯ → Redeploy**.
 4. Use the app for a while, then check:
    - Vercel → **Logs**: each proxy line has `"auth":"verified"` and your `user_id`.
    - Apps Script → **Executions**: no `AUTH warn:` lines for normal use (they mean a request came without a verified user, or claimed a different user than its token).
