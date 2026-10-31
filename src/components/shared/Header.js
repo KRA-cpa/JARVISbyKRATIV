@@ -94,6 +94,16 @@ const Header = ({ user, userRole }) => {
                 </div>
               </Link>
 
+              <Link
+                to="/plans"
+                className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors duration-200 ${getActiveClasses('/plans')}`}
+              >
+                <div className="flex items-center space-x-2">
+                  <Icons.Shield size={16} />
+                  <span>Plans</span>
+                </div>
+              </Link>
+
               {userRole === 'admin' && (
                 <Link
                   to="/admin"
@@ -315,6 +325,20 @@ const Header = ({ user, userRole }) => {
             <div className="flex items-center space-x-2">
               <Icons.Documents size={16} />
               <span>Reports</span>
+            </div>
+          </Link>
+
+          <Link
+            to="/plans"
+            className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
+              isActive('/plans')
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-600 hover:text-blue-600 hover:bg-white'
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              <Icons.Shield size={16} />
+              <span>Plans</span>
             </div>
           </Link>
 

@@ -383,6 +383,17 @@ Until v9.1 nothing imported the ticket components or `AdminWorkflowBuilder`; `np
 
 - **Unmounted now**: 8 components + 2 icons (`AdminSLAEscalationManager` mounted in v9.5).
 
+### **💳 PLANS PER COMPANY - CATALOGUE PAGE (November 1, 2026 — AppScript v10.2 P1)**
+
+| File | Layer | Imports (new in bold) | Used by |
+|---|---|---|---|
+| `src/config/plans.js` | Config (new, leaf) | - (plan names / taglines, feature labels by area, limit labels, state labels, `FALLBACK_PLAN_CATALOG`, `formatPlanLimit`; display copy only - the server's `PLAN_CATALOG` decides, F1) | `PlanCatalog` |
+| `src/api/googleSheet.js` | API | new **`Plans`** (`getCatalog` → `getPlanCatalog`, `getCompanyPlan(companyId, { includeUsage, all })`); both in the GET read list | hooks |
+| `src/hooks/useAPI.js` | Hooks | new **`usePlanCatalog`**, **`useCompanyPlans`** | `PlanCatalog` |
+| `src/components/plans/PlanCatalog.js` | Component (new, mounted) | **`usePlanCatalog`**, **`useCompanyPlans`**, `useCompanies`, `Icons`, **`config/plans`** (falls back to the built-in copy with a notice when the server has no v10.2 route yet) | `PlansPage` |
+| `src/pages/PlansPage.js` | Page (new) | `useUser`, `Header`, `Footer`, **`PlanCatalog`** | `App.js` route `/plans` (ProtectedRoute, any signed-in user) |
+| `src/components/shared/Header.js` | Shared component | nav link **Plans** (desktop + mobile, `Icons.Shield`) | every page |
+
 ### **🌏 COUNTRY CALENDARS, COMPANY TIME ZONES, DISPLAY ZONE (November 1, 2026 — AppScript v10.1)**
 
 | File | Layer | Imports (new in bold) | Used by |

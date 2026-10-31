@@ -1078,6 +1078,19 @@ export const useCountryHolidays = (countryCode, year = null) => {
   return useAPIData(['country_holidays', countryCode, year], () => API.CountryCalendars.getHolidays(countryCode, year), { enabled: !!countryCode });
 };
 
+/** The plan catalogue (AppScript v10.2) - display only; the server enforces it. */
+export const usePlanCatalog = () => {
+  const { data, loading, error, refetch } = useAPIData(['plan_catalog'], () => API.Plans.getCatalog());
+  return { catalog: data, loading, error, refetch };
+};
+
+/** The plans of the caller's companies (AppScript v10.2): { companies: { id: view }, is_platform_admin }. */
+export const useCompanyPlans = (options = {}) => {
+  const { enabled = true } = options;
+  const { data, loading, error, refetch } = useAPIData(['company_plans'], () => API.Plans.getCompanyPlan(), { enabled });
+  return { companies: (data && data.companies) || {}, isPlatformAdmin: !!(data && data.is_platform_admin), loading, error, refetch };
+};
+
 /** Set a company's country + time zone (Admin → Companies → Region). */
 export const useCompanyRegion = () => {
   const { loading: saving, error, run } = useWriteRunner();

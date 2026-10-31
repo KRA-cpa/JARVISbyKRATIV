@@ -359,7 +359,9 @@ class BaseAPI {
         // AppScript v10.0 reads (ticket access)
         'getCreatableTicketTypes',
         // AppScript v10.1 reads (country calendars)
-        'getCountryCalendars', 'getCountryHolidays'
+        'getCountryCalendars', 'getCountryHolidays',
+        // AppScript v10.2 reads (plans per company)
+        'getPlanCatalog', 'getCompanyPlan'
       ];
 
       const isGetRequest = readActions.includes(action);
@@ -3199,6 +3201,32 @@ class AttachmentsAPI extends BaseAPI {
   }
 }
 
+/**
+ * Plans per company (AppScript v10.2, docs/planning/PLAN_PlanTiers_Subscriptions_20261031.md). The server decides what a
+ * company may do (F1); these reads are for display: the catalogue (anyone signed in) and the plans of the caller's companies.
+ */
+class PlansAPI extends BaseAPI {
+  constructor() {
+    super('plans');
+  }
+
+  // { plans: [{ plan, name, features[], limits{} }], features: [{ key, required_plan }], limit_keys[], grace_days, trial_default_days }
+  async getCatalog() {
+    const response = await this.makeRequest('getPlanCatalog');
+    return response.data || null;
+  }
+
+  // Without companyId: { companies: { id: view }, is_platform_admin }; with it: one view ({ plan, state, features, limits, ... })
+  async getCompanyPlan(companyId = null, { includeUsage = false, all = false } = {}) {
+    const response = await this.makeRequest('getCompanyPlan', {
+      company_id: companyId || undefined,
+      include_usage: includeUsage || undefined,
+      all: all || undefined
+    });
+    return response.data || null;
+  }
+}
+
 export const API = {
   Companies: new CompanyAPI(),
   Roles: new RoleAPI(),
@@ -3223,6 +3251,8 @@ export const API = {
   Attachments: new AttachmentsAPI(),
   // AppScript v10.1
   CountryCalendars: new CountryCalendarAPI(),
+  // AppScript v10.2
+  Plans: new PlansAPI(),
   // Universal Entity Architecture APIs
   UserProfileTypes: new UserProfileTypesAPI(),
   RoleTypes: new RoleTypesAPI()

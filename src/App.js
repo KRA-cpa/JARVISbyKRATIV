@@ -21,6 +21,7 @@ import AdminUserProfileTypeCreatePage from './pages/AdminUserProfileTypeCreatePa
 import ProfilePage from './pages/ProfilePage';
 import TicketsPage from './pages/TicketsPage';
 import ReportsPage from './pages/ReportsPage';
+import PlansPage from './pages/PlansPage';
 
 // Shared Components
 import LoadingScreen from './components/shared/LoadingScreen';
@@ -139,6 +140,16 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute>
                 <ReportsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* v10.2: the plan catalogue (any signed-in user) */}
+          <Route
+            path="/plans"
+            element={
+              <ProtectedRoute>
+                <PlansPage />
               </ProtectedRoute>
             }
           />

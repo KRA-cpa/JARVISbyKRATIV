@@ -1,0 +1,351 @@
+/*
+=================================================================================
+ * JARVISbyERP - Test Data Seed (second script file of the Apps Script project)
+ *
+ * Version: 1.1 (seed for AppScript v9.3+: companies, ticket types, custom fields, dropdown, roles, users,
+ *   workflows with a branch + task step + chained ticket, SLAs, comment rules, report columns, company SLA rule,
+ *   tags, and tickets driven through the real workflow engine)
+ *   v1.1 (AppScript v10.0): removal also deletes the seed tickets' ticket_participants, notifications and email_outbox rows
+ *   v1.2 (AppScript v10.2): removal also deletes the seed companies' monthly ticket usage counters (usage:<company>:<YYYYMM>)
+ *     and their company_subscriptions rows
+ * Last Updated: November 1, 2026 07:29 UTC+8 (file: SEED_TestData_v1.2_20261101_0729.txt)
+ *
+ * HOW TO USE (see appscript_files/GUIDE_AppScript_Deploy_and_Schema_Rebuild.md §8)
+ * 1. In the Apps Script editor: Files + -> Script -> name it "seed" -> paste this whole file -> Save.
+ *    It shares the main file's functions (rowFromRecord, createTicket, submitStepApproval...), so the main
+ *    APPSCRIPT file (v9.3 or later) must be in the same project and rebuildAllTablesApply() must have run.
+ * 2. Optional: put your Firebase uid in SEED_MY_USER_ID below (Profile page, or the browser console:
+ *    the logged-in user's uid). You then get the seed admin + approver + IT roles in both seed companies and
+ *    can approve / complete the seeded tickets yourself.
+ * 3. Run seedTestData (dry run - reports only), then seedTestDataApply.
+ * 4. To remove everything it created: removeSeedData (dry run), then removeSeedDataApply.
+ *
+ * Editor-only: nothing here is routed (compliance A4). Every row it creates has an id / key starting with
+ * "seed_" (dropdown options: "opt_seed_"), or belongs to a seed company (tickets and everything hanging off
+ * them); removal deletes exactly those rows and nothing else. Admin action logs are kept (audit trail).
+ * Re-running the seed adds nothing that already exists.
+=================================================================================
+*/
+
+/** Your Firebase uid - gets seed roles in both seed companies. Leave '' to skip. */
+const SEED_MY_USER_ID = '';
+
+const SEED_COMPANIES = [
+  { id: 'seed_co_a', name: 'Seed Alpha Corp', code: 'SEEDA' },
+  { id: 'seed_co_b', name: 'Seed Beta Inc', code: 'SEEDB' }
+];
+
+/** Seed users (user_profiles only - they can't log in; the engine acts as them). */
+const SEED_USERS = [
+  { user_id: 'seed_u_req', display_name: 'Rita Requester (seed)', email: 'rita.requester@seed.example' },
+  { user_id: 'seed_u_mgr', display_name: 'Manny Manager (seed)', email: 'manny.manager@seed.example' },
+  { user_id: 'seed_u_fin', display_name: 'Fiona Finance (seed)', email: 'fiona.finance@seed.example' },
+  { user_id: 'seed_u_it', display_name: 'Ivan IT (seed)', email: 'ivan.it@seed.example' }
+];
+
+/**
+ * Every master-data row of the seed, by table. Ids are fixed, so a re-run finds them and skips them.
+ * @param {string} myUserId - Firebase uid to give seed roles ('' = none)
+ * @returns {Array} [{ table, key, record }]
+ */
+function seedMasterRows(myUserId) {
+  const now = new Date();
+  const audit = { is_active: true, created_at: now, created_by: 'seed', updated_at: now, updated_by: 'seed' };
+  const rows = [];
+  const add = (table, record, key = 'id') => rows.push({ table: table, key: key, record: record });
+
+  SEED_COMPANIES.forEach(c => add(SHEETS.COMPANIES, { ...audit, ...c, code_locked: false, ticket_count: 0 }));
+
+  add(SHEETS.TICKET_TYPES, { id: 'seed_tt_pr', transaction_id: 'SEED-PR', code: 'SPR', name: 'Seed Purchase Request',
+    description: 'Seed data: purchase request with a branch on amount, a task step and a chained IT ticket',
+    is_active: true, require_attachment_on_create: false, company_id: '', created_at: now, updated_at: now,
+    enable_tags: true, enable_sharing: true });
+  add(SHEETS.TICKET_TYPES, { id: 'seed_tt_it', transaction_id: 'SEED-IT', code: 'SIT', name: 'Seed IT Setup',
+    description: 'Seed data: created by the purchase request workflow (chained)', is_active: true,
+    require_attachment_on_create: false, company_id: '', created_at: now, updated_at: now, enable_tags: false, enable_sharing: false });
+
+  add(SHEETS.DROPDOWN_LISTS, { ...audit, id: 'seed_dl_dept', name: 'Seed Departments', description: 'Seed data', company_id: '' });
+  [['opt_seed_fin', 'Finance', 'FIN'], ['opt_seed_ops', 'Operations', 'OPS'], ['opt_seed_it', 'IT', 'IT']].forEach(([id, label, value]) => {
+    add(SHEETS.DROPDOWN_OPTIONS, { id: id, dropdown_list_id: 'seed_dl_dept', label: label, value: value, parent_option_id: '' });
+  });
+  add(SHEETS.DROPDOWN_COMPANY_ASSIGNMENTS, { ...audit, id: 'seed_dca_dept', dropdown_list_id: 'seed_dl_dept', company_id: '', is_global: true });
+
+  const field = (id, typeId, name, label, type, sort, extra = {}) => add(SHEETS.CUSTOM_FIELDS, { ...audit, id: id,
+    ticket_type_id: typeId, entity_category: 'ticket', name: name, label: label, type: type, is_required: false,
+    is_hidden: false, sort_order: sort, dropdown_list_id: '', depends_on_field_id: '', ...extra });
+  field('seed_cf_amount', 'seed_tt_pr', 'amount', 'Amount (PHP)', 'amount', 1, { is_required: true });
+  field('seed_cf_dept', 'seed_tt_pr', 'department', 'Department', 'dropdown', 2, { dropdown_list_id: 'seed_dl_dept' });
+  field('seed_cf_needed', 'seed_tt_pr', 'needed_by', 'Needed by', 'date', 3);
+  field('seed_cf_host', 'seed_tt_it', 'hostname', 'Hostname', 'text', 1);
+
+  const role = (id, name, companyId) => add(SHEETS.ROLES, { ...audit, id: id, name: name, company_id: companyId, role_type_id: '' });
+  role('seed_r_admin', 'Seed Admin', '');
+  role('seed_r_mgr', 'Seed Manager', '');
+  role('seed_r_it', 'Seed IT Support', '');
+  role('seed_r_fin_a', 'Seed Finance', 'seed_co_a');
+  role('seed_r_fin_b', 'Seed Finance', 'seed_co_b');
+
+  SEED_USERS.forEach(u => add(SHEETS.USER_PROFILES, { ...audit, ...u, user_profile_type_id: '', status: 'active' }, 'user_id'));
+
+  const assignment = (id, userId, roleId, companyId) => add(SHEETS.USER_ROLE_ASSIGNMENTS, { ...audit, id: id,
+    user_id: userId, role_id: roleId, company_id: companyId, ticket_type_id: '', assignment_type: 'permanent',
+    effective_start_date: '', effective_end_date: '', assigned_by_user_id: 'seed', assignment_notes: 'seed data' });
+  SEED_COMPANIES.forEach(c => {
+    const co = c.id.replace('seed_co_', '');
+    assignment(`seed_ura_mgr_${co}`, 'seed_u_mgr', 'seed_r_mgr', c.id);
+    assignment(`seed_ura_fin_${co}`, 'seed_u_fin', `seed_r_fin_${co}`, c.id);
+    assignment(`seed_ura_it_${co}`, 'seed_u_it', 'seed_r_it', c.id);
+    if (myUserId) {
+      ['admin', 'mgr', 'it'].forEach(r => assignment(`seed_ura_me_${r}_${co}`, myUserId, `seed_r_${r}`, c.id));
+      assignment(`seed_ura_me_fin_${co}`, myUserId, `seed_r_fin_${co}`, c.id);
+    }
+  });
+
+  // Workflows: Manager -> (amount >= 50,000: Finance) -> Procurement task (chains an IT ticket); IT: one task
+  SEED_COMPANIES.forEach(c => {
+    const co = c.id.replace('seed_co_', '');
+    const step = (suffix, typeId, name, status, type, sort, extra = {}) => add(SHEETS.WORKFLOW_STEPS, { ...audit,
+      id: `seed_ws_${co}_${suffix}`, ticket_type_id: typeId, company_id: c.id, name: name, status_on_reach: status,
+      step_type: type, approver_logic: 'any', sort_order: sort, next_ticket_type_id: '', external_app_url: '',
+      completion_action_name: '', ...extra });
+    step('mgr', 'seed_tt_pr', 'Manager Approval', 'Pending Manager Approval', 'approval', 1);
+    step('fin', 'seed_tt_pr', 'Finance Review', 'Pending Finance Review', 'approval', 2);
+    step('po', 'seed_tt_pr', 'Procurement', 'Procurement In Progress', 'task', 3, {
+      external_app_url: 'https://example.com/purchase-orders?ticket={ticket_id}', completion_action_name: 'PO issued',
+      next_ticket_type_id: 'seed_tt_it' });
+    step('it', 'seed_tt_it', 'IT Setup', 'IT Setup In Progress', 'task', 1, { completion_action_name: 'Setup done' });
+
+    [['mgr', 'seed_r_mgr'], ['fin', `seed_r_fin_${co}`], ['po', 'seed_r_it'], ['it', 'seed_r_it']].forEach(([suffix, roleId]) => {
+      add(SHEETS.STEP_APPROVERS, { step_id: `seed_ws_${co}_${suffix}`, role_id: roleId }, 'step_id+role_id');
+    });
+    [['mgr', 24, 'hours', false], ['fin', 2, 'days', true], ['po', 3, 'days', true], ['it', 1, 'days', true]].forEach(([suffix, duration, unit, weekdays]) => {
+      add(SHEETS.STEP_SLAS, { ...audit, id: `seed_sla_${co}_${suffix}`, step_id: `seed_ws_${co}_${suffix}`, duration: duration,
+        unit: unit, exclude_weekends: weekdays });
+    });
+    // Route after Manager Approval: big purchases go to Finance, the rest straight to Procurement
+    add(SHEETS.STEP_CONDITIONS, { ...audit, id: `seed_sc_${co}_big`, step_id: `seed_ws_${co}_mgr`, custom_field_id: 'seed_cf_amount',
+      operator: 'greater_than_or_equal', value: '50000', next_step_id: `seed_ws_${co}_fin`, condition_group: 1, company_id: c.id });
+    add(SHEETS.STEP_CONDITIONS, { ...audit, id: `seed_sc_${co}_default`, step_id: `seed_ws_${co}_mgr`, custom_field_id: '',
+      operator: '', value: '', next_step_id: `seed_ws_${co}_po`, condition_group: 2, company_id: c.id });
+  });
+
+  add(SHEETS.COMMENT_REQUIREMENTS, { ticket_type_id: 'seed_tt_pr', company_id: '', require_on_approve: false, require_on_return: true,
+    require_on_reject: true, require_on_cancel: true, ...audit }, 'ticket_type_id');
+
+  ['ticket_number', 'title', 'status', 'current_step_name', 'sla_status', 'seed_cf_amount', 'seed_cf_dept', 'requester_id', 'created_at']
+    .forEach((fieldName, index) => add(SHEETS.REPORT_CONFIGURATIONS, { ...audit, id: `seed_rc_${index + 1}`, ticket_type_id: 'seed_tt_pr',
+      field_name: fieldName, display_name: '', field_type: fieldName.indexOf('seed_cf_') === 0 ? 'custom' : 'standard',
+      sort_order: index + 1, is_visible: true, is_sortable: true, is_filterable: false, company_id: '' }));
+
+  add(SHEETS.COMPANY_SLA_RULES, { ...audit, id: 'seed_csla_a_mgr', company_id: 'seed_co_a', ticket_type_id: 'seed_tt_pr',
+    step_name: 'Manager Approval', duration: 24, unit: 'business_hours', exclude_weekends: true, exclude_holidays: true,
+    escalation_enabled: true, escalation_delay: 4, escalation_unit: 'hours', escalation_recipients: JSON.stringify(['manny.manager@seed.example']),
+    warning_threshold: 75, business_hours_start: '09:00', business_hours_end: '18:00', business_days: JSON.stringify([1, 2, 3, 4, 5]),
+    timezone: 'Asia/Manila' });
+
+  add(SHEETS.TICKET_TAGS, { ...audit, id: 'seed_tag_urgent', name: 'Seed Urgent', color: '#EF4444', description: 'Seed data',
+    tag_category: 'priority', parent_tag_id: '', company_id: '', is_global: true, usage_count: 0, created_by_user_id: 'seed' });
+  add(SHEETS.TICKET_TAGS, { ...audit, id: 'seed_tag_capex', name: 'Seed CapEx', color: '#8B5CF6', description: 'Seed data',
+    tag_category: 'finance', parent_tag_id: '', company_id: 'seed_co_a', is_global: false, usage_count: 0, created_by_user_id: 'seed' });
+
+  return rows;
+}
+
+/** The record's key value(s) for the "already there?" check. */
+function seedKeyOf(row, record) {
+  return row.key.split('+').map(k => String(record[k])).join('|');
+}
+
+/**
+ * The tickets the seed creates, each with the steps the engine takes it through.
+ * act: [decision, user, comment] - decision is approve / reject / return / complete / cancel / overdue / tag / share
+ */
+function seedTicketScript() {
+  return [
+    { company: 'seed_co_a', title: 'Office chairs (waiting for the manager)', amount: '12000', dept: 'opt_seed_ops', acts: [] },
+    { company: 'seed_co_a', title: 'Server rack (at Finance - over 50k)', amount: '85000', dept: 'opt_seed_fin', acts: [['approve', 'seed_u_mgr']] },
+    { company: 'seed_co_a', title: 'Delivery van (Finance approved, procurement task)', amount: '1200000', dept: 'opt_seed_ops',
+      acts: [['approve', 'seed_u_mgr'], ['approve', 'seed_u_fin']] },
+    { company: 'seed_co_a', title: 'Printer toner (under 50k skips Finance)', amount: '3500', dept: 'opt_seed_ops', acts: [['approve', 'seed_u_mgr']] },
+    { company: 'seed_co_a', title: 'Laptop for new hire (done - chained IT ticket)', amount: '9000', dept: 'opt_seed_it',
+      acts: [['approve', 'seed_u_mgr'], ['complete', 'seed_u_it', 'PO-1001 issued']] },
+    { company: 'seed_co_a', title: 'Conference booth (returned to requester)', amount: '50000', dept: 'opt_seed_ops',
+      acts: [['return', 'seed_u_mgr', 'Please attach the quotation']] },
+    { company: 'seed_co_a', title: 'Espresso machine (rejected by Finance)', amount: '70000', dept: 'opt_seed_ops',
+      acts: [['approve', 'seed_u_mgr'], ['reject', 'seed_u_fin', 'Not in this year\'s budget']] },
+    { company: 'seed_co_a', title: 'Team shirts (cancelled by requester)', amount: '15000', dept: 'opt_seed_ops',
+      acts: [['cancel', 'seed_u_req', 'Ordered through HR instead']] },
+    { company: 'seed_co_a', title: 'Backup drives (overdue at Manager)', amount: '20000', dept: 'opt_seed_it', acts: [['overdue']] },
+    { company: 'seed_co_a', title: 'Firewall licence (tagged + shared)', amount: '60000', dept: 'opt_seed_it',
+      acts: [['tag', 'seed_u_req'], ['share', 'seed_u_req']] },
+    { company: 'seed_co_b', title: 'Beta: whiteboards (waiting for the manager)', amount: '8000', dept: 'opt_seed_ops', acts: [] },
+    { company: 'seed_co_b', title: 'Beta: CRM licences (at Finance)', amount: '150000', dept: 'opt_seed_it', acts: [['approve', 'seed_u_mgr']] }
+  ];
+}
+
+/**
+ * Seed (dry run unless apply). Master rows are added when their key is missing; tickets only when the seed
+ * companies have none yet.
+ * @param {boolean} apply - false = report only
+ * @param {string} myUserId - Firebase uid to give seed roles
+ * @returns {Object} { apply, master: { table: count }, tickets: [{ title, status }], warnings }
+ */
+function runSeed(apply, myUserId) {
+  const warnings = [];
+  const version = String(typeof API_VERSION === 'undefined' ? '0' : API_VERSION).split('.').map(Number);
+  if (version[0] < 9 || (version[0] === 9 && version[1] < 3)) {
+    throw new Error('The seed needs the main APPSCRIPT file v9.3 or later in the same project');
+  }
+  const missingTabs = [SHEETS.COMPANIES, SHEETS.DROPDOWN_COMPANY_ASSIGNMENTS, SHEETS.COMPANY_SLA_RULES, SHEETS.TICKET_TAGS]
+    .filter(name => !SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(name));
+  if (missingTabs.length) throw new Error(`Run rebuildAllTablesApply() first - missing tabs: ${missingTabs.join(', ')}`);
+  if (!myUserId) warnings.push('SEED_MY_USER_ID is empty: you get no seed roles (seed users can still be acted as by the engine)');
+
+  // --- Master data ---
+  const master = {};
+  const existing = {};
+  seedMasterRows(myUserId).forEach(row => {
+    if (!existing[row.table]) {
+      const table = readTable(row.table);
+      existing[row.table] = {};
+      (table ? table.records : []).forEach(r => { existing[row.table][seedKeyOf(row, r)] = true; });
+    }
+    const key = seedKeyOf(row, row.record);
+    if (existing[row.table][key]) return;
+    existing[row.table][key] = true;
+    master[row.table] = (master[row.table] || 0) + 1;
+    if (apply) appendRecord(row.table, row.record);
+  });
+
+  // --- Tickets, through the real engine ---
+  const ticketsTable = readTable(SHEETS.TICKETS);
+  const seeded = (ticketsTable ? ticketsTable.records : []).some(t => String(t.company_id).indexOf('seed_') === 0);
+  const tickets = [];
+  if (seeded) {
+    warnings.push('The seed companies already have tickets - none added (run removeSeedDataApply first to start over)');
+  } else {
+    seedTicketScript().forEach(script => {
+      if (!apply) {
+        tickets.push({ title: script.title, status: '(would be created)' });
+        return;
+      }
+      const created = createTicket({ title: script.title, ticket_type_id: 'seed_tt_pr', company_id: script.company,
+        requester_id: 'seed_u_req', description: 'Seed data', priority: script.amount >= 50000 ? 'high' : 'medium',
+        customData: { seed_cf_amount: script.amount, seed_cf_dept: script.dept, seed_cf_needed: '2026-12-01' } });
+      const id = created.id;
+      script.acts.forEach(([decision, userId, comment]) => {
+        let result = { status: 'success' };
+        if (decision === 'cancel') {
+          result = cancelTicketWithReason(id, comment, userId);
+        } else if (decision === 'overdue') {
+          updateRecordFields(SHEETS.TICKETS, id, { step_due_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) });
+        } else if (decision === 'tag') {
+          result = assignTagsAction({ ticket_id: id, tag_ids: ['seed_tag_urgent', 'seed_tag_capex'], user_id: userId, notes: 'seed data' });
+        } else if (decision === 'share') {
+          result = shareTicketAction({ ticket_id: id, shared_with_user_id: 'seed_u_it', permission_level: 'comment',
+            share_reason: 'Seed data: IT reviews the licence', user_id: userId });
+        } else {
+          result = submitStepApproval({ ticket_id: id, user_id: userId, decision: decision, comment: comment || 'seed data' });
+        }
+        if (result.status === 'error') warnings.push(`"${script.title}" ${decision}: ${result.message}`);
+      });
+      tickets.push({ title: script.title, status: getTicketById(id).data.status });
+    });
+  }
+
+  const report = { apply: apply, master: master, tickets: tickets, warnings: warnings };
+  Logger.log(`=== SEED ${apply ? 'APPLIED' : 'DRY RUN (nothing written)'} ===`);
+  Object.keys(master).forEach(table => Logger.log(`  ${table}: +${master[table]}`));
+  tickets.forEach(t => Logger.log(`  ticket: ${t.title} -> ${t.status}`));
+  warnings.forEach(w => Logger.log(`  WARNING: ${w}`));
+  return report;
+}
+
+/**
+ * Remove the seed (dry run unless apply): rows whose id / key starts with seed_ (dropdown options: opt_seed_),
+ * the seed companies' tickets and everything that hangs off them, and their ticket number counters.
+ * @returns {Object} { apply, removed: { table: count } }
+ */
+function runSeedRemoval(apply) {
+  const isSeed = value => String(value || '').indexOf('seed_') === 0;
+  const tickets = readTable(SHEETS.TICKETS);
+  const ticketIds = {};
+  (tickets ? tickets.records : []).forEach(t => { if (isSeed(t.company_id)) ticketIds[String(t.id)] = true; });
+  const shares = readTable(SHEETS.TICKET_COLLABORATIONS);
+  const shareIds = {};
+  (shares ? shares.records : []).forEach(c => { if (ticketIds[String(c.ticket_id)]) shareIds[String(c.id)] = true; });
+  // v1.2: + the AppScript v10.2 monthly usage counters of the seed companies
+  const counterNames = SEED_COMPANIES.map(c => c.code + '-').concat(SEED_COMPANIES.map(c => `usage:${c.id}:`));
+
+  const rules = [
+    [SHEETS.COMPANIES, r => isSeed(r.id)],
+    [SHEETS.TICKET_TYPES, r => isSeed(r.id)],
+    [SHEETS.CUSTOM_FIELDS, r => isSeed(r.id)],
+    [SHEETS.DROPDOWN_LISTS, r => isSeed(r.id)],
+    [SHEETS.DROPDOWN_OPTIONS, r => isSeed(r.dropdown_list_id) || String(r.id).indexOf('opt_seed_') === 0],
+    [SHEETS.DROPDOWN_COMPANY_ASSIGNMENTS, r => isSeed(r.id) || isSeed(r.dropdown_list_id)],
+    [SHEETS.ROLES, r => isSeed(r.id)],
+    [SHEETS.USER_PROFILES, r => isSeed(r.user_id)],
+    [SHEETS.USER_ROLE_ASSIGNMENTS, r => isSeed(r.id) || isSeed(r.role_id)],
+    [SHEETS.WORKFLOW_STEPS, r => isSeed(r.id) || isSeed(r.company_id)],
+    [SHEETS.STEP_APPROVERS, r => isSeed(r.step_id)],
+    [SHEETS.STEP_SLAS, r => isSeed(r.id) || isSeed(r.step_id)],
+    [SHEETS.STEP_CONDITIONS, r => isSeed(r.id) || isSeed(r.step_id)],
+    [SHEETS.COMMENT_REQUIREMENTS, r => isSeed(r.ticket_type_id)],
+    [SHEETS.REPORT_CONFIGURATIONS, r => isSeed(r.id) || isSeed(r.ticket_type_id)],
+    [SHEETS.COMPANY_SLA_RULES, r => isSeed(r.id) || isSeed(r.company_id)],
+    [SHEETS.TICKET_TAGS, r => isSeed(r.id) || isSeed(r.company_id)],
+    [SHEETS.TICKETS, r => ticketIds[String(r.id)]],
+    [SHEETS.TICKET_HISTORY, r => ticketIds[String(r.ticket_id)]],
+    [SHEETS.TICKET_ACTION_LOGS, r => ticketIds[String(r.ticket_id)]],
+    [SHEETS.CUSTOM_FIELD_VALUES, r => ticketIds[String(r.ticket_id)] && String(r.entity_category || 'ticket') === 'ticket'],
+    [SHEETS.TICKET_LINKS, r => ticketIds[String(r.parent_ticket_id)] || ticketIds[String(r.child_ticket_id)]],
+    [SHEETS.TICKET_TAG_ASSIGNMENTS, r => ticketIds[String(r.ticket_id)] || isSeed(r.tag_id)],
+    [SHEETS.TICKET_COLLABORATIONS, r => shareIds[String(r.id)]],
+    [SHEETS.COLLABORATION_NOTIFICATIONS, r => shareIds[String(r.collaboration_id)]],
+    [SHEETS.SEQUENCE_COUNTERS, r => counterNames.some(prefix => String(r.sequence_name).indexOf(prefix) === 0)],
+    // v1.2: plans of the seed companies (AppScript v10.2+; older files have no such tab)
+    ...(SHEETS.COMPANY_SUBSCRIPTIONS ? [[SHEETS.COMPANY_SUBSCRIPTIONS, r => isSeed(r.company_id)]] : []),
+    // v1.1: AppScript v10.0 participants (requester / head / acted / shared / pool rows of the seed tickets), and the
+    // workflow notifications + outbox emails the seed tickets caused
+    [SHEETS.TICKET_PARTICIPANTS, r => ticketIds[String(r.ticket_id)]],
+    [SHEETS.NOTIFICATIONS, r => ticketIds[String(r.ticket_id)]],
+    [SHEETS.EMAIL_OUTBOX, r => ticketIds[String(r.ticket_id)]]
+  ].filter(([sheetName]) => !!sheetName); // a main file before v10.0 has no SHEETS.TICKET_PARTICIPANTS / EMAIL_OUTBOX
+
+  const removed = {};
+  rules.forEach(([sheetName, match]) => {
+    const table = readTable(sheetName);
+    if (!table) return;
+    const rowNumbers = table.records.map((r, i) => (match(r) ? table.rowNumbers[i] : null)).filter(n => n !== null);
+    if (rowNumbers.length === 0) return;
+    removed[sheetName] = rowNumbers.length;
+    if (apply) rowNumbers.sort((a, b) => b - a).forEach(n => table.sheet.deleteRow(n));
+  });
+
+  Logger.log(`=== SEED REMOVAL ${apply ? 'APPLIED' : 'DRY RUN (nothing deleted)'} ===`);
+  Object.keys(removed).forEach(table => Logger.log(`  ${table}: -${removed[table]}`));
+  if (Object.keys(removed).length === 0) Logger.log('  nothing to remove');
+  return { apply: apply, removed: removed };
+}
+
+/** Dry run: what the seed would add. */
+function seedTestData(myUserId) {
+  return runSeed(false, typeof myUserId === 'string' ? myUserId : SEED_MY_USER_ID);
+}
+
+/** Add the seed data (under the script lock, like every write). */
+function seedTestDataApply(myUserId) {
+  const uid = typeof myUserId === 'string' ? myUserId : SEED_MY_USER_ID;
+  return withScriptLock(() => runSeed(true, uid));
+}
+
+/** Dry run: what removeSeedDataApply would delete. */
+function removeSeedData() {
+  return runSeedRemoval(false);
+}
+
+/** Delete every seed row (see runSeedRemoval). */
+function removeSeedDataApply() {
+  return withScriptLock(() => runSeedRemoval(true));
+}

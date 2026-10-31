@@ -124,7 +124,7 @@ Version line since 31 Oct 2026 (session ff4c803f): v10.0 → **v10.1** country c
 | 40 | File uploads | 3 | 0 % | 100 % | backlog (last) |
 | 42 | Country calendars (year, holidays, weekends) + company time zone | 3 | 0 % | 100 % | v10.1 - **built** (T1 calendars + clock + region, T2 SLA / ticket YEAR / filters / Due Today on the company clock, T3 Country Calendars + Region screens, holidays per company) |
 | 43 | Per-user display time zone | 1 | 0 % | 100 % | v10.1 - **built** (Profile → Display time zone, dateTime.js effective zone; gated to Advanced+ in v10.2) |
-| 44 | Plan catalogue + gate + limits + platform admin | 3 | 0 % | 100 % | v10.2 |
+| 44 | Plan catalogue + gate + limits + platform admin | 3 | 0 % | 100 % | v10.2 - **built** (P1: `PLAN_CATALOG`, `companyPlan`, central gate + in-handler checks, limits + monthly usage counter, platform admins, `seedCompanySubscriptions`; `/plans` catalogue page) |
 | 45 | Subscriptions: trial end, grace, read-only, renew / downgrade | 3 | 0 % | 100 % | v10.2 |
 | 46 | Invoices (no payment integration) | 1 | 0 % | 100 % | v10.2 |
 | 47 | Template library + adopt (Basic) + managed setup | 2 | 0 % | 100 % | v10.2 |
@@ -156,6 +156,7 @@ Table C's effort-point totals aren't used for the headline: they gave the spec 9
 | 1 Nov 2026 | v10.1 T1 built, not live | 87.0 % | 60.5 % | session ff4c803f: country calendars + company clock helpers, holidays per country, region route, PH migration (feature 42 ≈ 40 %). Built-only roadmap 74.6 % |
 | 1 Nov 2026 | v10.1 T2 built, not live | 87.0 % | 60.5 % | session ff4c803f: call sites on the company clock - SLA rules + step SLAs (country weekends / working days, holidays), escalation run + email dates, Due Today, ticket number YEAR, report / list date days; getTickets always paged (D6); ADMIN_Tools v1.4 (feature 42 ≈ 80 %). Built-only roadmap 75.1 % |
 | 1 Nov 2026 | **v10.1 closed** (built, not live) | 87.0 % | 60.5 % | session ff4c803f: T3 frontend (dateTime.js + effective zone, Country Calendars, Company Region, Profile display zone, holidays per company), A17 v3 / F3 v3 checks, review CR5-01..07 fixed (`docs/planning/TODO_CodeReview_20261101_v10.1.md`). Built-only = the planned v10.1 column: **88.0 % spec / 76.1 % roadmap** (features 42 + 43 = 4 / 4 pts; feature 16 gap closed) - the headline moves there once v10.0 + v10.1 are deployed and checked |
+| 1 Nov 2026 | v10.2 P1 built, not live | 87.0 % | 60.5 % | session 41700a8e (continues ff4c803f): plan catalogue + gate + limits + platform admins + usage counter + legacy migration, `/plans` catalogue page (feature 44 = 3 / 3 pts). Built-only roadmap **78.1 %** |
 
 ---
 
