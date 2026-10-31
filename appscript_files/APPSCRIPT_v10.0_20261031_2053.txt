@@ -2,7 +2,7 @@
 =================================================================================
  * Ticketing & Workflow Orchestration System - Google Apps Script Backend API
  *
- * Version: 10.0 (ticket access: visibility per ticket type, who can create, ... - on v9.7; in progress, see Phase 19.0)
+ * Version: 10.0 (ticket access + volume: visibility, who can create, participants, paging, Restricted, notifications - on v9.7)
  * Phase 1A: Custom Fields System (12 functions) → v6.1
  * Phase 1B: Workflow Steps System (18 functions) → v6.2
  * Phase 1C: Ticket Management (15 functions) → v6.3
@@ -162,7 +162,7 @@
  *   - Rebuild apply needed: 2 new tabs (ticket_participants, email_outbox); ticket_types + 4, tickets + 3, custom_fields + 1,
  *     notifications + 1 columns
  *
- * Deploy description: v10.0 20261031_2053 - ticket visibility per type + who can create (in progress)
+ * Deploy description: v10.0 20261031_2053 - visibility, paging, Restricted, notifications, outbox
  *   (paste at redeploy: Deploy > Manage deployments > Edit > New version > Description)
  *
  * Last Updated: October 31, 2026 20:53 UTC+8 (file: APPSCRIPT_v10.0_20261031_2053.txt)

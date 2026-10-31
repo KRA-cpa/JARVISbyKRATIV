@@ -1035,11 +1035,12 @@ test('CR4-09: the requester\'s own ticket read builds no actor scope (no partici
     assert.ok(!tabs.includes(tab), `${tab} read: ${tabs.join(', ')}`));
 });
 
-test('ping reports 10.0.0 = header Version; the file has one definition of each new helper (A20)', () => {
+test('ping reports 10.0.0 or later = header Version; the file has one definition of each new helper (A20)', () => {
   const env = seed();
-  assert.strictEqual(env.rt.get({ action: 'ping' }).version, '10.0.0');
+  const version = env.rt.get({ action: 'ping' }).version;
+  assert.ok(version.localeCompare('10.0.0', undefined, { numeric: true }) >= 0, version);
   const source = fs.readFileSync(FILE, 'utf8');
-  assert.match(source, /\* Version: 10\.0 /);
+  assert.ok(source.includes(`* Version: ${version.replace(/\.0$/, '')} `), `header Version = ${version}`);
   ['buildActorScope', 'canViewTicket', 'canCreateTicket', 'ticketReadGuard', 'getCreatableTicketTypes', 'mayReadTicket'].forEach(name =>
     assert.strictEqual((source.match(new RegExp(`^function ${name}\\(`, 'gm')) || []).length, 1, name));
   assert.ok(!/function canSeeTicketLinks\(/.test(source), 'the v9.6 interim rule is gone (C2)');

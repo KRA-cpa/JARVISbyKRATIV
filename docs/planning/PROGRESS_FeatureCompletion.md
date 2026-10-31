@@ -120,7 +120,7 @@ Version line since 31 Oct 2026 (session ff4c803f): v10.0 → **v10.1** country c
 | 39 | Unmounted component clean-up | 1 | 0 % | 100 % | v10.4 |
 | 41 | User onboarding / invites | 2 | 0 % | 100 % | v9.6 |
 | 40 | File uploads | 3 | 0 % | 100 % | backlog (last) |
-| 42 | Country calendars (year, holidays, weekends) + company time zone | 3 | 0 % | 100 % | v10.1 |
+| 42 | Country calendars (year, holidays, weekends) + company time zone | 3 | 0 % | 100 % | v10.1 - **T1 built** (calendars, clock, holidays, region; call sites in T2) |
 | 43 | Per-user display time zone | 1 | 0 % | 100 % | v10.1 (gated to Advanced+ in v10.2) |
 | 44 | Plan catalogue + gate + limits + platform admin | 3 | 0 % | 100 % | v10.2 |
 | 45 | Subscriptions: trial end, grace, read-only, renew / downgrade | 3 | 0 % | 100 % | v10.2 |
@@ -150,6 +150,8 @@ Table C's effort-point totals aren't used for the headline: they gave the spec 9
 | 31 Oct 2026 | v10.0 M4 built, not live | 87.0 % | 60.5 % | session ff4c803f: Restricted tickets + fields (features 26, 27) + the createCustomField key fix. Built-only: spec 88.0 %, roadmap 70.3 % ("Visibility + who creates + Restricted" 10 / 10 pts) |
 | 31 Oct 2026 | v10.0 M5 built, not live | 87.0 % | 60.5 % | session ff4c803f: workflow notifications + email outbox (feature 25). Built-only: spec 88.0 %, roadmap 72.9 % ("Notifications" 6 / 6 pts) |
 | 1 Nov 2026 | **v10.0 closed** (built, not live) | 87.0 % | 60.5 % | session ff4c803f: all v10.0 features built (23-28). Built-only it equals the planned v10.0 column: **88.0 % spec / 73.5 % roadmap** - the headline moves there once v10.0 is deployed and the browser checks pass |
+| 1 Nov 2026 | v10.0 review fixed (CR4-01..10) | 87.0 % | 60.5 % | session ff4c803f: `docs/planning/TODO_CodeReview_20261101.md`; no scope change |
+| 1 Nov 2026 | v10.1 T1 built, not live | 87.0 % | 60.5 % | session ff4c803f: country calendars + company clock helpers, holidays per country, region route, PH migration (feature 42 ≈ 40 %). Built-only roadmap 74.6 % |
 
 ---
 

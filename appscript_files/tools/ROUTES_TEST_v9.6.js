@@ -399,10 +399,13 @@ test('schema: user_invites tab, 4 link columns, 5 company email columns with def
   const S = rt.ctx.__TABLE_SCHEMAS;
   assert.ok(S.user_invites.includes('role_grants') && S.user_invites.includes('accepted_uid'));
   lib.same(S.ticket_attachments.slice(-4), ['link_status', 'reported_by', 'reported_at', 'report_note']);
-  lib.same(S.companies.slice(-5), ['email_enabled', 'email_sender_name', 'email_reply_to', 'email_cc', 'email_footer']);
+  // by name: v10.1 adds columns after them
+  const emailColumns = ['email_enabled', 'email_sender_name', 'email_reply_to', 'email_cc', 'email_footer'];
+  const at = S.companies.indexOf('email_enabled');
+  lib.same(S.companies.slice(at, at + 5), emailColumns);
   // an old companies tab gets email_enabled = default on rebuild
   const old = lib.makeRuntime(FILE, {});
-  old.table('companies', S.companies.slice(0, -5), [['co_9', 'Old', 'OLD']]);
+  old.table('companies', S.companies.slice(0, at), [['co_9', 'Old', 'OLD']]);
   old.ctx.rebuildAllTablesApply();
   assert.strictEqual(old.ctx.readTable('companies').records[0].email_enabled, 'default');
   assert.strictEqual(old.ctx.rebuildAllTables(true).repaired.length, 0);
