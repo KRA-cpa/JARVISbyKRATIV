@@ -2,11 +2,12 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_FeatureGaps_Volume_20261031.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: PLAN_FeatureGaps_Volume_20261031.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 31 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Missing features (except attachments), the user's decisions on them, and how they hold up at volume on Sheets and Postgres (reco-style) - the AppScript v10 line | Status: Approved (session 2d369f00), not built
 REVISION HISTORY:
 - v1.0.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Initial plan (session 2d369f00); progress figures split out to PROGRESS_FeatureCompletion.md
+- v1.1.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User decisions: onboarding / invites in v9.6 (§4.12), no head set → submit blocked, notification partition drop on Postgres approved
 ===============================================================================
 -->
 
@@ -33,7 +34,7 @@ The user asked which features are missing (attachments / attachment links left o
 
 **Version line (decided 31 Oct 2026):** this conversation's changes are a **major version: AppScript v10**. v9.6 stays as planned in session 7e008704 (auth hardening, attachment links, company email, idle sign-out). Then **v10.0** = visibility / Restricted / pagination / notifications, **v10.1** = head approval / delegation / bulk, **v10.2** = comments and the rest. Why it's major: `getTickets` changes its response shape (paged), and ticket reads now depend on who the caller is, which every screen has to handle.
 
-Already planned for v9.6 (not repeated here): admin-only action list + sign-in allow-list, company email settings, idle sign-out, plus **user onboarding / invites** (ST-2, pending user agreement). Backlog: file uploads, the slaCalculator +8 h bug, the ticket type Edit route, Neon Phase 0.
+Already planned for v9.6 (not repeated here): admin-only action list + sign-in allow-list, company email settings, idle sign-out, plus **user onboarding / invites** (ST-2 and §4.12, decided 31 Oct 2026). Backlog: file uploads, the slaCalculator +8 h bug, the ticket type Edit route, Neon Phase 0.
 
 ---
 
@@ -60,7 +61,7 @@ Already planned for v9.6 (not repeated here): admin-only action list + sign-in a
 2. **Visibility per ticket type:** `ticket_types.visibility` = `private` (default) | `collaborative` (later maybe `department`). Set next to `enable_tags` / `enable_sharing` via `setTicketTypeFeatures`; no lock.
    - `private`: requesters see their own tickets + the ones they're involved in (shared / acted on / can act now / watching). Approver roles on that type + company see all of them.
    - `collaborative`: any role on that type + company sees all of them. Admins see everything.
-3. **Immediate head approval:** ticket type switch `require_immediate_head_approval`. A system step runs before the configured chain and goes to the head (or the backup approver if no head). If no head is set, submitting is blocked (default, can be changed). SLA comes from a company SLA rule named "Immediate head approval" if one exists.
+3. **Immediate head approval:** ticket type switch `require_immediate_head_approval`. A system step runs before the configured chain and goes to the head (or the backup approver if no head). If no head (and no backup) is set, submitting is blocked (decided 31 Oct 2026). SLA comes from a company SLA rule named "Immediate head approval" if one exists.
 4. **Delegation (optional):** set by the approver (Profile) or by an admin. Fields: delegate, date range, optional ticket types (default all, the head step included). The approver keeps access. Recorded "on behalf of". No chaining, no self-delegation.
 5. **Confidential fields** (label: Restricted): a custom field can be tagged confidential. Its value is shown only to people **in the ticket's chain**. Everyone else who can see the ticket (collaborative scope, shared, watchers, non-chain approver roles) sees it **masked**, even on a collaborative ticket. Details in §4.10.
 6. **Confidential tickets** (label: Restricted): a whole ticket can be confidential. People outside its chain see only a **masked stub**. **No sharing.** Chained children **don't inherit**: they follow their own ticket type's setting. Set per ticket type: off / optional (requester ticks it) / always. Admin access is per ticket type with **3 options** (reveal with reason, the default / always see / never see). Details in §4.11.
@@ -164,6 +165,14 @@ Each ticket keeps its own list of who is involved, written **at the moment of th
 - **Notifications / email:** chain members get the normal text. Watchers aren't allowed on confidential tickets unless they're in the chain. Email subjects never include the title, only "[JARVIS] <ticket number> needs your action".
 - **Volume:** no extra tab reads. `canViewTicket` returns `full | stub | none`, using the same `isInChain` maps as §4.10. On PG the page query adds `case when t.is_confidential and not is_in_chain then stub` in the select, with no extra query. The index `tickets(company_id, ticket_type_id, created_at desc, id desc)` still serves it.
 
+### 4.12 User onboarding / invites (v9.6, decided 31 Oct 2026)
+The v9.6 sign-in allow-list refuses a verified user with no active `user_profiles` row, so new staff need a way in.
+- **New tab `user_invites`** (v9.6 rebuild apply): `id, email (lower-case), display_name, company_id, user_profile_type_id, role_grants (json: role_id + ticket_type_id + company_id + dates), immediate_approver_id, backup_approver_id, status (pending | accepted | revoked | expired), expires_at (default 14 days), invited_by, accepted_uid, accepted_at + audit`. A separate tab means no re-keying: profile and role rows are written **once, with the real uid**, when the invite is accepted.
+- **Admin → Users → Invite:** create / resend / revoke (soft), list pending. Admin-only (v9.6 `ADMIN_ONLY` list); `INVITE_CREATED` / `INVITE_REVOKED` / `INVITE_ACCEPTED` in `admin_action_logs`. The invite email uses the v9.6 company email settings (sender name / Reply-To) and carries only the app URL - no token in the link; the Google sign-in **is** the proof.
+- **Accepting (server decides, F1 / F6):** the proxy forwards the verified uid **and email** from the Firebase token (only when `email_verified`; identity fields in the body stay stripped). In `doPost`, an actor with no active profile → look up a `pending`, unexpired invite for that email → create the profile + role assignments with `actorId`, mark it accepted, in one `withScriptLock` → continue the request. No invite → `NOT_INVITED`, and the login page says "Your account isn't set up yet. Ask your administrator for an invite."
+- **Bootstrap:** the v9.6 first-admin rule still applies while no active admin exists (the first signed-in user can be made admin from the JARVIS Admin menu, not automatically).
+- **Volume / reco:** the allow-list check would add a `user_profiles` read to **every** request (P1 / A16). The fix is `CacheService` key `allow:<uid>` (10 min), set on a pass and removed when a profile is deactivated. `user_invites` is read only on the rare no-profile path. Tests: invite → first sign-in creates profile + roles; expired / revoked / wrong-email refused; second sign-in uses the cache (read-count assert); a deactivated user is refused within the same request (cache removed).
+
 ---
 
 ## §5 Apps Script implementation (v10.0 + v10.1)
@@ -240,7 +249,7 @@ Same as §5.1 / §5.2 plus `tickets.version int` (optimistic lock), `tickets.sea
 | outbox drain (cron) | 3 per batch of 100 (`for update skip locked`) | outbox partial |
 
 ### 6.5 Growth handling
-`notifications`, `ticket_history`, `ticket_action_logs`, `ticket_participants`: monthly range partitions once a table passes ~1M rows. Notifications that are read and > 90 days old are deleted by partition drop (they're not records; the history keeps the facts). This is the one documented exception to "soft delete only", **flag for the user's approval**. Reports run on the read replica.
+`notifications`, `ticket_history`, `ticket_action_logs`, `ticket_participants`: monthly range partitions once a table passes ~1M rows. Notifications that are read and > 90 days old are deleted by partition drop (they're not records; the history keeps the facts). This is the one documented exception to "soft delete only", **approved by the user 31 Oct 2026**. Reports run on the read replica.
 
 ---
 
@@ -296,6 +305,6 @@ Grounded in the Claude web reco (19 Oct 2026, verdicts in `docs/planning/REVIEW_
 | S6 unused helpers | not ported | - | - |
 | §9 latency / query budgets | Claude.md v4.0 | new actions without a budget | §3 targets, §5.4 (Sheets) and §6.4 (Postgres) per action; §8 "what breaks first at 10×" |
 
-**ST-2 (from the old TODO list, reco-grounded):** user onboarding / invites follows from S1 (the v9.6 allow-list refuses users without a `user_profiles` row), so it is proposed **for v9.6**. Nothing else from `SUPERTHINK_TODO_ANALYSIS_2025-09-27.md` is pulled in (tag admin page, MFA, stats and the rest stay out until asked).
+**ST-2 (from the old TODO list, reco-grounded):** user onboarding / invites follows from S1 (the v9.6 allow-list refuses users without a `user_profiles` row), so it **ships in v9.6** (decided 31 Oct 2026, design in §4.12). Nothing else from `SUPERTHINK_TODO_ANALYSIS_2025-09-27.md` is pulled in (tag admin page, MFA, stats and the rest stay out until asked).
 
 **ST-3 gate:** `npm run check:code-rules` (with the new `canViewTicket` rule), `npm run check:api-contract`, `npm run build:ci`, the read-count tests, and the P8 whole-file `/code-review` of v10.0.

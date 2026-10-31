@@ -2,25 +2,26 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PROGRESS_FeatureCompletion.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: PROGRESS_FeatureCompletion.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 31 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Living record of how complete JARVISbyERP is - against the original spec and against the full roadmap - recalculated at every version close | Status: Active (living document, not dated)
 REVISION HISTORY:
 - v1.0.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created from PLAN_FeatureGaps_Volume_20261031.md §10 (session 2d369f00); method carried over from session 7e008704 (30 Oct 2026)
+- v1.1.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Scope +2 (user onboarding / invites in v9.6): roadmap total 138 → 140, figures recalculated
 ===============================================================================
 -->
 
 # PROGRESS — Feature completion
 
-> **Headline (31 Oct 2026, v9.5 live):** **78.8 %** of the original spec · **58.6 %** of the full roadmap (spec + the v10 plan).
-> After this plan (v10.2): 88.0 % spec · 91.3 % roadmap. 100 % on both needs file uploads + the ticket type Edit route.
+> **Headline (31 Oct 2026, v9.5 live):** **78.8 %** of the original spec · **57.8 %** of the full roadmap (spec + the v10 plan).
+> After this plan (v10.2): 88.0 % spec · 91.4 % roadmap. 100 % on both needs file uploads + the ticket type Edit route.
 
 ---
 
 ## §1 Method
 
 - **Spec basis (A):** the 8 areas of `Claude.md` §3 with the weights set on 30 Oct 2026 (session 7e008704): 3.1 users & permissions 15, 3.2 numbering 5, 3.3 admin config 30, 3.4 lifecycle / dashboard / reports 20, 3.5 audit 10, SLA escalation 5, tags & sharing 5, attachments 10. Only spec work moves it.
-- **Rebased scope (B):** the spec's 100 points plus the features planned in `docs/planning/PLAN_FeatureGaps_Volume_20261031.md`, on the same scale (38 points on 31 Oct 2026 → 138 in all). It moves when roadmap features land; its total changes when scope changes (§5).
+- **Rebased scope (B):** the spec's 100 points plus the features planned in `docs/planning/PLAN_FeatureGaps_Volume_20261031.md`, on the same scale (40 points on 31 Oct 2026 → 140 in all). It moves when roadmap features land; its total changes when scope changes (§5).
 - **Per feature (C):** status detail with effort points (S = 1, M = 2, L = 3, XL = 5). Its totals are **not** a headline: it counts what's built, not the spec's full breadth.
 - **Scoring:** 100 % = route + mounted screen that reaches it + offline tests passing (compliance P5), **deployed live and checked in the browser**. Backend only = 50 %; done with a known gap = 75–90 %. These are estimates from reading the code, not measurements.
 - **Not counted:** the Neon / Vercel migration (infrastructure, not a feature).
@@ -48,21 +49,22 @@ REVISION HISTORY:
 
 The spec basis gives the new features **no credit** (head approval, delegation, Restricted, notifications aren't in the spec), so it stalls at 88 %. Hence a rebased scope:
 
-### B. Rebased scope (the spec + this plan's features; same scale, 138 pts)
+### B. Rebased scope (the spec + this plan's features; same scale, 140 pts)
 
 | New area (pts on the spec's scale) | Wt | Now | v9.6 | v10.0 | v10.1 | v10.2 | Basis for "now" |
 |---|---|---|---|---|---|---|---|
+| User onboarding / invites | 2 | 0 | **2** | 2 | 2 | 2 | |
 | Visibility + who creates + Restricted tickets / fields | 10 | 0 | 0 | **10** | 10 | 10 | |
 | Pagination + search + volume ops (participants, archive, size check, perf log) | 6 | 0.9 | 0.9 | **6** | 6 | 6 | v9.4 cache + read-count tests (≈15 %) |
 | Notifications: workflow events + email outbox + company email | 6 | 0 | **2** | **6** | 6 | 6 | `triggerWorkflowNotifications` only logs; v9.6 company email = 2 |
 | Immediate head + delegation + bulk approve | 6 | 0.2 | 0.2 | 0.2 | **6** | 6 | unmounted `BulkOperationsManager` |
 | Comments + mentions + watchers, drafts | 4 | 0 | 0 | 0 | 0 | **4** | |
 | SLA analytics, expiring assignments, print / PDF, webhooks, task callback, component clean-up | 6 | 1.0 | 1.0 | 1.0 | 1.0 | **6** | analytics + expiring routes exist, no screens |
-| **New areas earned** | 38 | 2.1 | 4.1 | 23.2 | 29.0 | 38.0 | |
+| **New areas earned** | 40 | 2.1 | 6.1 | 25.2 | 31.0 | 40.0 | |
 | Spec earned (from A) | 100 | 78.8 | 87.0 | 88.0 | 88.0 | 88.0 | |
-| **Rebased total (of 138)** | 138 | **58.6 %** | **66.0 %** | **80.6 %** | **84.8 %** | **91.3 %** | backlog → 100 % |
+| **Rebased total (of 140)** | 140 | **57.8 %** | **66.5 %** | **80.9 %** | **85.0 %** | **91.4 %** | backlog → 100 % |
 
-**Headline:** the original spec is at **~79 %** now. It reaches **~87 %** after v9.6 and **100 %** only once uploads + the ticket type Edit route land. On the bigger scope that includes this plan, the app is at **~59 %** now and **~91 %** after v10.2.
+**Headline:** the original spec is at **~79 %** now. It reaches **~87 %** after v9.6 and **100 %** only once uploads + the ticket type Edit route land. On the bigger scope that includes this plan, the app is at **~58 %** now and **~91 %** after v10.2.
 
 ---
 
@@ -109,6 +111,7 @@ The spec basis gives the new features **no credit** (head approval, delegation, 
 | 37 | Outbound webhooks | 2 | 0 % | 100 % | v10.2 |
 | 38 | Print / PDF ticket | 1 | 0 % | 100 % | v10.2 |
 | 39 | Unmounted component clean-up | 1 | 0 % | 100 % | v10.2 |
+| 41 | User onboarding / invites | 2 | 0 % | 100 % | v9.6 |
 | 40 | File uploads | 3 | 0 % | 100 % | backlog (last) |
 
 Table C's effort-point totals aren't used for the headline: they gave the spec 96 % because they count features as built, not the spec's full breadth. A and B carry on the 30 Oct method so the trend (40 % → 79 % → …) stays comparable.
@@ -124,6 +127,7 @@ Table C's effort-point totals aren't used for the headline: they gave the spec 9
 | 19 Oct 2026 | (as quoted on 30 Oct) | ~40 % | - | figure quoted in session 7e008704; its basis wasn't recorded |
 | 30 Oct 2026 | v9.5 built, not deployed | 78.8 % | - | session 7e008704 (first weighted estimate) |
 | 31 Oct 2026 | v9.5 live | 78.8 % | 58.6 % | session 2d369f00: scope +38 pts (§5); "built" and "live" now match for v9.5 |
+| 31 Oct 2026 | scope +2 (invites, v9.6) | 78.8 % | 57.8 % | session 2d369f00: roadmap total 138 → 140 |
 
 ---
 
@@ -137,4 +141,4 @@ Table C's effort-point totals aren't used for the headline: they gave the spec 9
 | 31 Oct 2026 | + Immediate head approval, delegation, bulk approve | +6 | G5–G7 + user decisions |
 | 31 Oct 2026 | + Comments / mentions / watchers, drafts | +4 | G8 |
 | 31 Oct 2026 | + SLA analytics, expiring assignments, print, webhooks, task callback, clean-up | +6 | G10 |
-| pending | + User onboarding / invites (v9.6) | (tbd, ~2) | ST-2, waiting for the user's agreement |
+| 31 Oct 2026 | + User onboarding / invites (v9.6) | +2 | ST-2: the v9.6 allow-list needs it (user: yes) |

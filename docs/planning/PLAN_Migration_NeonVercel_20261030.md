@@ -2,13 +2,14 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_NeonVercel_20261030.md | Author: Kenneth R. Advento | Version: 1.2.0
+Document: PLAN_Migration_NeonVercel_20261030.md | Author: Kenneth R. Advento | Version: 1.2.1
 Created: 30 October 2026 UTC+8 (Philippine Standard Time) | Modified: 31 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Plan to move the backend from Google Sheets + Apps Script to Vercel functions + Neon Postgres (+ Cloudflare R2), designed for heavy use, without changing the frontend's API contract | Status: Draft — for review; Phase 0 starts after AppScript v9.4 / v9.5 are live
 REVISION HISTORY:
 - v1.0.0 | 30 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Initial plan (session 7e008704), from the reco (19 Oct 2026) and docs/planning/REVIEW_AppScriptReco_20261030.md
 - v1.1.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §11 future option: client-hosted SQL database (shapes, pros / cons, decisions to keep the path open, testing without the client database)
 - v1.2.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §12 v10 features on Postgres (pointer to PLAN_FeatureGaps_Volume_20261031.md §6; session 2d369f00)
+- v1.2.1 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §12: the notification partition drop approved by the user
 ===============================================================================
 -->
 
@@ -263,6 +264,6 @@ The AppScript v10 line (visibility per ticket type, Restricted tickets / fields,
 - **§6.1** extra tables / columns (`ticket_participants` with role-based pool windows, `approval_delegations`, `email_outbox`, `ticket_comments`, `tickets.version`, `tickets.search`).
 - **§6.2** extra indexes (on top of the §4 day-one indexes here).
 - **§6.3** the visibility-aware list query (≤ 3 queries) and **§6.4** the query budget per action (Claude.md working rule).
-- **§6.5** growth: partitions for notifications / history / logs / participants. The one proposed exception to soft delete (dropping read notifications > 90 days old) is **waiting for the user's approval**.
+- **§6.5** growth: partitions for notifications / history / logs / participants. The one proposed exception to soft delete (dropping read notifications > 90 days old) was **approved by the user on 31 Oct 2026**.
 
 Port order: these actions move with their table group in Phase 2 (§6): visibility and Restricted with the ticket loop, delegation and head approval with workflow admin, the outbox with SLA escalation (§9).
