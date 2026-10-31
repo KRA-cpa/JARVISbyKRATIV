@@ -2,12 +2,13 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_FeatureGaps_Volume_20261031.md | Author: Kenneth R. Advento | Version: 1.1.0
+Document: PLAN_FeatureGaps_Volume_20261031.md | Author: Kenneth R. Advento | Version: 1.2.0
 Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 31 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Missing features (except attachments), the user's decisions on them, and how they hold up at volume on Sheets and Postgres (reco-style) - the AppScript v10 line | Status: Approved (session 2d369f00), not built
 REVISION HISTORY:
 - v1.0.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Initial plan (session 2d369f00); progress figures split out to PROGRESS_FeatureCompletion.md
 - v1.1.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User decisions: onboarding / invites in v9.6 (§4.12), no head set → submit blocked, notification partition drop on Postgres approved
+- v1.2.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §4.13 broken attachment links: report, then edit (v9.6; anyone who can add links may fix; closed tickets allowed, logged)
 ===============================================================================
 -->
 
@@ -172,6 +173,17 @@ The v9.6 sign-in allow-list refuses a verified user with no active `user_profile
 - **Accepting (server decides, F1 / F6):** the proxy forwards the verified uid **and email** from the Firebase token (only when `email_verified`; identity fields in the body stay stripped). In `doPost`, an actor with no active profile → look up a `pending`, unexpired invite for that email → create the profile + role assignments with `actorId`, mark it accepted, in one `withScriptLock` → continue the request. No invite → `NOT_INVITED`, and the login page says "Your account isn't set up yet. Ask your administrator for an invite."
 - **Bootstrap:** the v9.6 first-admin rule still applies while no active admin exists (the first signed-in user can be made admin from the JARVIS Admin menu, not automatically).
 - **Volume / reco:** the allow-list check would add a `user_profiles` read to **every** request (P1 / A16). The fix is `CacheService` key `allow:<uid>` (10 min), set on a pass and removed when a profile is deactivated. `user_invites` is read only on the rare no-profile path. Tests: invite → first sign-in creates profile + roles; expired / revoked / wrong-email refused; second sign-in uses the cache (read-count assert); a deactivated user is refused within the same request (cache removed).
+
+### 4.13 Broken attachment links: report, then edit (v9.6, decided 31 Oct 2026)
+Extends the v9.6 attachment links (URL + name in `ticket_attachments`, `file_type = 'link'`).
+- **Columns** on `ticket_attachments` (v9.6 rebuild apply, together with `user_invites`): `link_status` (`ok` default | `reported_broken`), `reported_by`, `reported_at`, `report_note`. Writers by header name (A1), defaults in `COLUMN_DEFAULTS`.
+- **Report** (`reportAttachmentLinkBroken({ attachment_id, note })`): anyone who can see the ticket (from v10.0: `canViewTicket` = `full`). Sets `reported_broken`; an in-app notification (v9.5 bell) to the person who added the link and the requester; history + action log entry. Reporting an already-reported link only updates the note.
+- **Edit** (`updateAttachmentLink({ attachment_id, file_url, file_name?, description? })`): **only while `reported_broken`**, by **anyone who can add links** (requester, current approvers, admin; user decision). Same http(s) check as add. Updated **in place** (no delete), the action log keeps `{ field: 'file_url', from, to }` (and name / description if changed), and a history line "Link fixed". Saving clears the report (`link_status = ok`, report columns blank). A link that isn't reported can't be edited: remove (soft) + add instead.
+- **Closed tickets** (Completed / Rejected / Cancelled): fixing is **allowed and logged** (user decision): it repairs a reference and doesn't change the decision.
+- **Actor** from `actorId` (A15); the permission check runs on the server for both actions (F1). In v10.0 a link on a Restricted ticket follows the ticket's chain rules (§4.11): outsiders see no links.
+- **UI:** TicketDetail → Links tab: "Report broken" on each link; a 🔗 Reported broken badge with the note and reporter; "Fix link" (edit form) shown only to people allowed to edit and only on reported links.
+- **Volume:** both actions read only `ticket_attachments` + the ticket and permission data already in the request cache (A16); one write each.
+- **Tests (v9.6 suite):** report by a viewer; edit refused while `ok`; edit by requester / current approver / admin allowed, by others refused; old → new URL in the action log; report cleared after edit; fix on a closed ticket allowed and logged; non-http(s) URL refused.
 
 ---
 
