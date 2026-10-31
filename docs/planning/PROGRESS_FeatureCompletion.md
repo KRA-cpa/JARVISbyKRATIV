@@ -101,7 +101,7 @@ Version line since 31 Oct 2026 (session ff4c803f): v10.0 → **v10.1** country c
 | 20 | Attachment links | 1 | 0 % | 100 % | v9.6 |
 | 21 | Company email settings | 2 | 0 % | 100 % | v9.6 |
 | 22 | Idle sign-out | 1 | 0 % | 100 % | v9.6 |
-| 23 | Visibility (private / collaborative) + who can create | 3 | 0 % | 100 % | v10.0 |
+| 23 | Visibility (private / collaborative) + who can create | 3 | 0 % | 100 % | v10.0 - **M1 built** (`bc0d2dc`, not live): counts once deployed + checked |
 | 24 | Pagination + search | 3 | 0 % | 100 % | v10.0 |
 | 25 | Workflow event notifications + email outbox | 3 | 0 % | 100 % | v10.0 |
 | 26 | Restricted fields | 2 | 0 % | 100 % | v10.0 |
@@ -144,6 +144,7 @@ Table C's effort-point totals aren't used for the headline: they gave the spec 9
 | 31 Oct 2026 | scope +2 (invites, v9.6) | 78.8 % | 57.8 % | session 2d369f00: roadmap total 138 → 140 |
 | 31 Oct 2026 | v9.6 deployed (ping 9.6.0) | 87.0 % | 66.5 % | session 017zmKf7: all v9.6 items built as planned (no scope change), so the planned v9.6 column holds; provisional until the §5d browser checks pass |
 | 31 Oct 2026 | scope +14 (calendars / zones, plans) | 87.0 % | 60.5 % | session ff4c803f: roadmap total 140 → 154 (66.5 % of 140 = 60.5 % of 154); v9.6 still provisional (browser check 7 open) |
+| 31 Oct 2026 | v10.0 M1 built, not live (`bc0d2dc`) | 87.0 % | 60.5 % | session ff4c803f: visibility per type + who can create (feature 23). Headline unchanged (not live). Built-only it would be 62.9 % (area "Visibility + who creates + Restricted": 3 of its 8 feature points ≈ 3.75 / 10 pts) |
 
 ---
 
