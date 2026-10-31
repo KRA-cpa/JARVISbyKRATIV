@@ -23,7 +23,8 @@ test('CR-02 rebuild back-fills entity_category = ticket and getCustomFields stil
   rt.table('custom_field_values', OLD_CFV, [['cfv_1', 7, 'cf_1', 'hello', '', '', '', '', '', true, 't', 'u', 't', 'u', '', '', '']]);
   const dry = rt.ctx.rebuildAllTables(true);
   const entry = dry.report.find(e => e.table === 'custom_fields');
-  same(entry.defaulted, ['entity_category']);
+  // entity_category is back-filled (v10.0 also defaults its new is_confidential column)
+  assert.ok(entry.defaulted.includes('entity_category'), JSON.stringify(entry.defaulted));
   assert.strictEqual(rt.json('custom_fields')[0].entity_category, undefined, 'dry run must not change data');
 
   const res = rt.ctx.rebuildAllTablesApply();

@@ -32,7 +32,8 @@ function seed(options = {}) {
   const rows = tableName => rt.ctx.readTable(tableName).records;
 
   add('companies', { id: 'co_1', name: 'Main Co', code: 'MYCO', is_active: true, email_enabled: 'default' });
-  add('ticket_types', { id: 'tt_1', code: 'PR', name: 'Purchase', is_active: true, sla_email: 'default' });
+  // v10.0: collaborative keeps this suite's v9.6 rule (any role in the company sees the ticket); private is v10's default
+  add('ticket_types', { id: 'tt_1', code: 'PR', name: 'Purchase', is_active: true, sla_email: 'default', visibility: 'collaborative' });
   add('roles', { id: 'r_mgr', name: 'Manager', company_id: '', is_active: true });
   add('roles', { id: 'r_admin', name: 'System Admin', company_id: '', is_active: true });
   add('roles', { id: 'r_staff', name: 'Staff', company_id: '', is_active: true });
@@ -44,6 +45,10 @@ function seed(options = {}) {
     const res = rt.ctx.createUserRoleAssignment({ user_id, role_id, company_id: 'co_1' });
     assert.strictEqual(res.status, 'success', res.message);
   });
+  // v10.0 (decision 1): creating a ticket needs a role on its type + company (Requester, on tt_1 only)
+  add('roles', { id: 'r_req', name: 'Requester', company_id: '', is_active: true });
+  const reqGrant = rt.ctx.createUserRoleAssignment({ user_id: 'u_req', role_id: 'r_req', company_id: 'co_1', ticket_type_id: 'tt_1' });
+  assert.strictEqual(reqGrant.status, 'success', reqGrant.message);
   add('user_profiles', { user_id: 'u_admin', display_name: 'Ada Admin', email: 'ada@example.com', status: 'active', is_active: true });
   add('user_profiles', { user_id: 'u_req', display_name: 'Rita Requester', email: 'rita@example.com', status: 'active', is_active: true });
   add('user_profiles', { user_id: 'u_out', display_name: 'Otto Outsider', email: 'otto@example.com', status: 'active', is_active: true });
@@ -269,8 +274,9 @@ test('links: requester adds (http(s) only), anyone lists, outsider cannot add or
   assert.strictEqual(ok(asGet('u_req', { action: 'getTicketAttachments', ticket_id: id })).can_manage, true);
   assert.match(as('u_out', { action: 'removeTicketAttachment', attachment_id: link.id }).error, /Only the requester/);
   // review: someone with no role in the ticket's company can't read or report its links
-  assert.match(asGet('u_far', { action: 'getTicketAttachments', ticket_id: id }).error, /can't see this ticket/);
-  assert.match(as('u_far', { action: 'reportAttachmentLinkBroken', attachment_id: link.id, note: 'x' }).error, /can't see this ticket/);
+  // v10.0: a ticket you can't see answers "Ticket not found"
+  assert.match(asGet('u_far', { action: 'getTicketAttachments', ticket_id: id }).error, /can't see this ticket|Ticket not found/);
+  assert.match(as('u_far', { action: 'reportAttachmentLinkBroken', attachment_id: link.id, note: 'x' }).error, /can't see this ticket|Ticket not found/);
   ok(as('u_req', { action: 'removeTicketAttachment', attachment_id: link.id, reason: 'wrong file' }));
   assert.strictEqual(ok(asGet('u_req', { action: 'getTicketAttachments', ticket_id: id })).attachments.length, 1);
   const removed = rows('ticket_attachments').find(a => a.id === link.id);

@@ -155,6 +155,14 @@ export const useTicketTypes = (companyId = null) => {
   return useAPI(() => API.TicketTypes.getAll(companyId), [companyId], 'getTicketTypes');
 };
 
+// TicketForm's type list (AppScript v10.0): creating offers only the types the user may create - a role on the type +
+// company, decided by the server (getCreatableTicketTypes; each type carries creatable_company_ids); editing lists the
+// types of the ticket's company (the selects are read-only then). One call either way (compliance F5).
+export const useTicketTypeChoices = (isEditing, companyId = null) => {
+  return useAPIData(['ticketTypeChoices', isEditing, isEditing ? companyId : null],
+    () => (isEditing ? API.TicketTypes.getAll(companyId) : API.TicketTypes.getCreatable()));
+};
+
 // Roles hooks
 export const useRoles = (companyId = null) => {
   return useAPI(() => API.Roles.getAll(companyId), [companyId], 'getRoles');
@@ -1107,6 +1115,7 @@ const useAPIModule = {
   useDropdownLists,
   useTickets,
   useTicketTypes,
+  useTicketTypeChoices,
   useUsers,
   useWorkflowSteps,
   useStepApprovals,

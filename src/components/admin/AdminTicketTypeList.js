@@ -139,6 +139,22 @@ const AdminTicketTypeList = () => {
     }
   };
 
+  // Visibility (AppScript v10.0, decision 2): private (default) = requesters see their own tickets and the ones they're
+  // involved in, approver roles see all; collaborative = anyone with a role on the type + company sees all. No lock.
+  const handleToggleVisibility = async (ticketType) => {
+    const next = ticketType.visibility === 'collaborative' ? 'private' : 'collaborative';
+    setLoading(true);
+    try {
+      await API.TicketTypes.setFeatures(ticketType.id, { visibility: next }, user?.uid || user?.id);
+      success(`${ticketType.name} tickets are now ${next === 'private' ? 'private' : 'collaborative'}`);
+      refetchTicketTypes();
+    } catch (err) {
+      error(err.message || 'Failed to change the visibility');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Get company name
   const getCompanyName = (companyId) => {
     if (!companyId) return 'Global';
@@ -258,6 +274,19 @@ const AdminTicketTypeList = () => {
                             {label}: {isOn(ticketType[key]) ? 'on' : 'off'}
                           </button>
                         ))}
+                        <button
+                          onClick={() => handleToggleVisibility(ticketType)}
+                          disabled={loading}
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border disabled:opacity-50 ${
+                            ticketType.visibility === 'collaborative' ? 'bg-blue-50 text-blue-800 border-blue-200' : 'bg-gray-50 text-gray-700 border-gray-200'
+                          }`}
+                          title={ticketType.visibility === 'collaborative'
+                            ? 'Collaborative: anyone with a role on this type in the company sees every ticket. Click to make it private'
+                            : 'Private: requesters see their own tickets and the ones they are involved in; approvers see all. Click to make it collaborative'}
+                        >
+                          {ticketType.visibility === 'collaborative' ? <Icons.Users size={12} className="mr-1" /> : <Icons.Lock size={12} className="mr-1" />}
+                          Visibility: {ticketType.visibility === 'collaborative' ? 'collaborative' : 'private'}
+                        </button>
                       </div>
                     </div>
 

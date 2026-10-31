@@ -47,6 +47,9 @@ function seed(properties = {}) {
   });
   // v9.6 sign-in allow-list: the requester needs a profile (or a role) to pass AUTH_MODE enforce
   add('user_profiles', { user_id: 'u_req', display_name: 'Rita Requester', is_active: true });
+  // v10.0 (decision 1): in enforce, creating a ticket needs a role on its type + company
+  add('roles', { id: 'r_req', name: 'Requester', company_id: '', is_active: true });
+  rt.ctx.createUserRoleAssignment({ user_id: 'u_req', role_id: 'r_req', company_id: 'co_1', ticket_type_id: 'tt_1' });
 
   const ok = res => { assert.strictEqual(res.success, true, res.error); return res.data; };
   const createTicket = (extra = {}) => String(ok(rt.post({ action: 'createTicket', title: 'Laptop', ticket_type_id: 'tt_1',

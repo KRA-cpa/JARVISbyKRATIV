@@ -353,6 +353,9 @@ test('CR2-01: a chained ticket keeps the parent requester under AUTH_MODE enforc
   add('ticket_types', { id: 'tt_2', code: 'PO', name: 'Purchase order', is_active: true });
   rt.ctx.updateRecordFields('workflow_steps', 'ws_2', { next_ticket_type_id: 'tt_2' });
   const as = (uid, body) => rt.post({ ...body, _proxy_secret: 's', _auth_uid: uid });
+  // v10.0 (decision 1): in enforce, creating a ticket needs a role on its type + company
+  add('roles', { id: 'r_req', name: 'Requester', is_active: true });
+  rt.ctx.createUserRoleAssignment({ user_id: 'u_req', role_id: 'r_req', company_id: 'co_1', ticket_type_id: 'tt_1' });
   const id = String(ok(as('u_req', { action: 'createTicket', title: 'Laptop', ticket_type_id: 'tt_1', requester_id: 'u_req', company_id: 'co_1' })).id);
   ok(as('u_mgr', { action: 'submitStepApproval', ticket_id: id, user_id: 'u_mgr', decision: 'approve', comment: 'ok' }));
   ok(as('u_lead', { action: 'submitStepApproval', ticket_id: id, user_id: 'u_lead', decision: 'approve', comment: 'ok' }));

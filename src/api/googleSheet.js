@@ -354,7 +354,9 @@ class BaseAPI {
         'getSLAEscalationRules', 'getSLAEscalationEvents', 'testSLAEscalations', 'getNotifications',
         'getCompanyHolidays', 'getSLANotificationSettings',
         // AppScript v9.6 reads (invites, company email settings, ticket attachment links)
-        'getUserInvites', 'getCompanyEmailSettings', 'getTicketAttachments'
+        'getUserInvites', 'getCompanyEmailSettings', 'getTicketAttachments',
+        // AppScript v10.0 reads (ticket access)
+        'getCreatableTicketTypes'
       ];
 
       const isGetRequest = readActions.includes(action);
@@ -2182,6 +2184,15 @@ class TicketTypesAPI extends BaseAPI {
     return response.data;
   }
 
+  // The ticket types the signed-in user may create (AppScript v10.0: a role on the type + company is needed - the
+  // server decides). Each carries creatable_company_ids. companyId narrows the list to one company.
+  async getCreatable(companyId = null) {
+    const response = await this.makeRequest('getCreatableTicketTypes', {
+      company_id: companyId
+    });
+    return response.data || [];
+  }
+
   async create(data) {
     if (!data.transaction_id?.trim()) {
       throw new Error('Transaction ID is required');
@@ -2265,13 +2276,15 @@ class TicketTypesAPI extends BaseAPI {
   }
 
   // Tags / sharing switches (AppScript v9.3): off by default; turning one off is refused once it is in use.
-  // features: { enable_tags, enable_sharing } (only the keys sent change)
-  // -> { ticket_type_id, enable_tags, enable_sharing, tags_locked, sharing_locked }
+  // v10.0: visibility 'private' (default) | 'collaborative' - who sees the type's tickets; it can change any time.
+  // features: { enable_tags, enable_sharing, visibility } (only the keys sent change)
+  // -> { ticket_type_id, enable_tags, enable_sharing, tags_locked, sharing_locked, visibility }
   async setFeatures(ticketTypeId, features = {}, userId = null) {
     const response = await this.makeRequest('setTicketTypeFeatures', {
       ticket_type_id: ticketTypeId,
       ...(features.enable_tags !== undefined ? { enable_tags: Boolean(features.enable_tags) } : {}),
       ...(features.enable_sharing !== undefined ? { enable_sharing: Boolean(features.enable_sharing) } : {}),
+      ...(features.visibility !== undefined ? { visibility: String(features.visibility) } : {}),
       user_id: userId
     });
     cache.invalidate('ticket_types');
@@ -2338,6 +2351,10 @@ class TicketTypesAPI extends BaseAPI {
     switch (action) {
       case 'getTicketTypes':
         return { status: 'success', data: mockTicketTypes };
+      case 'getCreatableTicketTypes':
+        // v10.0 mock: every active type, creatable in its own company (the server decides in live mode)
+        return { status: 'success', data: mockTicketTypes.filter(tt => tt.is_active !== false)
+          .map(tt => ({ ...tt, visibility: 'private', creatable_company_ids: [String(tt.company_id || '1')] })) };
       case 'getTicketType':
         const ticketType = mockTicketTypes.find(tt => tt.id === params.ticket_type_id);
         return { status: 'success', data: ticketType };

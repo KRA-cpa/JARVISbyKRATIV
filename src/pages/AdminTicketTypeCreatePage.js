@@ -47,7 +47,8 @@ const AdminTicketTypeCreatePage = () => {
 
   // Tags / sharing switches (AppScript v9.3), saved after the type exists; off by default. Once a ticket of
   // the type is tagged / shared they can't be turned off again.
-  const [features, setFeatures] = useState({ enable_tags: false, enable_sharing: false });
+  // v10.0: visibility 'private' (default) | 'collaborative' - set with the other switches after the type is saved
+  const [features, setFeatures] = useState({ enable_tags: false, enable_sharing: false, visibility: 'private' });
 
   // Activation state
   const [showActivationDialog, setShowActivationDialog] = useState(false);
@@ -117,7 +118,7 @@ const AdminTicketTypeCreatePage = () => {
         await API.TicketTypes.saveCommentRequirements(savedTicketType.id, commentRequirements, ticketTypeData.company_id);
       }
 
-      if (features.enable_tags || features.enable_sharing) {
+      if (features.enable_tags || features.enable_sharing || features.visibility !== 'private') {
         await API.TicketTypes.setFeatures(savedTicketType.id, features, user?.uid || user?.id);
       }
 
@@ -427,6 +428,19 @@ const AdminTicketTypeCreatePage = () => {
                       <p className="text-xs text-gray-500">
                         Tags and sharing can be turned off again only until the first ticket uses them.
                       </p>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Who sees these tickets</label>
+                        <select
+                          value={features.visibility}
+                          onChange={(e) => setFeatures(prev => ({ ...prev, visibility: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        >
+                          <option value="private">Private - requesters see their own and the ones they are involved in; approvers see all</option>
+                          <option value="collaborative">Collaborative - anyone with a role on this type in the company sees all</option>
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">Admins always see every ticket. This can be changed later.</p>
+                      </div>
                     </div>
 
                     {/* Comment Requirements */}

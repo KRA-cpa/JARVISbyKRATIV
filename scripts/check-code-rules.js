@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * check-code-rules.js — static checks for the "should-be" code rules
- * Rules: docs/guides/GUIDE_CodeReview_Compliance.md A14-A18, A20 (AppScript) and F3-F4 (frontend)
+ * Rules: docs/guides/GUIDE_CodeReview_Compliance.md A14-A18, A20, A21 (AppScript) and F3-F4 (frontend)
  *
  * Usage:
  *   node scripts/check-code-rules.js [APPSCRIPT file]   check (default: newest appscript_files/APPSCRIPT_v*_<YYYYMMDD>_<HHMM>.txt)
@@ -21,6 +21,9 @@
  *        (getDay / getHours / setHours) - store real UTC, use Asia/Manila through Utilities.formatDate
  *   A18  an id from the row count (getLastRow() > 0 ? x.getLastRow() ...) or from max(id) + 1
  *   A20  two top-level functions with the same name (Apps Script keeps the last one)
+ *   A21  (v10.0) a route that returns tickets (getTickets, getTicket*, search*Ticket*, getReportData, getDashboard,
+ *        getStepApprovals, ...) reaches no visibility check - neither its case nor the handler it calls uses
+ *        ticketReadGuard / canViewTicket / requestScope / buildActorScope / mayReadTicket (or an admin-only check)
  * Frontend checks run per file in src/ (tests skipped):
  *   F3   hour arithmetic for Philippine time (8 * 60 * 60) - format with Intl and timeZone 'Asia/Manila'
  *   F4   a fake save: `await new Promise(resolve => setTimeout(resolve, N))` or `TODO: Replace with actual API call`
@@ -229,7 +232,34 @@ function appscriptViolations(text) {
       if (!allowed(local.raw, m.index, 'A18')) add('A18', f.name, `line ${lineOf(m.index)} id from row count / max+1`);
     });
   }
+
+  // A21 - a route that returns tickets checks visibility (v10.0, design ST-3)
+  const byName = new Map(functions.map(f => [f.name, f]));
+  for (const f of functions.filter(fn => ROUTER_FUNCTIONS.has(fn.name))) {
+    const lineOf = idx => text.slice(0, f.start + idx).split('\n').length;
+    const cases = [];
+    each(CASE_LABEL, f.raw, m => cases.push({ action: m[1], index: m.index }));
+    cases.forEach((c, i) => {
+      if (!isTicketReadRoute(c.action) || allowed(f.raw, c.index, 'A21')) return;
+      const body = f.code.slice(c.index, i + 1 < cases.length ? cases[i + 1].index : f.code.length);
+      if (VISIBILITY_CALL.test(body)) return;
+      const callees = [...body.matchAll(/\b([A-Za-z_]\w*)\s*\(/g)].map(m => m[1]).filter(n => byName.has(n) && !ROUTER_FUNCTIONS.has(n));
+      if (callees.some(n => VISIBILITY_CALL.test(byName.get(n).code))) return;
+      add('A21', c.action, `line ${lineOf(c.index)} returns tickets without a visibility check (canViewTicket)`);
+    });
+  }
   return violations;
+}
+
+const ROUTER_FUNCTIONS = new Set(['doGet', 'doPost', 'routePostAction']);
+const CASE_LABEL = /case\s+'(\w+)'\s*:/g;
+const VISIBILITY_CALL = /\b(ticketReadGuard|canViewTicket|requestScope|buildActorScope|mayReadTicket|isAdminUser|requireAdmin)\s*\(/;
+const TICKET_READ_ROUTES = new Set(['getReportData', 'getDashboard', 'getStepApprovals']);
+
+/** Does the route return ticket data? get* / search* routes that name tickets (not ticket types / numbers), plus a list. */
+function isTicketReadRoute(action) {
+  if (TICKET_READ_ROUTES.has(action)) return true;
+  return /^(get|search)/.test(action) && /Ticket/.test(action) && !/TicketTypes?$|TicketNumber|Dependencies/.test(action);
 }
 
 // --- Frontend ----------------------------------------------------------------
@@ -290,7 +320,11 @@ function selfTest() {
     ['A17 ignores strings and comments', 'function t() {\n  // 8 * 60 * 60\n  return "getDay()";\n}\n', []],
     ['A18 flags getLastRow as id', 'function g(s) {\n  s.appendRow([(s.getLastRow() > 0 ? s.getLastRow() : 1), 2]);\n  invalidateTable();\n}\n', ['A18 g']],
     ['A18 flags max + 1', 'function g(ids) {\n  return (ids.length ? Math.max(...ids) : 0) + 1;\n}\n', ['A18 g']],
-    ['A20 flags a duplicate', 'function d(a) {\n  return a;\n}\nfunction d(b) {\n  return b;\n}\n', ['A20 d']]
+    ['A20 flags a duplicate', 'function d(a) {\n  return a;\n}\nfunction d(b) {\n  return b;\n}\n', ['A20 d']],
+    ['A21 flags a ticket route without a check', "function doGet(e) {\n  switch (a) {\n    case 'getTicketFoo':\n      return foo(p);\n  }\n}\nfunction foo(p) {\n  return readTable('tickets');\n}\n", ['A21 getTicketFoo']],
+    ['A21 passes a guard in the case', "function doGet(e) {\n  switch (a) {\n    case 'getTicketFoo':\n      return ticketReadGuard(p, id, 'x') || foo(p);\n  }\n}\n", []],
+    ['A21 passes a check in the handler', "function doGet(e) {\n  switch (a) {\n    case 'getTickets':\n      return foo(p);\n  }\n}\nfunction foo(p) {\n  const s = requestScope(p.user_id, 'x');\n  return s;\n}\n", []],
+    ['A21 ignores ticket types and allow comments', "function doGet(e) {\n  switch (a) {\n    case 'getTicketTypes':\n      return t();\n    // code-rules-allow A21 own inbox\n    case 'getTicketsForApproval':\n      return i();\n  }\n}\n", []]
   ];
   let failed = 0;
   for (const [name, src, expected] of cases) {

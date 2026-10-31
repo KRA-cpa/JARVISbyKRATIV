@@ -308,7 +308,9 @@ test('report data: configured columns, display values, SLA status, filters; non-
   const requester = report({ user_id: 'u_req' });
   assert.strictEqual(requester.data.scope, 'mine');
   same(requester.data.rows.map(r => r.ticket_id), [a]);
-  same(report({ user_id: 'u_fin' }).data.rows.map(r => r.ticket_id), [a], 'Finance can approve a now');
+  // v10.0 (decision 2): an approver role of the type + company sees all its tickets, not only the ones at its step now
+  const v10 = Number(String(rt.get({ action: 'ping' }).version || '0').split('.')[0]) >= 10;
+  same(report({ user_id: 'u_fin' }).data.rows.map(r => r.ticket_id).sort(), v10 ? [a, b].sort() : [a], 'Finance can approve a now');
 
   same(report({ user_id: 'u_admin', status: 'Pending Finance' }).data.rows.map(r => r.ticket_id), [a]);
   assert.strictEqual(report({ user_id: 'u_admin', status: 'closed' }).data.total, 0);

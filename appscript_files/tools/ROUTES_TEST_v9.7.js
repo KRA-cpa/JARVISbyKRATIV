@@ -27,6 +27,9 @@ function seed(properties = {}) {
     step_type: 'approval', approver_logic: 'any', sort_order: 1, is_active: true });
   add('step_approvers', { step_id: 'ws_1', role_id: 'r_mgr' });
   rt.ctx.createUserRoleAssignment({ user_id: 'u_admin', role_id: 'r_admin', company_id: 'co_1' });
+  // v10.0 (decision 1): creating a ticket needs a role on its type + company
+  add('roles', { id: 'r_req', name: 'Requester', is_active: true });
+  rt.ctx.createUserRoleAssignment({ user_id: 'u_req', role_id: 'r_req', company_id: 'co_1', ticket_type_id: 'tt_1' });
   add('user_profiles', { user_id: 'u_req', display_name: 'Rita', email: 'rita@example.com', status: 'active', is_active: true });
   const as = (uid, body) => rt.post({ ...body, _proxy_secret: SECRET, _auth_uid: uid });
   const asGet = (uid, params) => rt.get({ ...params, _proxy_secret: SECRET, _auth_uid: uid });
@@ -88,9 +91,9 @@ test('a link saved before on another host is listed with link_allowed: false (sh
   assert.strictEqual(list.find(a => a.id !== 'att_old').link_allowed, true);
 });
 
-test('ping reports 9.7.0', () => {
+test('ping reports 9.7.0 or later', () => {
   const { rt } = seed();
-  assert.strictEqual(rt.get({ action: 'ping' }).version, '9.7.0');
+  assert.ok(rt.get({ action: 'ping' }).version.localeCompare('9.7.0', undefined, { numeric: true }) >= 0);
 });
 
 report();

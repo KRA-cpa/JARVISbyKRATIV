@@ -2,7 +2,7 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_CodeReview_Compliance.md | Author: Kenneth R. Advento | Version: 2.1.0
+Document: GUIDE_CodeReview_Compliance.md | Author: Kenneth R. Advento | Version: 2.2.0
 Created: 18 October 2026 UTC+8 (Philippine Standard Time) | Modified: 31 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Coding rules for AppScript, its counterpart frontend / proxy code and scripts, derived from the code reviews (17 + 19 Oct 2026) and the Apps Script reco review (30 Oct 2026), so new changes don't reintroduce them | Status: Active — MANDATORY for AppScript, counterpart (src/, api/) and scripts/ changes
 
@@ -14,6 +14,7 @@ REVISION HISTORY:
 - v1.4.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | A12 also checks missing client methods, unmounted components and missing icons (the ticket UI was reachable from no screen); P5 "reachable" includes a screen
 - v2.0.0 | 30 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §0 change recipe (AppScript + counterparts in order); A14–A20 (cache invalidation, actor identity, read budget, real UTC, ids, time-driven jobs, one definition); §1b counterpart rules F1–F6 (frontend + proxy); P7–P10 (version-diff review, whole-file review, one review log per version, performance gate); `npm run check:code-rules` + `scripts/code-rules-known-gaps.txt` (baseline 91 on v9.3, may only shrink). Source: `docs/planning/REVIEW_AppScriptReco_20261030.md`
 - v2.1.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | From the v9.6 review (docs/planning/TODO_CodeReview_20261031.md): A1 logAdminAction is header-driven (off the legacy list); A14 re-read inside the lock what a locked decision depends on; A15 admin routes are gated in doPost (ADMIN_ONLY_ACTIONS); F6 only an expired token may end a session, verify outages get their own code, `_auth_email` only when verified
+- v2.2.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | A21 (v10.0 M1, session ff4c803f): every ticket read goes through canViewTicket, a hidden ticket answers like a missing one; `check:code-rules A21`
 ===============================================================================
 -->
 
@@ -317,6 +318,17 @@ Apps Script keeps the **last** `function getTicketActionLogs(...)`; the earlier 
 
 **Checked by:** `check:code-rules A20`.
 
+### A21 — Every ticket read goes through `canViewTicket` *(v10.0; design `PLAN_FeatureGaps_Volume_20261031.md` ST-3)*
+
+From v10.0, who may see a ticket depends on the caller (ticket type visibility, roles, shares, participants). One read path that forgets the check is a leak.
+
+- Lists filter with `canViewTicket(scope, ticket) !== 'none'`, using one `buildActorScope` / `requestScope` per request (A16).
+- One-ticket reads go through `ticketReadGuard(request, ticketId, action)` in the route. A hidden ticket answers **exactly like a missing one** (same message), so the answer doesn't tell that it exists.
+- Writes on a ticket the caller can't see answer like a missing ticket too (e.g. `mayReadTicket` on the link routes).
+- A per-actor list whose rows are visible by definition (own approval inbox, tickets shared with you) carries `// code-rules-allow A21 <reason>` above its `case`.
+
+**Checked by:** `check:code-rules A21` (a `get*` / `search*` route naming tickets, plus `getReportData` / `getDashboard` / `getStepApprovals`, must reach one of `ticketReadGuard`, `canViewTicket`, `requestScope`, `buildActorScope`, `mayReadTicket` or an admin-only check, in its case or the handler it calls). Test: `ROUTES_TEST_v10.0.js` (visibility matrix; hidden = missing on every read path).
+
 ---
 
 ## §1b Counterpart Rules — frontend and proxy (F1–F6)
@@ -487,7 +499,8 @@ git show --name-only HEAD; git diff --cached --name-only     # only the intended
 - [ ] Ids from `generateId()` or a locked sequence (A18)
 - [ ] Time-driven jobs idempotent, `tryLock` skip, bounded, dry-run, editor-only install (A19)
 - [ ] No duplicate function names (A20)
-- [ ] `npm run check:code-rules` passes; its known-gaps list only shrank (A14–A18, A20)
+- [ ] Every route that returns tickets checks `canViewTicket`; a hidden ticket answers like a missing one (A21)
+- [ ] `npm run check:code-rules` passes; its known-gaps list only shrank (A14–A18, A20, A21)
 - [ ] Review run on `git diff --no-index <prev> <new>` and logged in `TODO_CodeReview_<date>.md` (P7, P9)
 - [ ] Dry run `rebuildAllTables()` reviewed before any apply (P3)
 

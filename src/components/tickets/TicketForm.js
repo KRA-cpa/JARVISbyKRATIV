@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../../contexts/UserContext';
-import { useCompanies, useTicketTypes, useCustomFields, useDropdownOptions } from '../../hooks/useAPI';
+import { useCompanies, useTicketTypeChoices, useCustomFields, useDropdownOptions } from '../../hooks/useAPI';
 import { useToast } from '../shared/Toast';
 import { previewTicketNumber } from '../../utils/ticketNumber';
 import { ticketAPI } from '../../api/googleSheet';
@@ -69,8 +69,18 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
     custom_fields: {}
   });
 
-  const { data: companies } = useCompanies();
-  const { data: ticketTypes } = useTicketTypes(formData.company_id || null);
+  const { data: allCompanies } = useCompanies();
+  // AppScript v10.0 (decision 1): a new ticket can only be of a type the user has a role on in that company - the
+  // server decides (getCreatableTicketTypes) and refuses the rest, so the form offers only those companies and types
+  const { data: typeChoices, loading: typesLoading } = useTicketTypeChoices(isEditing, formData.company_id || null);
+  const creatableIn = type => (Array.isArray(type.creatable_company_ids) ? type.creatable_company_ids.map(String) : []);
+  const companies = isEditing
+    ? allCompanies
+    : (allCompanies || []).filter(c => (typeChoices || []).some(t => creatableIn(t).includes(String(c.id))));
+  const ticketTypes = isEditing
+    ? typeChoices
+    : (typeChoices || []).filter(t => formData.company_id && creatableIn(t).includes(String(formData.company_id)));
+  const nothingToCreate = !isEditing && !typesLoading && Array.isArray(typeChoices) && typeChoices.length === 0;
   const { data: customFieldList, loading: fieldsLoading } = useCustomFields(formData.ticket_type_id || null);
   const { ToastContainer, success, error: showError } = useToast();
 
@@ -480,6 +490,11 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
                 ))}
               </select>
               {errors.company_id && <p className="text-sm text-red-600 mt-1">{errors.company_id}</p>}
+              {nothingToCreate && (
+                <p className="text-sm text-amber-700 mt-1">
+                  You don't have a role on any ticket type yet, so you can't create tickets. Ask your administrator.
+                </p>
+              )}
             </div>
 
             <div>
