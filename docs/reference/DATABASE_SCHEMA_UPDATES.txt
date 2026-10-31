@@ -28,11 +28,27 @@
 
 ---
 
-## ✅ AUTHORITATIVE COLUMN LIST (October 17, 2026 — AppScript v8.1+, latest v9.5)
+## ✅ AUTHORITATIVE COLUMN LIST (October 17, 2026 — AppScript v8.1+, latest v9.6)
 
-`TABLE_SCHEMAS` in the latest `appscript_files/APPSCRIPT_v9.5_20261030_0650.txt` is now the single source of truth
-for the headers of all 39 tables (v9.3 moved the tag / sharing names from TAG_SHEETS into SHEETS). Where this
+`TABLE_SCHEMAS` in the latest `appscript_files/APPSCRIPT_v9.6_20261031_1510.txt` is now the single source of truth
+for the headers of all 40 tables (v9.3 moved the tag / sharing names from TAG_SHEETS into SHEETS). Where this
 document and the code disagree, the code wins.
+
+**v9.6 (October 31, 2026) — onboarding, links, company email: 1 new table, ticket_attachments: 19 → 23, companies: 15 → 20 columns.**
+- `user_invites` (23): id, email (lower-case), display_name, company_id, user_profile_type_id, role_grants (JSON:
+  [{ role_id, company_id, ticket_type_id, effective_start_date, effective_end_date }]), immediate_approver_id,
+  backup_approver_id, status (pending | accepted | revoked | expired - expired is computed from expires_at),
+  expires_at (14 days), invited_by, accepted_uid, accepted_at, last_sent_at, send_count, is_active, created_at,
+  created_by, updated_at, updated_by, revoked_at, revoked_by, revocation_reason. The profile and role rows are written
+  once, with the real Firebase uid, when the invite is accepted on the first verified sign-in.
+- `ticket_attachments` + `link_status` (ok | reported_broken; COLUMN_DEFAULTS 'ok'), `reported_by`, `reported_at`,
+  `report_note`. v9.6 links are rows with `file_type = 'link'` (file_url + file_name, optional description / step_id).
+- `companies` + `email_enabled` (default | on | off; COLUMN_DEFAULTS 'default' - on / off override the ticket type's
+  sla_email), `email_sender_name`, `email_reply_to`, `email_cc` (up to 5, comma separated), `email_footer`.
+- `admin_action_logs` is now written by header (logAdminAction, A1); new action types INVITE_CREATED / INVITE_RESENT /
+  INVITE_REVOKED / INVITE_ACCEPTED, SAVE_COMPANY_EMAIL_SETTINGS, SEND_COMPANY_TEST_EMAIL, ADMIN_BOOTSTRAP, MAKE_USER_ADMIN
+  (ADMIN_Tools), and a generic row named after the action for admin writes whose handler logs nothing.
+- `notifications.type` + `link_reported`; `ticket_history.action` + LINK_ADDED / LINK_REMOVED / LINK_REPORTED / LINK_FIXED.
 
 **v9.5 (October 30, 2026) — SLA escalation: 4 new tables, tickets: 27 → 28, ticket_types: 12 → 13 columns.**
 - `sla_escalation_rules` (23): id, company_id, ticket_type_id, step_id (blank = every step of the type), level, name,

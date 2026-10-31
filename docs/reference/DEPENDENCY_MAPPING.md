@@ -383,6 +383,25 @@ Until v9.1 nothing imported the ticket components or `AdminWorkflowBuilder`; `np
 
 - **Unmounted now**: 8 components + 2 icons (`AdminSLAEscalationManager` mounted in v9.5).
 
+### **🔐 ADMIN CHECKS, INVITES, LINKS, COMPANY EMAIL, SESSIONS (October 31, 2026 — AppScript v9.6)**
+
+| File | Layer | Imports (new in bold) | Used by |
+|---|---|---|---|
+| `api/_lib/proxyCore.js` | Vercel helper | forwards **`_auth_email`** (Google-verified only), 12-hour cap (env **`MAX_SESSION_HOURS`**), 401 codes | `api/appscript-proxy.js` |
+| `src/api/googleSheet.js` | API | exports **`AUTH_EVENT`**, **`SIGN_OUT_CODES`**; 401 / 403 keep `{ code }` (no retry); new **`API.Invites`**, **`API.CompanyEmail`**, **`API.Attachments`**; v9.6 reads in `readActions` | hooks, `UserContext` |
+| `src/hooks/useAPI.js` | Hooks | new **`useUserInvites`**, **`useCompanyEmailSettings`**, **`useTicketAttachments`** (shared `useWriteRunner`) | components below |
+| `src/utils/sessionGuard.js` | Util (new) | - (idle limit, shared last-activity in localStorage, one-time notice in sessionStorage) | `UserContext`, `LoginPage` |
+| `src/contexts/UserContext.js` | Context | **`AUTH_EVENT` / `SIGN_OUT_CODES`**, **`sessionGuard`**; idle sign-out; no mock Admin outside `DISABLE_AUTH` | everything |
+| `src/pages/LoginPage.js` | Page | **`takeSessionNotice`** | `App.js` |
+| `src/components/admin/AdminUserInvites.js` | Component (new, mounted) | `useCompanies`, `useRoles`, **`useUserInvites`** | `AdminUserList` (Invite) |
+| `src/components/admin/AdminUserList.js` | Component | **`AdminUserInvites`** | `AdminPage` → Users |
+| `src/components/admin/CompanyEmailSettings.js` | Component (new, mounted) | **`useCompanyEmailSettings`** | `AdminCompanyManager` (🔔 Email) |
+| `src/components/admin/AdminCompanyManager.js` | Component | **`CompanyEmailSettings`** | `AdminPage` → Companies |
+| `src/components/tickets/TicketLinksManager.js` | Component (new, mounted) | **`useTicketAttachments`** (fetched only while the tab is open - F5) | `TicketDetail` (Links tab) |
+| `src/components/tickets/TicketDetail.js` | Component | **`TicketLinksManager`**; link history labels | `TicketDashboard`, `TicketReport` |
+
+- **Unmounted now**: unchanged (8 components + 2 icons); the 3 new components are mounted in the batch that adds them.
+
 ### **📊 DEPENDENCY IMPACT ANALYSIS**
 
 #### **Zero Breaking Changes**

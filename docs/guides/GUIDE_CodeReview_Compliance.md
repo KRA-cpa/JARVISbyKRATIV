@@ -2,8 +2,8 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_CodeReview_Compliance.md | Author: Kenneth R. Advento | Version: 2.0.0
-Created: 18 October 2026 UTC+8 (Philippine Standard Time) | Modified: 30 October 2026 UTC+8 (Philippine Standard Time)
+Document: GUIDE_CodeReview_Compliance.md | Author: Kenneth R. Advento | Version: 2.1.0
+Created: 18 October 2026 UTC+8 (Philippine Standard Time) | Modified: 31 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Coding rules for AppScript, its counterpart frontend / proxy code and scripts, derived from the code reviews (17 + 19 Oct 2026) and the Apps Script reco review (30 Oct 2026), so new changes don't reintroduce them | Status: Active — MANDATORY for AppScript, counterpart (src/, api/) and scripts/ changes
 
 REVISION HISTORY:
@@ -13,6 +13,7 @@ REVISION HISTORY:
 - v1.3.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | P6 build like Vercel (`npm run build:ci`): Vercel's CI=true turned 13 ESLint warnings into errors and every deploy from 24934fd failed; frontend checklist added
 - v1.4.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | A12 also checks missing client methods, unmounted components and missing icons (the ticket UI was reachable from no screen); P5 "reachable" includes a screen
 - v2.0.0 | 30 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §0 change recipe (AppScript + counterparts in order); A14–A20 (cache invalidation, actor identity, read budget, real UTC, ids, time-driven jobs, one definition); §1b counterpart rules F1–F6 (frontend + proxy); P7–P10 (version-diff review, whole-file review, one review log per version, performance gate); `npm run check:code-rules` + `scripts/code-rules-known-gaps.txt` (baseline 91 on v9.3, may only shrink). Source: `docs/planning/REVIEW_AppScriptReco_20261030.md`
+- v2.1.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | From the v9.6 review (docs/planning/TODO_CodeReview_20261031.md): A1 logAdminAction is header-driven (off the legacy list); A14 re-read inside the lock what a locked decision depends on; A15 admin routes are gated in doPost (ADMIN_ONLY_ACTIONS); F6 only an expired token may end a session, verify outages get their own code, `_auth_email` only when verified
 ===============================================================================
 -->
 
@@ -81,7 +82,7 @@ sheet.appendRow([valueId, ticketId, fieldId, value, null, null, null]);
 | `createTicket()` | `tickets` | first 11 columns |
 | `logTicketHistory()` | `ticket_history` | first 6 |
 | `logTicketAction()` | `ticket_action_logs` | all 6 |
-| `logLogin()`, `logAdminAction()` | `admin_action_logs` | all 7 |
+| ~~`logLogin()`, `logAdminAction()`~~ | `admin_action_logs` | header-driven since v9.4 / v9.6 - off the list |
 | `generateTicketNumber()` | `sequence_counters` | both columns |
 
 New code must not add to this list.
@@ -220,6 +221,7 @@ SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(x)    // use ss().getShee
 - `invalidateTable()` with no name drops the whole cache; use it when the tab isn't known.
 - Callers must not mutate `readTable(...).records` (copy first: `{ ...record }`). `sheetValues()` returns a copy, so `data.shift()` is safe.
 - `CACHE_ENABLED` (Script Property, default on) turns the cache off without a redeploy.
+- **Reads taken before `withScriptLock` are stale inside it** *(v9.6 review CR3-01)*: another execution may have written meanwhile. A decision made inside the lock (accept an invite, take a number) first calls `invalidateTable(...)` for the tabs it depends on and reads them again.
 
 **Checked by:** `check:code-rules A14` (a function that mutates must call `invalidateTable`); the stale-cache detector in `appscript_files/tools/lib/fakeSheetsRuntime.js` (`{ detectStaleCache: true }`) fails any offline test that reads a cached tab after a write.
 
@@ -240,6 +242,7 @@ if (!isAdminUser(params.user_id)) …                          // the request de
 
 - A payload key that names the **target** of the action (the assignee, the profile being read) stays as sent. `docs/planning/REVIEW_AppScriptReco_20261030.md` §4 lists actor vs target keys per action.
 - Pass-through helpers (`requireAdmin(userId, what)`) take the id as a parameter; their callers are checked.
+- From v9.6 every admin write is listed in `ADMIN_ONLY_ACTIONS` and gated in `doPost` on the **verified** uid (`actorId(null)`: on admin routes a body `user_id` often names the target). A new admin route goes on the list in the same batch; the v9.6 test checks every listed action is routed.
 - When the engine reuses a handler internally (a chained ticket created by `processStepCompletion`), pass the target explicitly (`createTicket(payload, { requesterIsTarget: true })`): there the verified user is the approver, not the requester *(review CR2-01)*.
 
 **Checked by:** `check:code-rules A15` (a permission check whose argument is not `actorId(...)`, a variable assigned from it, or a parameter); v9.4 auth tests (`AUTH_MODE` off / warn / enforce).
@@ -355,9 +358,12 @@ A screen makes at most 2–3 calls on load; combine with a dedicated read (`getD
 
 ### F6 — The proxy verifies before forwarding and keeps its secrets in env *(reco S1)*
 
-`api/appscript-proxy.js` reads `APPS_SCRIPT_URL`, `PROXY_SECRET`, `AUTH_MODE` and `FIREBASE_PROJECT_ID` from the environment (no hard-coded URL), verifies the token through an identity adapter (`firebase` now, `authjs` after the migration), **strips** any `_auth_uid` / `_proxy_secret` the client sent, then adds its own.
+`api/appscript-proxy.js` reads `APPS_SCRIPT_URL`, `PROXY_SECRET`, `AUTH_MODE` and `FIREBASE_PROJECT_ID` from the environment (no hard-coded URL), verifies the token through an identity adapter (`firebase` now, `authjs` after the migration), **strips** any `_auth_uid` / `_auth_email` / `_proxy_secret` the client sent, then adds its own.
 
-**Checked by:** `scripts/test-proxy-auth.js` (valid / forged / expired / missing token × each `AUTH_MODE`; client-sent `_auth_uid` stripped).
+- v9.6: `_auth_email` is forwarded **only when the provider marks it verified** (invites trust it).
+- Only a failure the user fixes by signing in may end a session: `SESSION_EXPIRED` (expired token), `SESSION_MAX_AGE` (`MAX_SESSION_HOURS`). A key-set outage or missing config answers `TOKEN_REJECTED`, which the app does not treat as a sign-out *(v9.6 review CR3-03)*.
+
+**Checked by:** `scripts/test-proxy-auth.js` (valid / forged / expired / missing token × each `AUTH_MODE`; client-sent `_auth_uid` / `_auth_email` stripped; verified email; 12-hour cap; 401 codes).
 
 ---
 

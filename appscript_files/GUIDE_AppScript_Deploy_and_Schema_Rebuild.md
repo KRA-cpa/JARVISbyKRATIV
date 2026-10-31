@@ -2,8 +2,8 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_AppScript_Deploy_and_Schema_Rebuild.md | Author: Kenneth R. Advento | Version: 1.7.0
-Created: 17 October 2026 UTC+8 (Philippine Standard Time) | Modified: 30 October 2026 UTC+8 (Philippine Standard Time)
+Document: GUIDE_AppScript_Deploy_and_Schema_Rebuild.md | Author: Kenneth R. Advento | Version: 1.8.0
+Created: 17 October 2026 UTC+8 (Philippine Standard Time) | Modified: 31 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Step-by-step guide to paste a new AppScript version and rebuild all Google Sheet tables safely | Status: Active
 
 REVISION HISTORY:
@@ -16,6 +16,7 @@ REVISION HISTORY:
 - v1.5.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v9.1 (core ticket loop, workflow admin, links, company lock, comment requirements); ticket_links 14 → 17 columns; new §3a repairCompanyLocks(); v9.0 may be skipped (v9.1 includes it)
 - v1.6.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v9.3 (v9.2 routing / reports / audit log + v9.3 dropdown access, company SLA rules, config export / import / backup, tags & sharing); 2 new tabs, ticket_types 10 → 12 columns; Drive permission for backups; §5a turn tags / sharing on per ticket type; v9.0–v9.2 may be skipped
 - v1.7.0 | 30 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v9.5 (v9.4 request cache, proxy auth, real UTC + v9.5 SLA escalation); 4 new tabs, tickets 27 → 28, ticket_types 12 → 13 columns; §5b proxy auth rollout (Script Properties PROXY_SECRET / AUTH_MODE + Vercel env, warn → enforce); §5c SLA escalation setup (migration, trigger with mail + trigger permissions, holidays, email); v9.4 may be skipped
+- v1.8.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v9.6 (admin-only routes + bootstrap, sign-in allow-list + invites, attachment links, company email); 1 new tab, ticket_attachments + 4, companies + 5 columns; new §5d (make yourself admin BEFORE the redeploy, then invites / company email / test email); Vercel env MAX_SESSION_HOURS; ADMIN_Tools v1.1
 ===============================================================================
 -->
 
@@ -23,7 +24,14 @@ REVISION HISTORY:
 
 > Use this guide every time a new `APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt` file is created.
 > **Latest file is the one with the newest timestamp** in `appscript_files/`.
-> Current: `APPSCRIPT_v9.5_20261030_0650.txt` (contains v9.0–v9.4 - deploy it directly; nothing in between has to be deployed first)
+> Current: `APPSCRIPT_v9.6_20261031_1510.txt` (contains v9.0–v9.5 - deploy it directly; nothing in between has to be deployed first)
+
+> ⚠️ **v9.6 - do §5d. Order matters, or you can lock yourself out:**
+> 1. Paste `ADMIN_Tools_v1.1_20261031_1526.txt` over the `admin` script file (§0a) and the v9.6 main file (§1). Save.
+> 2. **Before redeploying:** JARVIS Admin → **Status**. If it says *No admin yet - bootstrap open*, or your own uid is not in the *Admins* list, use **4. Users & access → Recent sign-ins** to copy your uid and **Make a user admin**. (v9.6 refuses signed-in users with no profile and no role - `NOT_INVITED` - once an admin exists.)
+> 3. §2 dry run → §3 apply (1 new tab `user_invites`, `ticket_attachments` + 4, `companies` + 5 columns) → §5 redeploy (description from the header) → `?action=ping` says `9.6.0`.
+> 4. Then push the frontend + proxy (Vercel). The new proxy forwards the verified email (invites) and refuses sign-ins older than 12 hours (`MAX_SESSION_HOURS`, optional Vercel env, default 12): everyone signs in again once a day.
+> No new Google permission: mail was already allowed in v9.5; CacheService needs none.
 
 > ⚠️ **v9.4 / v9.5 - also do §5b and §5c after §5:**
 > - v9.4 checks a shared secret from the Vercel proxy and takes the acting user from the verified Firebase token (`AUTH_MODE` - default `warn`, which only logs). Set the Script Properties and Vercel env in §5b before switching to `enforce`.
@@ -39,13 +47,15 @@ REVISION HISTORY:
 >
 > An older frontend keeps working for everything except approvals and the new screens.
 >
-> Offline tests (all must pass on the file you paste):
-> - `node appscript_files/tools/ROUTES_TEST_v9.5.js appscript_files/APPSCRIPT_v9.5_20261030_0650.txt` → 25 PASS
+> Offline tests (all must pass on the file you paste; run them with `TZ=Asia/Manila` - one v9.0 date test assumes Manila midnight):
+> - `node appscript_files/tools/ROUTES_TEST_v9.6.js appscript_files/APPSCRIPT_v9.6_20261031_1510.txt` → 24 PASS
+> - `ROUTES_TEST_v9.5.js` → 25 PASS
 > - `ROUTES_TEST_v9.4.js` → 20 PASS, `ROUTES_TEST_v9.3.js` → 10 PASS
 > - `ROUTES_TEST_v9.2.js` → 14 PASS, `ROUTES_TEST_v9.1.js` → 18 PASS
 > - `ROUTES_AND_APPROVALS_TEST_v9.0.js` → 21 PASS
 > - `CODE_REVIEW_FIXES_TEST_v8.3.js` → 11 PASS (same file)
-> - `node scripts/test-proxy-auth.js` → 20 PASS (the Vercel proxy)
+> - `SEED_TEST.js` → 4 PASS, `ADMIN_TOOLS_TEST.js` (with ADMIN_Tools v1.1) → 10 PASS
+> - `node scripts/test-proxy-auth.js` → 26 PASS (the Vercel proxy)
 >
 > Checks: `npm run check:api-contract` → OK, `npm run check:code-rules` → OK. Never apply with v8.2.
 
@@ -67,11 +77,11 @@ REVISION HISTORY:
 
 The main file has hundreds of functions, so finding one in the editor's Run dropdown is slow. The Admin Tools file puts the deploy steps in a Sheet menu:
 
-1. Apps Script editor → **Files ➕ → Script** → name it `admin` → paste `appscript_files/ADMIN_Tools_v1.0_20261031_0422.txt` → **Ctrl+S**. (It needs the main file v9.5+ in the same project.)
+1. Apps Script editor → **Files ➕ → Script** → name it `admin` → paste `appscript_files/ADMIN_Tools_v1.1_20261031_1526.txt` → **Ctrl+S**. (It needs the main file v9.6+ in the same project; v1.0 is for v9.5.)
 2. Reload the Google Sheet → **JARVIS Admin** appears next to Help (after a few seconds). The first click asks for authorization.
-3. Items: **Status** (version in the editor, AUTH_MODE, whether PROXY_SECRET is set - never its value, SLA trigger, mail quota); **1. Schema** - Check tables (= `rebuildAllTables` dry run), Repair tables (shows the dry run, asks, then applies), schema report (xSchema), company code locks; **2. SLA escalation** - migrate old escalation settings, install / remove the trigger, preview; **3. Proxy auth** - set AUTH_MODE (refuses `enforce` while PROXY_SECRET is missing).
+3. Items: **Status** (version in the editor, AUTH_MODE, whether PROXY_SECRET is set - never its value, SLA trigger, mail quota); **1. Schema** - Check tables (= `rebuildAllTables` dry run), Repair tables (shows the dry run, asks, then applies), schema report (xSchema), company code locks; **2. SLA escalation** - migrate old escalation settings, install / remove the trigger, preview; **3. Proxy auth** - set AUTH_MODE (refuses `enforce` while PROXY_SECRET is missing); **4. Users & access** (v1.1) - recent sign-ins (uid + email), make a user admin (creates a *System Admin* role when none exists), pending invites. Status also shows the admins, or *No admin yet - bootstrap open*.
 
-Every "apply" item asks Yes / No first. The menu is only visible to people who can edit the Sheet; the editor's Run dropdown keeps working as before (§2–§5c). Offline test: `node appscript_files/tools/ADMIN_TOOLS_TEST.js <APPSCRIPT file> <ADMIN_Tools file>` → 6 PASS.
+Every "apply" item asks Yes / No first. The menu is only visible to people who can edit the Sheet; the editor's Run dropdown keeps working as before (§2–§5c). Offline test: `node appscript_files/tools/ADMIN_TOOLS_TEST.js <APPSCRIPT file> <ADMIN_Tools file>` → 10 PASS (v1.1; 6 with v1.0).
 
 ---
 
@@ -225,7 +235,7 @@ Never give these a `REACT_APP_` prefix: Create React App bakes `REACT_APP_*` int
 5. Switch both `AUTH_MODE` values to `enforce` (Script Property + Vercel env, then redeploy Vercel). Requests without the secret or without a signed-in user are now refused (`ping` still answers).
 6. To roll back: set both to `warn` (or `off` = v9.3 behaviour).
 
-> Still open (REVIEW S1 part 3): admin-only routes check the caller only where a v9.x handler already did (reports, audit log, config export / import, SLA escalation admin). Any signed-in Google account can still call the other admin writes - see `docs/planning/REVIEW_AppScriptReco_20261030.md` §4.
+> v9.6 closes REVIEW S1 part 3: every admin write checks the verified user (`ADMIN_ONLY_ACTIONS`), and sign-in needs a profile, a role or an invite. See §5d.
 
 ## §5c After v9.5: SLA escalation
 
@@ -237,6 +247,18 @@ Never give these a `REACT_APP_` prefix: Create React App bakes `REACT_APP_*` int
    - **Holidays**: **Philippine holidays for <year>...** → check the list (Eid and Chinese New Year are proclaimed yearly - add them by hand) → **Add them**. They count when a company SLA rule has "exclude holidays".
    - **Email**: in-app notices always; turn email on per ticket type or by default. People who switched email off in their profile get in-app only.
 5. **Smoke test**: a company SLA rule of 1 hour for a step + a level at 50% → create a ticket → within ~15 minutes (after 30 minutes of SLA time) the approvers see a bell notification (and an email when on).
+
+## §5d After v9.6: admins, invites, company email
+
+1. **First admin (before the §5 redeploy - see the banner at the top).** While no active admin assignment exists, any signed-in user may use the admin screens (*bootstrap*, logged as `ADMIN_BOOTSTRAP` in the audit log). JARVIS Admin → **4. Users & access → Make a user admin** closes it. After that:
+   - admin writes from non-admins are refused (`Only admins can …`); in `AUTH_MODE` `warn` they are only logged (`AUTH warn: <action> by non-admin`),
+   - a signed-in user needs an active user profile **or** a role in force; otherwise the app signs them out with *"Your account isn't set up yet. Ask your administrator for an invite."*
+2. **Test sign-in**: open the app in a private window with another Google account that has no profile → the login page shows the invite message. Your own account still works.
+3. **Invite people**: app → **Admin → Users → Invite**: email, name, company, roles, optional immediate approver → **Create invite**. They get an email with the app address only; signing in with that Google account (the email must be Google-verified) creates their profile and roles. Pending invites last 14 days; **Resend** gives 14 more, **Revoke** ends one. Script Property `APP_URL` changes the address in the email (default `https://jarvis-by-erp.vercel.app`).
+4. **Company email**: **Admin → Companies → 🔔 (Email)** per company: SLA email *Default / On / Off* (On / Off override every ticket type), sender name, Reply-To, CC (up to 5), footer → **Save** → **Send test email** (to you, or the address you type). Mail still comes from the script owner's Google address; recipients see the sender name and reply to the Reply-To.
+5. **Links**: open a ticket → **Links**: the requester, the current approvers and admins add / remove links (http / https only); anyone in the ticket's company (or shared with) can **Report broken**, and a reported link can be **Fixed** in place (also on closed tickets; logged).
+6. **Sessions**: 60 minutes without activity signs the user out (*"Session closed due to inactivity…"*), and the proxy refuses sign-ins older than 12 hours. To change the cap: Vercel env `MAX_SESSION_HOURS` → redeploy Vercel.
+7. If something says *"run the v9.6 schema rebuild"* (`SCHEMA_OUTDATED`): §3 wasn't applied yet.
 
 ---
 

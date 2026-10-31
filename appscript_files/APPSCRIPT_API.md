@@ -1815,7 +1815,7 @@ After deployment, you can test the API using these functions in the Apps Script 
 
 ## 📊 Available Endpoints
 
-> **Updated October 30, 2026 (AppScript v9.5).** The authoritative list is the `case` labels of `doGet` and
+> **Updated October 31, 2026 (AppScript v9.6).** The authoritative list is the `case` labels of `doGet` and
 > `routePostAction` in the newest `appscript_files/APPSCRIPT_v*.txt`; `npm run check:api-contract` compares them with
 > what `src/api/googleSheet.js` sends. Since v9.3 every action the frontend sends has a route.
 > `runCompleteAPITest` is editor-only (it creates and deletes real rows); the Admin health check uses getSystemHealth.
@@ -1834,6 +1834,34 @@ getGlobalSLAPerformance, getUserProfileTypes / getRoleTypes (`include_inactive`)
 routing. With Script Property `AUTH_MODE=enforce`, a request without the secret or a verified user is refused
 (`ping` excepted) and every acting-user key (`user_id` on approve / cancel / reopen / share / reports / audit log /
 config, `requester_id` on createTicket) is the verified uid, whatever the body says (compliance A15).
+
+**Access (v9.6):** after the identity check, doGet / doPost run the **sign-in allow-list**: a verified user needs an
+active `user_profiles` row, or (no profile) a role assignment in force; otherwise a pending invite for the verified
+email (`_auth_email`, forwarded by the proxy only when Google verified it) is accepted, else the answer is
+`{ success: false, status: 'error', code: 'NOT_INVITED' }` (`ACCOUNT_DISABLED` for a deactivated profile). Passes are
+cached 10 minutes (CacheService `allow:<uid>`). Skipped while no admin exists (bootstrap) and in `AUTH_MODE` off; `warn`
+logs. **Admin-only POST actions** (`ADMIN_ONLY_ACTIONS`: company / role / dropdown / ticket type / profile type / role
+type / profile / custom field / workflow / role assignment / SLA rule / comment rule / routing / report config /
+ticket link / backup / invite / company email writes) refuse non-admins with `code: 'ADMIN_ONLY'` in enforce. Failure
+responses carry the handler's `code` at the top level. Proxy 401 codes: `NOT_SIGNED_IN`, `SESSION_EXPIRED`,
+`SESSION_MAX_AGE` (sign-in older than `MAX_SESSION_HOURS`, default 12), `TOKEN_REJECTED`.
+
+**GET - new in v9.6:**
+
+| Action | Query | Returns (`data`) |
+|---|---|---|
+| getUserInvites | status? (pending default \| accepted \| revoked \| expired \| all), company_id? (admin) | invites, newest first, with parsed `role_grants` |
+| getCompanyEmailSettings | company_id (admin) | `{ company_id, email_enabled, email_sender_name, email_reply_to, email_cc, email_footer, global_default, quota_remaining }` |
+| getTicketAttachments | ticket_id | `{ ticket_id, can_manage, closed, attachments: [{ id, file_name, file_url, description, step_id, uploader_id, created_at, link_status, reported_by, reported_at, report_note }] }` - only for people who can see the ticket |
+
+**POST - new in v9.6:** createUserInvite (`email`, `display_name`, `company_id`, `user_profile_type_id`, `role_grants`,
+`immediate_approver_id`, `backup_approver_id`, `send_email` default true) / resendUserInvite (`invite_id`) /
+revokeUserInvite (`invite_id`, `reason`); saveCompanyEmailSettings (`company_id` + any of the 5 email fields) /
+sendCompanyTestEmail (`company_id`, `to?`); addTicketAttachmentLink (`ticket_id`, `file_url`, `file_name`,
+`description?`, `step_id?` - requester / current approvers / admin; closed tickets admin only) / removeTicketAttachment
+(`attachment_id`, soft) / reportAttachmentLinkBroken (`attachment_id`, `note`) / updateAttachmentLink (`attachment_id`,
+`file_url`, `file_name?`, `description?` - only while reported). http(s) URLs only. getUserPreferences /
+updateUserPreferences act on the verified user.
 
 **GET - new in v9.5 (SLA escalation):**
 
