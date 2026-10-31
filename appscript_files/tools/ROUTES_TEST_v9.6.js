@@ -18,7 +18,8 @@ const SECRET = 's';
 
 /**
  * co_1 + tt_1 with one step ws_1 (approvers: Manager). Users: u_admin (System Admin role, profile), u_mgr (Manager
- * role, no profile), u_req (profile, no role), u_out (profile, no role - not involved in the ticket).
+ * role, no profile), u_req (profile, no role), u_out (profile + Staff role in co_1 - not involved in the ticket),
+ * u_far (profile, no role anywhere - can't see co_1 tickets' links).
  * options.noAdmin: no admin assignment (bootstrap open). options.mode: AUTH_MODE (default enforce).
  */
 function seed(options = {}) {
@@ -32,10 +33,11 @@ function seed(options = {}) {
   add('ticket_types', { id: 'tt_1', code: 'PR', name: 'Purchase', is_active: true, sla_email: 'default' });
   add('roles', { id: 'r_mgr', name: 'Manager', company_id: '', is_active: true });
   add('roles', { id: 'r_admin', name: 'System Admin', company_id: '', is_active: true });
+  add('roles', { id: 'r_staff', name: 'Staff', company_id: '', is_active: true });
   add('workflow_steps', { id: 'ws_1', ticket_type_id: 'tt_1', company_id: 'co_1', name: 'Managers', status_on_reach: 'Pending Managers',
     step_type: 'approval', approver_logic: 'any', sort_order: 1, is_active: true });
   add('step_approvers', { step_id: 'ws_1', role_id: 'r_mgr' });
-  const grants = [['u_mgr', 'r_mgr']].concat(options.noAdmin ? [] : [['u_admin', 'r_admin']]);
+  const grants = [['u_mgr', 'r_mgr'], ['u_out', 'r_staff']].concat(options.noAdmin ? [] : [['u_admin', 'r_admin']]);
   grants.forEach(([user_id, role_id]) => {
     const res = rt.ctx.createUserRoleAssignment({ user_id, role_id, company_id: 'co_1' });
     assert.strictEqual(res.status, 'success', res.message);
@@ -43,6 +45,7 @@ function seed(options = {}) {
   add('user_profiles', { user_id: 'u_admin', display_name: 'Ada Admin', email: 'ada@example.com', status: 'active', is_active: true });
   add('user_profiles', { user_id: 'u_req', display_name: 'Rita Requester', email: 'rita@example.com', status: 'active', is_active: true });
   add('user_profiles', { user_id: 'u_out', display_name: 'Otto Outsider', email: 'otto@example.com', status: 'active', is_active: true });
+  add('user_profiles', { user_id: 'u_far', display_name: 'Fay Far', email: 'fay@example.com', status: 'active', is_active: true });
   rt.cache.clear();
 
   /** A request through the proxy as uid (with a verified email when given). */
@@ -263,6 +266,9 @@ test('links: requester adds (http(s) only), anyone lists, outsider cannot add or
   assert.strictEqual(seen.can_manage, false);
   assert.strictEqual(ok(asGet('u_req', { action: 'getTicketAttachments', ticket_id: id })).can_manage, true);
   assert.match(as('u_out', { action: 'removeTicketAttachment', attachment_id: link.id }).error, /Only the requester/);
+  // review: someone with no role in the ticket's company can't read or report its links
+  assert.match(asGet('u_far', { action: 'getTicketAttachments', ticket_id: id }).error, /can't see this ticket/);
+  assert.match(as('u_far', { action: 'reportAttachmentLinkBroken', attachment_id: link.id, note: 'x' }).error, /can't see this ticket/);
   ok(as('u_req', { action: 'removeTicketAttachment', attachment_id: link.id, reason: 'wrong file' }));
   assert.strictEqual(ok(asGet('u_req', { action: 'getTicketAttachments', ticket_id: id })).attachments.length, 1);
   const removed = rows('ticket_attachments').find(a => a.id === link.id);
@@ -402,6 +408,63 @@ test('every ADMIN_ONLY action is routed in doPost; ping reports 9.6.0 = header V
   const header = src.match(/\* Version: (\d+\.\d+)/)[1];
   assert.strictEqual(rt.get({ action: 'ping' }).version, `${header}.0`);
   assert.strictEqual(rt.get({ action: 'ping' }).version, '9.6.0');
+});
+
+// --- Review fixes (docs/planning/TODO_CodeReview_20261031.md) ------------------------------------------------
+
+test('review: a parallel first-sign-in request that lost the race is let in, not NOT_INVITED', () => {
+  const { as, asGet, ok, rt, rows } = seed();
+  ok(as('u_admin', { action: 'createUserInvite', email: 'race@example.com', company_id: 'co_1', role_grants: [{ role_id: 'r_mgr' }], send_email: false }));
+  const S = rt.ctx.__TABLE_SCHEMAS;
+  const original = rt.ctx.withScriptLock;
+  let simulated = false;
+  rt.ctx.withScriptLock = (fn, timeout) => {
+    if (!simulated) {
+      // the other request of the same sign-in got the lock first and accepted the invite (raw writes: another execution)
+      simulated = true;
+      const invites = rt.sheets.get('user_invites');
+      const header = invites.rows[0];
+      invites.rows[1][header.indexOf('status')] = 'accepted';
+      invites.dirty = true;
+      rt.sheets.get('user_profiles').appendRow(rt.ctx.rowFromRecord(S.user_profiles, { user_id: 'u_race', email: 'race@example.com', status: 'active', is_active: true }));
+    }
+    return original(fn, timeout);
+  };
+  const res = asGet('u_race', { action: 'getCompanies' }, 'race@example.com');
+  assert.strictEqual(res.success, true, res.error);
+  assert.strictEqual(rows('user_profiles').filter(p => p.user_id === 'u_race').length, 1, 'not accepted twice');
+});
+
+test('review: handler codes reach the top level (ADMIN_ONLY on an admin read)', () => {
+  const { asGet } = seed();
+  const res = asGet('u_req', { action: 'getUserInvites' });
+  assert.strictEqual(res.success, false);
+  assert.strictEqual(res.code, 'ADMIN_ONLY');
+});
+
+test('review: before the v9.6 rebuild, company email and link reports refuse (SCHEMA_OUTDATED) instead of pretending', () => {
+  const { as, ok, rt, createTicket } = seed();
+  const id = createTicket();
+  const link = ok(as('u_req', { action: 'addTicketAttachmentLink', ticket_id: id, file_url: 'https://a.example.com', file_name: 'A' }));
+  const S = rt.ctx.__TABLE_SCHEMAS;
+  const drop = (name, n) => { const sh = rt.sheets.get(name); sh.rows = sh.rows.map(r => r.slice(0, S[name].length - n)); sh.dirty = true; };
+  drop('companies', 5);
+  drop('ticket_attachments', 4);
+  const email = as('u_admin', { action: 'saveCompanyEmailSettings', company_id: 'co_1', email_enabled: 'on' });
+  assert.strictEqual(email.code, 'SCHEMA_OUTDATED');
+  assert.match(email.error, /Repair tables/);
+  assert.strictEqual(as('u_out', { action: 'reportAttachmentLinkBroken', attachment_id: link.id }).code, 'SCHEMA_OUTDATED');
+});
+
+test('review: resend refuses when a newer pending invite or a profile exists for the email', () => {
+  const { as, ok, rt, add } = seed();
+  const a = ok(as('u_admin', { action: 'createUserInvite', email: 'dup@example.com', company_id: 'co_1', send_email: false }));
+  rt.ctx.updateRecordFields('user_invites', a.id, { expires_at: new Date(Date.now() - 1000) });
+  ok(as('u_admin', { action: 'createUserInvite', email: 'dup@example.com', company_id: 'co_1', send_email: false }));
+  assert.match(as('u_admin', { action: 'resendUserInvite', invite_id: a.id }).error, /newer pending invite/);
+  const c = ok(as('u_admin', { action: 'createUserInvite', email: 'joined@example.com', company_id: 'co_1', send_email: false }));
+  add('user_profiles', { user_id: 'u_joined', email: 'joined@example.com', status: 'active', is_active: true });
+  assert.match(as('u_admin', { action: 'resendUserInvite', invite_id: c.id }).error, /already has a user profile/);
 });
 
 report();

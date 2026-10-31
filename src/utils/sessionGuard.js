@@ -66,11 +66,15 @@ export function isIdleExpired(now = Date.now(), last = readLastActivity()) {
   return last !== null && now - last > IDLE_LIMIT_MS;
 }
 
-/** Remember why the app signed the user out (one of SESSION_NOTICES' keys). */
-export function setSessionNotice(code) {
+// The server's own text is used for these (the proxy's cap can be changed with MAX_SESSION_HOURS)
+const SERVER_TEXT_CODES = ['SESSION_MAX_AGE'];
+
+/** Remember why the app signed the user out (one of SESSION_NOTICES' keys); serverMessage = the backend's text. */
+export function setSessionNotice(code, serverMessage = '') {
   if (!SESSION_NOTICES[code]) return;
+  const message = SERVER_TEXT_CODES.includes(code) && serverMessage ? String(serverMessage) : SESSION_NOTICES[code];
   try {
-    safeStorage('sessionStorage')?.setItem(SESSION_NOTICE_KEY, code);
+    safeStorage('sessionStorage')?.setItem(SESSION_NOTICE_KEY, JSON.stringify({ code, message }));
   } catch (error) {
     // no notice then
   }
@@ -80,9 +84,11 @@ export function setSessionNotice(code) {
 export function takeSessionNotice() {
   try {
     const storage = safeStorage('sessionStorage');
-    const code = storage?.getItem(SESSION_NOTICE_KEY);
-    if (code) storage.removeItem(SESSION_NOTICE_KEY);
-    return code && SESSION_NOTICES[code] ? { code, message: SESSION_NOTICES[code] } : null;
+    const raw = storage?.getItem(SESSION_NOTICE_KEY);
+    if (!raw) return null;
+    storage.removeItem(SESSION_NOTICE_KEY);
+    const notice = JSON.parse(raw);
+    return notice && SESSION_NOTICES[notice.code] ? { code: notice.code, message: notice.message || SESSION_NOTICES[notice.code] } : null;
   } catch (error) {
     return null;
   }

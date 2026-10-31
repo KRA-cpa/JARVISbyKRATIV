@@ -139,11 +139,16 @@ function apiError(message, code = null, status = null) {
   return error;
 }
 
-/** Tell the app about a code that ends the sign-in (once per code per page load is enough for the listener). */
-function announceAuthCode(code) {
+/** A backend code: only strings count (a timeout's DOMException carries a numeric legacy code, e.g. 20). */
+function backendCode(error) {
+  return error && typeof error.code === 'string' ? error.code : null;
+}
+
+/** Tell the app about a code that ends the sign-in; message = the server's text (e.g. the cap's hours). */
+function announceAuthCode(code, message = '') {
   if (!code || !SIGN_OUT_CODES.includes(code) || typeof window === 'undefined') return;
   try {
-    window.dispatchEvent(new CustomEvent(AUTH_EVENT, { detail: { code } }));
+    window.dispatchEvent(new CustomEvent(AUTH_EVENT, { detail: { code, message } }));
   } catch (error) {
     console.warn('Could not announce the auth code:', error.message);
   }
@@ -434,11 +439,12 @@ class BaseAPI {
       return response;
     } catch (error) {
       console.error(`API Error [${action}]:`, error);
-      announceAuthCode(error.code);
+      const code = backendCode(error);
+      announceAuthCode(code, error.message);
 
       // Return mock data in development if API fails - say so once per action, so a broken route
       // doesn't hide behind mock data. Never for an auth refusal: that must reach the screen.
-      if (CONFIG.ENABLE_MOCK_DATA && !error.code) {
+      if (CONFIG.ENABLE_MOCK_DATA && !code) {
         if (!mockWarnedActions.has(action)) {
           mockWarnedActions.add(action);
           console.warn(`[MOCK] ${action}: backend failed (${error.message}) - showing mock data`);
@@ -446,7 +452,7 @@ class BaseAPI {
         return this.getMockData(action, payload);
       }
 
-      throw apiError(`Failed to ${action}: ${error.message}`, error.code || null, error.status || null);
+      throw apiError(`Failed to ${action}: ${error.message}`, code, error.status || null);
     }
   }
 

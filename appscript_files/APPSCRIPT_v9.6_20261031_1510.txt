@@ -3299,6 +3299,8 @@ function createHandlerResponse(result) {
       success: false,
       status: 'error',
       error: result.message || result.error || (result.errors || []).join('; ') || 'Request failed',
+      // v9.6: a handler's code (ADMIN_ONLY, ...) at the top level, where the frontend reads it
+      ...(result.code ? { code: result.code } : {}),
       data: result
     });
   }
@@ -16403,8 +16405,14 @@ function checkAllowList(action) {
   let status = allowListStatus(auth.uid);
   if (status === 'unknown' && adminBootstrapOpen()) return null;
   if (status === 'unknown' && auth.email) {
-    const accepted = withScriptLock(() => acceptPendingInvite(auth.uid, auth.email));
-    if (accepted) status = 'allowed';
+    status = withScriptLock(() => {
+      // Another request of the same first sign-in may have accepted the invite while this one waited for the lock:
+      // read the tabs again (this request's cache is from before the lock), then accept only if still unknown
+      [SHEETS.USER_PROFILES, SHEETS.USER_ROLE_ASSIGNMENTS, SHEETS.USER_INVITES].forEach(invalidateTable);
+      const again = allowListStatus(auth.uid);
+      if (again !== 'unknown') return again;
+      return acceptPendingInvite(auth.uid, auth.email) ? 'allowed' : 'unknown';
+    });
   }
   if (status === 'allowed') {
     try {
@@ -16555,6 +16563,12 @@ function resendUserInvite(payload = {}) {
   const now = new Date();
   const status = inviteStatus(found.record, now);
   if (status !== 'pending' && status !== 'expired') return { status: 'error', message: `This invite is ${status}` };
+  const email = normalizeEmail(found.record.email);
+  if (findUserIdByEmail(email)) return { status: 'error', message: `${email} already has a user profile - revoke this invite` };
+  const invites = readTable(SHEETS.USER_INVITES);
+  if ((invites ? invites.records : []).some(i => !sameId(i.id, found.record.id) && normalizeEmail(i.email) === email && inviteStatus(i, now) === 'pending')) {
+    return { status: 'error', message: `${email} has a newer pending invite - resend that one` };
+  }
   const company = recordsById(SHEETS.COMPANIES)[String(found.record.company_id)] || {};
   const changes = { status: 'pending', expires_at: new Date(now.getTime() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000), updated_at: now, updated_by: actor };
   const mail = sendInviteEmail({ ...found.record, ...changes }, company);
@@ -16597,6 +16611,18 @@ function sendInviteEmail(invite, company) {
     expires ? `The invite is valid until ${Utilities.formatDate(expires, MANILA_TZ, 'yyyy-MM-dd')} (Manila).` : '',
     'No password or link code is needed: signing in with that Google account accepts the invite.'].join('\n');
   return sendCompanyEmail(company, { to: invite.email, subject: `[JARVIS] You're invited to ${companyName}`, body });
+}
+
+/**
+ * The v9.6 columns a write needs that the tab doesn't have yet (updateRecordFields skips unknown columns, so a
+ * write before the rebuild apply would report success and store nothing). @returns {Object|null} error response
+ */
+function requireColumns(sheetName, columns) {
+  const table = readTable(sheetName);
+  const missing = columns.filter(c => !(table ? table.headers : []).includes(c));
+  return missing.length
+    ? { status: 'error', code: 'SCHEMA_OUTDATED', message: `The ${sheetName} tab has no ${missing.join(', ')} column(s) yet: run the v9.6 schema rebuild (JARVIS Admin -> 1. Schema -> Repair tables)` }
+    : null;
 }
 
 // --- Company email settings ----------------------------------------------------------------------------------
@@ -16665,6 +16691,8 @@ function saveCompanyEmailSettings(payload = {}) {
   const companyId = payload.company_id || payload.id;
   const company = recordsById(SHEETS.COMPANIES)[String(companyId || '')];
   if (!company) return { status: 'error', message: `Company ${companyId} not found` };
+  const outdated = requireColumns(SHEETS.COMPANIES, ['email_enabled', 'email_sender_name', 'email_reply_to', 'email_cc', 'email_footer']);
+  if (outdated) return outdated;
   const changes = {};
   if (payload.email_enabled !== undefined) {
     if (!COMPANY_EMAIL_MODES.includes(String(payload.email_enabled))) return { status: 'error', message: 'email_enabled must be default, on or off' };
@@ -16735,6 +16763,23 @@ function canManageTicketLinks(userId, ticket) {
   return check.status === 'success' && !!check.data.can_act;
 }
 
+/**
+ * May the user see a ticket's links (and report one broken)? Until v10.0 adds canViewTicket: anyone who can manage
+ * them, anyone with a role in force in the ticket's company, or someone the ticket is shared with (user or company).
+ * @returns {boolean}
+ */
+function canSeeTicketLinks(userId, ticket) {
+  if (!userId || !ticket) return false;
+  if (canManageTicketLinks(userId, ticket)) return true;
+  const now = new Date();
+  const assignments = readTable(SHEETS.USER_ROLE_ASSIGNMENTS);
+  const myCompanies = unique((assignments ? assignments.records : [])
+    .filter(a => sameId(a.user_id, userId) && isAssignmentActive(a, now)).map(a => String(a.company_id)).filter(Boolean));
+  if (myCompanies.includes(String(ticket.company_id))) return true;
+  return liveRecords(SHEETS.TICKET_COLLABORATIONS).some(c => sameId(c.ticket_id, ticket.id) && shareInForce(c, now) &&
+    (sameId(c.shared_with_user_id, userId) || (c.shared_with_company_id && myCompanies.includes(String(c.shared_with_company_id)))));
+}
+
 /** A ticket record by id, or null. */
 function ticketRecord(ticketId) {
   const found = findRecord(SHEETS.TICKETS, ticketId);
@@ -16765,10 +16810,11 @@ function getTicketAttachments(params = {}) {
   const ticketId = params.ticket_id || params.id;
   const ticket = ticketRecord(ticketId);
   if (!ticket) return { status: 'error', message: `Ticket ${ticketId} not found` };
+  const actor = actorId(params.user_id);
+  if (!canSeeTicketLinks(actor, ticket)) return { status: 'error', message: 'You can\'t see this ticket' };
   const table = readTable(SHEETS.TICKET_ATTACHMENTS);
   const list = (table ? table.records : []).filter(a => sameId(a.ticket_id, ticket.id) && liveRecord(a)).map(attachmentView)
     .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
-  const actor = actorId(params.user_id);
   return { status: 'success', data: { ticket_id: String(ticket.id), can_manage: canManageTicketLinks(actor, ticket), closed: ticketIsClosed(ticket),
     attachments: list }, message: `${list.length} attachment(s)` };
 }
@@ -16827,6 +16873,9 @@ function reportAttachmentLinkBroken(payload = {}) {
   const { attachment, ticket } = ctx;
   const actor = actorId(payload.user_id);
   if (!actor) return { status: 'error', message: 'Sign in to report a link' };
+  if (!canSeeTicketLinks(actor, ticket)) return { status: 'error', message: 'You can\'t see this ticket' };
+  const outdated = requireColumns(SHEETS.TICKET_ATTACHMENTS, ['link_status', 'reported_by', 'reported_at', 'report_note']);
+  if (outdated) return outdated;
   const note = String(payload.note || '').trim().slice(0, 500);
   const already = String(attachment.link_status) === 'reported_broken';
   const now = new Date();

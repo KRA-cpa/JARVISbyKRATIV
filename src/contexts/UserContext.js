@@ -172,10 +172,10 @@ export const UserProvider = ({ children }) => {
    * End the session because of `reason` (IDLE, SESSION_MAX_AGE, SESSION_EXPIRED, NOT_INVITED, ACCOUNT_DISABLED):
    * the login page shows the matching notice once. Protected routes redirect to /login once the user is gone.
    */
-  const endSession = React.useCallback(async (reason) => {
+  const endSession = React.useCallback(async (reason, serverMessage = '') => {
     if (endingRef.current) return;
     endingRef.current = true;
-    setSessionNotice(reason);
+    setSessionNotice(reason, serverMessage);
     clearLastActivity();
     try {
       await signOut(auth);
@@ -233,7 +233,7 @@ export const UserProvider = ({ children }) => {
     if (DEV_CONFIG.DISABLE_AUTH) return undefined;
     const onAuthCode = (event) => {
       const code = event && event.detail ? event.detail.code : null;
-      if (SIGN_OUT_CODES.includes(code) && auth.currentUser) endSession(code);
+      if (SIGN_OUT_CODES.includes(code) && auth.currentUser) endSession(code, event.detail.message);
     };
     window.addEventListener(AUTH_EVENT, onAuthCode);
     return () => window.removeEventListener(AUTH_EVENT, onAuthCode);

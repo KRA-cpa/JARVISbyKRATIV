@@ -46,19 +46,24 @@ function firebaseAdapter(projectId, keySet = createRemoteJWKSet(new URL(FIREBASE
  * Who is calling: the first adapter that accepts the bearer token. A second provider (Auth.js / Better Auth
  * after the Neon migration) is another { name, verify } entry; its uid maps to the same user id through
  * auth_identities (docs/planning/PLAN_Migration_NeonVercel_20261030.md §3).
- * @returns {Promise<{ identity: Object|null, error: string|null }>}
+ * v9.6: `expired` is true when an adapter rejected the token only because it expired (jose ERR_JWT_EXPIRED) - the
+ * one failure that means "sign in again". Others (bad signature, wrong audience, key fetch failure, missing
+ * config) must not sign people out: a JWKS outage would otherwise end every session.
+ * @returns {Promise<{ identity: Object|null, error: string|null, expired: boolean }>}
  */
 async function identify(token, adapters) {
-  if (!token) return { identity: null, error: null };
+  if (!token) return { identity: null, error: null, expired: false };
   const errors = [];
+  let expired = false;
   for (const adapter of adapters) {
     try {
-      return { identity: await adapter.verify(token), error: null };
+      return { identity: await adapter.verify(token), error: null, expired: false };
     } catch (error) {
+      if (error.code === 'ERR_JWT_EXPIRED') expired = true;
       errors.push(`${adapter.name}: ${error.code || error.message}`);
     }
   }
-  return { identity: null, error: errors.join('; ') || 'no identity adapter' };
+  return { identity: null, error: errors.join('; ') || 'no identity adapter', expired };
 }
 
 function bearerToken(headers = {}) {
@@ -128,7 +133,7 @@ function createProxyHandler({ env = process.env, fetchImpl = globalThis.fetch, a
     // Created on first use, so a cold start that only answers OPTIONS doesn't build the key set
     identityAdapters = identityAdapters || [firebaseAdapter(projectId)];
     const token = bearerToken(req.headers);
-    const { identity: verifiedIdentity, error: authError } = await identify(token, identityAdapters);
+    const { identity: verifiedIdentity, error: authError, expired } = await identify(token, identityAdapters);
     // v9.6: a sign-in older than MAX_SESSION_HOURS counts as no identity
     const tooOld = sessionTooOld(verifiedIdentity, capHours);
     const identity = tooOld ? null : verifiedIdentity;
@@ -147,7 +152,9 @@ function createProxyHandler({ env = process.env, fetchImpl = globalThis.fetch, a
     if (mode === 'enforce' && !uid && action !== 'ping') {
       const refusal = tooOld
         ? { code: 'SESSION_MAX_AGE', error: `Your session reached ${capHours} hours. Please sign in again.` }
-        : (token ? { code: 'SESSION_EXPIRED', error: 'Session expired: sign in again' } : { code: 'NOT_SIGNED_IN', error: 'Not signed in' });
+        : !token ? { code: 'NOT_SIGNED_IN', error: 'Not signed in' }
+          : expired ? { code: 'SESSION_EXPIRED', error: 'Session expired: sign in again' }
+            : { code: 'TOKEN_REJECTED', error: 'Your sign-in could not be verified right now. Try again.' };
       finish(401, { success: false, status: 'error', ...refusal });
       return;
     }

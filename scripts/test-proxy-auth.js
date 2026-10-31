@@ -180,9 +180,20 @@ async function main() {
     assert.strictEqual(warn.forwarded._auth_uid, undefined);
   });
 
-  await run('v9.6: 401 codes - NOT_SIGNED_IN without a token, SESSION_EXPIRED for an invalid one', async () => {
+  await run('v9.6: 401 codes - NOT_SIGNED_IN without a token, SESSION_EXPIRED only for an expired one', async () => {
     assert.strictEqual((await call('enforce', null)).res.body.code, 'NOT_SIGNED_IN');
     assert.strictEqual((await call('enforce', tokens.expired)).res.body.code, 'SESSION_EXPIRED');
+    assert.strictEqual((await call('enforce', tokens.forged)).res.body.code, 'TOKEN_REJECTED');
+  });
+
+  await run('v9.6 review: a key-set outage is TOKEN_REJECTED (does not sign people out), not SESSION_EXPIRED', async () => {
+    const fetchImpl = fakeFetch();
+    const down = { name: 'firebase', verify: async () => { const e = new Error('JWKS fetch failed'); e.code = 'ERR_JWKS_TIMEOUT'; throw e; } };
+    const handler = createProxyHandler({ env: { AUTH_MODE: 'enforce', PROXY_SECRET: SECRET }, fetchImpl, adapters: [down], log: () => {} });
+    const res = fakeRes();
+    await handler({ method: 'POST', headers: { authorization: `Bearer ${tokens.valid}` }, body: { action: 'getTickets' } }, res);
+    assert.strictEqual(res.statusCode, 401);
+    assert.strictEqual(res.body.code, 'TOKEN_REJECTED');
   });
 
   console.log(results.join('\n'));

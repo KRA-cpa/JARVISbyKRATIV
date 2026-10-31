@@ -12,10 +12,11 @@ const LoginPage = () => {
   // v9.6: why the app signed the user out (idle, 12-hour cap, not invited, deactivated) - shown once
   const [notice, setNotice] = useState(null);
 
+  // Re-checked when the auth state settles too: an idle / refused session can end after this page mounted
   useEffect(() => {
     const pending = takeSessionNotice();
     if (pending) setNotice(pending);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loading]);
 
   // Redirect if already authenticated
   useEffect(() => {
