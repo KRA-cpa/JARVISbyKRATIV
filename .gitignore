@@ -20,6 +20,8 @@ runCMD.lnk
 .env.development.local
 .env.test.local
 .env.production.local
+# Any other local env file (e.g. .env.firebase.local for importing into Vercel)
+.env*.local
 
 npm-debug.log*
 yarn-debug.log*

@@ -2,77 +2,49 @@
 
 ## 🚀 **Production Deployment Setup**
 
-**Target Environment**: Vercel (Frontend) + Firebase (Auth) + Google Apps Script (Backend)
-**Current Phase**: Phase 6 Development - Ready for production deployment
-**Last Updated**: September 16, 2025
+**Target Environment**: Vercel (frontend + `/api/appscript-proxy`) + Firebase (Auth) + Google Apps Script (backend, AppScript v9.5)
+**Last Updated**: October 31, 2026 - environment variables corrected to what the code reads (AppScript v9.4 proxy auth)
+
+> **What the code actually reads.** §"Vercel Environment Variables" below lists every variable used today. The later sections (application toggles, RBAC, analytics, Apps Script CORS / script properties, `vercel.json`) are **September 2025 design notes - not implemented**; the code doesn't read those variables. Deploy steps for the backend: `appscript_files/GUIDE_AppScript_Deploy_and_Schema_Rebuild.md`.
 
 ---
 
 ## 🔧 **Environment Variables Configuration**
 
-### **Vercel Environment Variables**
+### **Vercel Environment Variables** (Settings → Environment Variables, Production + Preview)
 
-#### **🔥 Firebase Authentication**
-```bash
-# Firebase Configuration
-REACT_APP_FIREBASE_API_KEY=AIzaSyDexamplekey123456789
-REACT_APP_FIREBASE_AUTH_DOMAIN=jarvisbyerp.firebaseapp.com
-REACT_APP_FIREBASE_PROJECT_ID=jarvisbyerp
-REACT_APP_FIREBASE_STORAGE_BUCKET=jarvisbyerp.appspot.com
-REACT_APP_FIREBASE_MESSAGING_SENDER_ID=123456789
-REACT_APP_FIREBASE_APP_ID=1:123456789:web:abcdef123456789
-```
+#### **🔥 Firebase web config** (browser; public by design - Sensitive **off**)
 
-#### **📊 Google Apps Script Backend**
-```bash
-# Google Apps Script Web App URL
-REACT_APP_API_BASE_URL=https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec
+Copy the values from **Firebase console → project `jarvisbyerp` → Project settings → General → Your apps → SDK setup and configuration → Config**. A ready-to-import file with the current values is kept **locally** in `.env.firebase.local` (git-ignored; Vercel → **Import .env**). Don't commit real values - an older copy of this guide had a wrong key and made-up ids.
 
-# Google Sheets Database
-REACT_APP_SPREADSHEET_ID=1EjFpr_yktSU6QAeBSAvcr6iWVtmaOCV1t5unvImmot4
-```
+| Variable | Needed | Value |
+|---|---|---|
+| `REACT_APP_FIREBASE_API_KEY` | **required** | `apiKey` from the console |
+| `REACT_APP_FIREBASE_AUTH_DOMAIN` | **required** | `jarvisbyerp.firebaseapp.com` |
+| `REACT_APP_FIREBASE_PROJECT_ID` | **required** (also the proxy's fallback for `FIREBASE_PROJECT_ID`) | `jarvisbyerp` |
+| `REACT_APP_FIREBASE_APP_ID` | **required** | `appId` from the console |
+| `REACT_APP_FIREBASE_MESSAGING_SENDER_ID` | recommended | `messagingSenderId` from the console |
+| `REACT_APP_FIREBASE_STORAGE_BUCKET` | optional (no Firebase Storage used) | `jarvisbyerp.firebasestorage.app` |
 
-#### **⚙️ Application Configuration**
-```bash
-# Development Toggles (Phase 6)
-REACT_APP_ALLOW_DIRECT_ACCESS=false
-REACT_APP_ALLOW_ALL_ACCESS=true
-REACT_APP_ENFORCE_PERMISSIONS=false
+Without the required four, `src/config/firebase.js` falls back to `demo-project` placeholders: Google sign-in can't work, no request carries an ID token, and the proxy logs `"auth":"none"` (found 31 Oct 2026). `REACT_APP_*` values are baked in **at build time** - redeploy after changing them.
 
-# Feature Flags
-REACT_APP_ENABLE_NOTIFICATIONS=true
-REACT_APP_ENABLE_LIVE_UPDATES=true
-REACT_APP_ENABLE_ANALYTICS=true
+#### **🛡️ Proxy (server-only - never prefix these with `REACT_APP_`)**
 
-# UI Configuration
-REACT_APP_APP_NAME=JarvisByERP
-REACT_APP_TIMEZONE=Asia/Manila
-REACT_APP_DATE_FORMAT=MM/dd/yyyy
-REACT_APP_TIME_FORMAT=12h
-```
+| Variable | Kind | Value |
+|---|---|---|
+| `PROXY_SECRET` | **Secret** - Sensitive **on** | same value as the Apps Script Script Property `PROXY_SECRET` |
+| `AUTH_MODE` | config | `warn` during rollout, then `enforce` (same as the Script Property) |
+| `APPS_SCRIPT_URL` | config | the web-app `/exec` URL (Apps Script → Deploy → Manage deployments) |
+| `FIREBASE_PROJECT_ID` | config, optional | `jarvisbyerp` (falls back to `REACT_APP_FIREBASE_PROJECT_ID`) |
 
-#### **🔒 Security & RBAC (Future Phase 7+)**
-```bash
-# Role-Based Access Control
-REACT_APP_RBAC_ENABLED=false
-REACT_APP_DEFAULT_ROLE=user
-REACT_APP_ADMIN_EMAILS=admin@company.com,superuser@company.com
+Details and the warn → enforce rollout: deploy guide §5b.
 
-# Security Settings
-REACT_APP_SESSION_TIMEOUT=3600
-REACT_APP_MAX_LOGIN_ATTEMPTS=5
-REACT_APP_ENABLE_2FA=false
-```
+#### **🔌 API base URL** (optional)
+- `REACT_APP_API_BASE_URL` - defaults to `https://jarvis-by-erp.vercel.app/api/appscript-proxy` (`src/config/apiConfig.js`). The browser talks to the **proxy**, never to the Apps Script URL directly.
 
-#### **📈 Analytics & Monitoring**
-```bash
-# Optional: Google Analytics
-REACT_APP_GA_TRACKING_ID=G-XXXXXXXXXX
-
-# Error Tracking
-REACT_APP_ERROR_REPORTING=true
-REACT_APP_LOG_LEVEL=warn
-```
+#### **🧪 Development switches** (`src/config/development.js`)
+- `REACT_APP_DISABLE_AUTH=true` - mock user, no Firebase sign-in (never in production).
+- `REACT_APP_ALLOW_DIRECT_ACCESS` - pages open without signing in unless set to `false`. Set it to `false` in Vercel once Google sign-in works.
 
 ---
 
@@ -91,17 +63,11 @@ REACT_APP_LOG_LEVEL=warn
 - ❌ **Anonymous**: Disabled
 - ❌ **Phone**: Disabled
 
-##### **Authorized Domains**
+##### **Authorized Domains** (Authentication → Settings → Authorized domains)
 ```
-# Development
 localhost
-
-# Staging (if used)
-jarvisbyerp-staging.vercel.app
-
-# Production
-jarvisbyerp.vercel.app
-your-custom-domain.com
+jarvisbyerp.firebaseapp.com
+jarvis-by-erp.vercel.app        # production (note the dashes)
 ```
 
 ##### **OAuth Redirect URIs**
@@ -109,9 +75,8 @@ your-custom-domain.com
 # Development
 http://localhost:3000/__/auth/handler
 
-# Production
-https://jarvisbyerp.vercel.app/__/auth/handler
-https://your-custom-domain.com/__/auth/handler
+# Production (Firebase handles the redirect on its own auth domain)
+https://jarvisbyerp.firebaseapp.com/__/auth/handler
 ```
 
 #### **Security Rules** (Firestore - if used in future)
@@ -149,6 +114,8 @@ const firebaseConfig = {
 ---
 
 ### **📊 Google Apps Script Configuration**
+
+> **Design notes (Sept 2025), partly superseded.** Today: Script Properties `PROXY_SECRET`, `AUTH_MODE`, optional `CACHE_ENABLED` / `SLA_EMAIL_DEFAULT` (deploy guide §5b / §5c); `SPREADSHEET_ID` and `API_VERSION` are constants in the AppScript file; CORS is handled by the Vercel proxy (Apps Script web apps can't set CORS headers or read request headers).
 
 #### **Apps Script Project Setup**
 1. **Script Editor**: https://script.google.com
@@ -306,11 +273,8 @@ function handleApiError(error, operation = 'Unknown') {
 ### **Environment Variable Categories**
 
 #### **🔴 Critical (Required for Production)**
-- `REACT_APP_FIREBASE_API_KEY`
-- `REACT_APP_FIREBASE_AUTH_DOMAIN`
-- `REACT_APP_FIREBASE_PROJECT_ID`
-- `REACT_APP_API_BASE_URL`
-- `REACT_APP_SPREADSHEET_ID`
+- `REACT_APP_FIREBASE_API_KEY`, `REACT_APP_FIREBASE_AUTH_DOMAIN`, `REACT_APP_FIREBASE_PROJECT_ID`, `REACT_APP_FIREBASE_APP_ID`
+- `PROXY_SECRET`, `AUTH_MODE`, `APPS_SCRIPT_URL` (server-only)
 
 #### **🟡 Important (Recommended)**
 - `REACT_APP_ALLOW_DIRECT_ACCESS=false`
@@ -528,8 +492,8 @@ vercel --prod
 
 ---
 
-**Status**: 📋 **READY FOR DEPLOYMENT**
-**Last Updated**: September 16, 2025
+**Status**: 📋 Env section current (31 Oct 2026); other sections are design notes
+**Last Updated**: October 31, 2026
 **Next Review**: After Phase 7 RBAC Implementation
 
 *This configuration guide ensures a secure, scalable, and maintainable production deployment of the JarvisByERP ticketing system.*
