@@ -1,11 +1,12 @@
 ## **Ticketing & Workflow Orchestration System: Functional Specifications**
 
 A. DO NOT FORGET to Read first md/txt/or any file before you update.
-B. Consult `docs/planning/SUPERTHINK_TODO_ANALYSIS_2025-09-27.md` on current/completed to do.
+B. Consult `docs/planning/SUPERTHINK_TODO_ANALYSIS_2025-09-27.md` on current/completed to do. From 31 Oct 2026 the **current roadmap** is `docs/planning/PLAN_FeatureGaps_Volume_20261031.md` (AppScript v10 line). A "superthink" is a check against the Claude web reco (`docs/planning/REVIEW_AppScriptReco_20261030.md`: P1–P8 / S1–S6, §9 targets, A14–A20 / F1–F6 / P7–P10), not a broad audit (that plan's §11).
 C. Log every session in `REF_SessionLog.md` (see 🗓️ SESSION LOG below).
 D. New docs go in the matching `docs/` folder (see 📁 REPO LAYOUT below) — never the repo root.
+E. **Progress %** lives in `docs/planning/PROGRESS_FeatureCompletion.md` (spec basis + rebased roadmap). Recalculate it at every AppScript version close / session dump (`REF_SessionLog.md` §3 rule 6).
 
-**Version:** 4.0 **Date:** October 30, 2026 - ⏱️ **RECO QUICK WINS, PROXY AUTH, SLA ESCALATION** (AppScript v9.4: per-request table cache, one dropdown read, ticket id sequence, `getDashboard`, Firebase token verified at the Vercel proxy + `AUTH_MODE`, real UTC timestamps; v9.5: SLA escalation rules / run / notifications / holidays, company SLA rule due dates; compliance v2.0 rules A14–A20 + F1–F6 + `npm run check:code-rules`; non-functional targets below. v3.9 = workflow logic, reports, tags & sharing, v3.8 = core ticket loop, v3.7 = API contract check, v3.6 = code review compliance, v3.5 = repo reorg into `docs/`)
+**Version:** 4.1 **Date:** October 31, 2026 - 🧭 **ROADMAP v10 + PROGRESS** (feature gaps + volume design `docs/planning/PLAN_FeatureGaps_Volume_20261031.md`: ticket visibility per type, who can create, Restricted tickets / fields, pagination + search, workflow notifications, immediate head approval, delegation, bulk approve; AppScript **v10.0–v10.2** after v9.6; `docs/planning/PROGRESS_FeatureCompletion.md`: 78.8 % spec / 58.6 % roadmap at v9.5 live. Nothing built yet.) **v4.0** (October 30, 2026) - ⏱️ **RECO QUICK WINS, PROXY AUTH, SLA ESCALATION** (AppScript v9.4: per-request table cache, one dropdown read, ticket id sequence, `getDashboard`, Firebase token verified at the Vercel proxy + `AUTH_MODE`, real UTC timestamps; v9.5: SLA escalation rules / run / notifications / holidays, company SLA rule due dates; compliance v2.0 rules A14–A20 + F1–F6 + `npm run check:code-rules`; non-functional targets below. v3.9 = workflow logic, reports, tags & sharing, v3.8 = core ticket loop, v3.7 = API contract check, v3.6 = code review compliance, v3.5 = repo reorg into `docs/`)
 
 ### **📁 REPO LAYOUT**
 

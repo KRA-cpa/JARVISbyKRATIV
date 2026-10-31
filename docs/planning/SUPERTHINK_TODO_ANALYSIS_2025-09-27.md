@@ -1,4 +1,7 @@
 # SUPERTHINK TODO Analysis - September 27, 2025
+
+> **Note (31 Oct 2026, session 2d369f00):** many open `- [ ]` items below were built in v9.0–v9.5 and are stale here. The **current roadmap** is `docs/planning/PLAN_FeatureGaps_Volume_20261031.md` (AppScript v10 line) and **progress** is in `docs/planning/PROGRESS_FeatureCompletion.md`. Only the reco-grounded item **user onboarding / invites** (Phase 7.3) was carried over, proposed for v9.6 (plan §11 ST-2). This file isn't refreshed item by item (user decision: superthink stays grounded in the reco).
+
 **Document Type**: Comprehensive TODO List Analysis
 **Status**: Current Implementation State Assessment
 **Purpose**: Detailed analysis of remaining implementation tasks with test script considerations
