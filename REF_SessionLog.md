@@ -53,6 +53,7 @@ REVISION HISTORY:
    - **Next (user)**: sign in → Vercel Logs show `"auth":"verified"` → Apps Script Executions without `AUTH warn` → AUTH_MODE `enforce` in both; §5c (JARVIS Admin → 2. SLA escalation: migrate, install trigger) + holidays; `ID_TOKEN=… node scripts/measure-api-latency.js --user <uid>` → REVIEW §5.
    - **Next major (proposed, awaiting user)**: authorization hardening (S1 part 3) as v9.6; attachments → v9.7.
    - **Unpushed**: a636f14 + the close commit (session log only) - go out with the next push.
+   - ⚠️ **Found after close (31 Oct 2026): Vercel logs `"auth":"none"` - the live bundle has NO `REACT_APP_FIREBASE_*` config** (falls back to `demo-project` placeholders in `src/config/firebase.js`), so Google sign-in never worked in production and no request carries an ID token (pages open via ALLOW_DIRECT_ACCESS). **Keep AUTH_MODE=warn** - enforce would refuse everyone. Fix (user): Firebase project → enable Google sign-in → register a web app → authorized domain jarvis-by-erp.vercel.app → 6 `REACT_APP_FIREBASE_*` vars in Vercel (public config, not Sensitive) → redeploy → sign in → logs `"auth":"verified"` → give the new uid admin / approver roles. Pre-existing, not caused by this batch.
 5. **Open**: S1 part 3 (admin checks on the remaining admin routes + sign-in allow-list), `slaCalculator.js` +8 h (F3), A16 known gaps (5, mostly editor tools), attachments → v9.6.
 
 ### Pending — a38297ac (30 Oct 2026)
