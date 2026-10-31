@@ -1,0 +1,632 @@
+/*
+=================================================================================
+ * JARVISbyERP - Admin Tools menu (second script file of the Apps Script project)
+ *
+ * Version: 1.2 (for AppScript v9.6+: + "5. Testing (temporary)" - admin setup and switching your own roles)
+ * Last Updated: October 31, 2026 16:09 UTC+8 (file: ADMIN_Tools_v1.2_20261031_1609.txt)
+ * v1.1: "4. Users & access" submenu; Status shows whether an admin exists ("No admin yet - bootstrap open").
+ * v1.2: "5. Testing (temporary)" submenu (docs/guides/GUIDE_Testing_SwitchRoles.md): set up my admin access (admin role +
+ *   profile row + placeholder admin), give me a test role / remove my test roles, test as a non-admin and restore,
+ *   clean up. Test roles are assignments tagged "TEST" in assignment_notes; your uid is kept in Script Property
+ *   TEST_MY_UID. Calls only v9.6 functions - the main file is unchanged.
+ *   Replaces v1.1 in the "admin" script file (paste over it).
+ *
+ * HOW TO USE (appscript_files/GUIDE_AppScript_Deploy_and_Schema_Rebuild.md §0a)
+ * 1. In the Apps Script editor: Files + -> Script -> name it "admin" -> paste this whole file -> Save.
+ *    It calls the main file's functions (rebuildAllTables, installSLAEscalationTrigger, ...), so the main
+ *    APPSCRIPT file (v9.5 or later) must be in the same project.
+ * 2. Reload the Google Sheet. A "JARVIS Admin" menu appears next to Help (it takes a few seconds).
+ * 3. The first time you click an item, Google asks for authorization - the same permissions as the editor.
+ *
+ * Every "Apply" item shows the dry run first and asks before it changes anything. Results open in a dialog
+ * (the details are also in Apps Script -> Executions). The menu only shows for people who can edit the Sheet;
+ * nothing here is routed to the web app (compliance A4).
+=================================================================================
+*/
+
+/** Builds the menu when the Sheet opens (simple trigger: no authorization needed to show it). */
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('JARVIS Admin')
+    .addItem('Status: version, auth, SLA trigger', 'adminStatus')
+    .addSeparator()
+    .addSubMenu(SpreadsheetApp.getUi().createMenu('1. Schema')
+      .addItem('Check tables (dry run)', 'adminRebuildDryRun')
+      .addItem('Repair tables (apply)...', 'adminRebuildApply')
+      .addItem('Write schema report to xSchema', 'adminSchemaReport')
+      .addItem('Repair company code locks...', 'adminRepairCompanyLocks'))
+    .addSubMenu(SpreadsheetApp.getUi().createMenu('2. SLA escalation')
+      .addItem('Migrate old escalation settings...', 'adminMigrateEscalations')
+      .addItem('Install the 15-minute trigger', 'adminInstallSLATrigger')
+      .addItem('Preview what would fire now', 'adminSLADryRun')
+      .addItem('Remove the trigger...', 'adminRemoveSLATrigger'))
+    .addSubMenu(SpreadsheetApp.getUi().createMenu('3. Proxy auth')
+      .addItem('Set AUTH_MODE (off / warn / enforce)...', 'adminSetAuthMode'))
+    .addSubMenu(SpreadsheetApp.getUi().createMenu('4. Users & access')
+      .addItem('Recent sign-ins (uid + email)', 'adminRecentSignIns')
+      .addItem('Make a user admin...', 'adminMakeUserAdmin')
+      .addItem('Pending invites', 'adminListInvites'))
+    .addSubMenu(SpreadsheetApp.getUi().createMenu('5. Testing (temporary)')
+      .addItem('Set up my admin access...', 'testSetupMyAdmin')
+      .addItem('Give me a test role...', 'testGiveMeRole')
+      .addItem('My roles now', 'testListMyRoles')
+      .addItem('Remove my test roles...', 'testRemoveMyTestRoles')
+      .addSeparator()
+      .addItem('Test as non-admin (remove my admin role)...', 'testDropMyAdmin')
+      .addItem('Restore my admin role', 'testRestoreMyAdmin')
+      .addSeparator()
+      .addItem('Clean up all test data...', 'testCleanUp'))
+    .addToUi();
+}
+
+// --- Helpers -------------------------------------------------------------------------------------------------
+
+function adminUi_() {
+  return SpreadsheetApp.getUi();
+}
+
+/** A dialog with a title and text (long text is cut so the dialog stays readable). */
+function adminShow_(title, lines) {
+  const text = [].concat(lines).filter(line => line !== null && line !== undefined).join('\n');
+  adminUi_().alert(title, text.length > 1800 ? text.slice(0, 1800) + '\n... (full log: Apps Script -> Executions)' : text, adminUi_().ButtonSet.OK);
+}
+
+/** Yes / No question. */
+function adminConfirm_(title, text) {
+  return adminUi_().alert(title, text, adminUi_().ButtonSet.YES_NO) === adminUi_().Button.YES;
+}
+
+/** Table names from a rebuild result list (entries may be names or objects). */
+function adminNames_(list) {
+  return (list || []).map(item => (typeof item === 'string' ? item : (item.table || item.name || JSON.stringify(item))));
+}
+
+function adminRebuildSummary_(result) {
+  return [
+    `${result.created.length} to create: ${adminNames_(result.created).join(', ') || '-'}`,
+    `${result.repaired.length} to repair: ${adminNames_(result.repaired).join(', ') || '-'}`,
+    `${result.ok.length} OK`,
+    result.errors.length ? `ERRORS (${result.errors.length}): ${adminNames_(result.errors).join(', ')}` : 'No errors'
+  ];
+}
+
+/** Runs fn and shows an error dialog instead of the bare "Script error" box. */
+function adminRun_(title, fn) {
+  try {
+    return fn();
+  } catch (error) {
+    adminShow_(`${title} - failed`, [error.message, '', 'Details: Apps Script -> Executions']);
+    return null;
+  }
+}
+
+// --- Status ----------------------------------------------------------------------------------------------------
+
+function adminStatus() {
+  adminRun_('Status', () => {
+    const triggers = ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'runSLAEscalationsTrigger');
+    adminShow_('JARVIS status', [
+      `Code in the editor: API_VERSION ${API_VERSION}`,
+      '(The live web app serves the last DEPLOYED version - check <web app URL>?action=ping)',
+      '',
+      `AUTH_MODE: ${authMode()}`,
+      `PROXY_SECRET: ${scriptProperty('PROXY_SECRET', '') ? 'set' : 'NOT SET'} (the value is never shown)`,
+      `CACHE_ENABLED: ${scriptProperty('CACHE_ENABLED', 'true')}`,
+      `Timestamps real UTC since: ${scriptProperty('TS_UTC_SINCE', '(not yet - first write records it)')}`,
+      '',
+      `Admins: ${adminAccessLine_()}`,
+      `Pending invites: ${adminPendingInvites_().length}`,
+      '',
+      `SLA escalation trigger: ${triggers.length ? `installed (${triggers.length})` : 'NOT installed'}`,
+      `SLA email by default: ${scriptProperty('SLA_EMAIL_DEFAULT', 'off')}`,
+      `Mail quota left today: ${mailQuotaRemaining()}`
+    ]);
+  });
+}
+
+// --- 1. Schema ---------------------------------------------------------------------------------------------------
+
+function adminRebuildDryRun() {
+  adminRun_('Check tables', () => {
+    const result = rebuildAllTables(true);
+    adminShow_('Check tables (dry run - nothing changed)', adminRebuildSummary_(result).concat(['',
+      result.created.length || result.repaired.length ? 'Next: JARVIS Admin -> 1. Schema -> Repair tables (apply)' : 'Every table matches TABLE_SCHEMAS.']));
+  });
+}
+
+function adminRebuildApply() {
+  adminRun_('Repair tables', () => {
+    const preview = rebuildAllTables(true);
+    if (!preview.created.length && !preview.repaired.length) {
+      adminShow_('Repair tables', 'Nothing to do - every table already matches.');
+      return;
+    }
+    const ok = adminConfirm_('Repair tables?', adminRebuildSummary_(preview).concat(['',
+      'Repaired tabs are backed up first (_bak_<table>_<time>). If people are using the app, redeploy the web app first.',
+      '', 'Apply now?']).join('\n'));
+    if (!ok) return;
+    const result = rebuildAllTablesApply();
+    adminShow_('Repair tables - done', adminRebuildSummary_(result).map(line => line.replace(' to ', ' ')).concat(['',
+      'Check: run "Check tables (dry run)" again - everything should be OK.']));
+  });
+}
+
+function adminSchemaReport() {
+  adminRun_('Schema report', () => {
+    const result = analyzeCurrentSchema();
+    adminShow_('Schema report', [result.message || 'Done', `Tables: ${result.totalSheets}, missing: ${result.missingSheets}`,
+      'The details are on the xSchema tab.']);
+  });
+}
+
+function adminRepairCompanyLocks() {
+  adminRun_('Company locks', () => {
+    const preview = repairCompanyLocks(false);
+    const changes = (preview.data && preview.data.changes) || [];
+    if (!changes.length) {
+      adminShow_('Company code locks', 'Nothing to repair.');
+      return;
+    }
+    if (!adminConfirm_('Repair company code locks?', `${changes.length} company row(s) would be fixed (details: Executions log).\n\nApply now?`)) return;
+    const result = repairCompanyLocksApply();
+    adminShow_('Company code locks - done', `${((result.data && result.data.changes) || []).length} company row(s) repaired.`);
+  });
+}
+
+// --- 2. SLA escalation ---------------------------------------------------------------------------------------------
+
+function adminMigrateEscalations() {
+  adminRun_('Migrate escalations', () => {
+    const preview = migrateCompanyEscalationsToRules(true);
+    if (!preview.rules.length) {
+      adminShow_('Migrate old escalation settings', [`Nothing to migrate (${preview.skipped_existing} already done).`]);
+      return;
+    }
+    const lines = preview.rules.slice(0, 15).map(r => `- ${r.ticket_type_id} / ${r.step_id || 'all steps'}: level ${r.level} ${r.trigger} ${r.trigger_value}`);
+    if (!adminConfirm_('Migrate old escalation settings?', [`${preview.rules.length} escalation level(s) would be created:`]
+      .concat(lines, ['', 'Apply now?']).join('\n'))) return;
+    const result = migrateCompanyEscalationsToRulesApply();
+    adminShow_('Migrate old escalation settings - done', `${result.created} escalation level(s) created. Edit them in the app: Admin -> SLA Escalations.`);
+  });
+}
+
+function adminInstallSLATrigger() {
+  adminRun_('Install trigger', () => {
+    installSLAEscalationTrigger();
+    adminShow_('SLA escalation trigger', ['Installed: escalations run every 15 minutes.',
+      'Rules: in the app, Admin -> SLA Escalations. Email is off until you turn it on there (Email panel).']);
+  });
+}
+
+function adminSLADryRun() {
+  adminRun_('Preview', () => {
+    const data = runSLAEscalations({ dryRun: true }).data;
+    const lines = (data.fired || []).slice(0, 15).map(f => `- ${f.ticket_number || f.ticket_id}: level ${f.levels.join(', ')} (${f.type.replace('sla_', '')}) to ${f.recipients.length} user(s)`);
+    adminShow_('SLA escalation preview (nothing sent)', [`${data.checked || 0} open ticket(s) with an SLA checked.`,
+      lines.length ? `${data.fired.length} would fire now:` : 'Nothing would fire now.'].concat(lines));
+  });
+}
+
+function adminRemoveSLATrigger() {
+  adminRun_('Remove trigger', () => {
+    if (!adminConfirm_('Remove the SLA escalation trigger?', 'Escalations stop until you install it again. Continue?')) return;
+    const result = removeSLAEscalationTrigger();
+    adminShow_('SLA escalation trigger', `${result.removed} trigger(s) removed.`);
+  });
+}
+
+// --- 3. Proxy auth -------------------------------------------------------------------------------------------------
+
+function adminSetAuthMode() {
+  adminRun_('AUTH_MODE', () => {
+    const ui = adminUi_();
+    const answer = ui.prompt('Set AUTH_MODE', `Now: ${authMode()}. Type off, warn or enforce.\n\n` +
+      'Set the SAME value in Vercel (Settings -> Environment Variables -> AUTH_MODE) and redeploy Vercel.\n' +
+      'enforce refuses every call without the proxy secret or a signed-in user.', ui.ButtonSet.OK_CANCEL);
+    if (answer.getSelectedButton() !== ui.Button.OK) return;
+    const mode = String(answer.getResponseText() || '').trim().toLowerCase();
+    if (!AUTH_MODES.includes(mode)) {
+      adminShow_('AUTH_MODE', `"${mode}" is not off, warn or enforce - nothing changed.`);
+      return;
+    }
+    if (mode === 'enforce' && !scriptProperty('PROXY_SECRET', '')) {
+      adminShow_('AUTH_MODE', 'PROXY_SECRET is not set - enforce would refuse every call. Set it first (Project Settings -> Script Properties).');
+      return;
+    }
+    PropertiesService.getScriptProperties().setProperty('AUTH_MODE', mode);
+    logAdminAction(Session.getActiveUser().getEmail() || 'editor', 'SET_AUTH_MODE', 'settings', 'AUTH_MODE', { mode });
+    adminShow_('AUTH_MODE', `AUTH_MODE is now ${mode} (takes effect at once). Remember Vercel's AUTH_MODE.`);
+  });
+}
+
+// --- 4. Users & access (v1.1, AppScript v9.6) ------------------------------------------------------------------------
+
+/** Active admin-role holders, or the bootstrap note when there are none. */
+function adminAccessLine_() {
+  if (adminBootstrapOpen()) return 'No admin yet - bootstrap open (any signed-in user can use admin screens). Use 4. Users & access -> Make a user admin.';
+  const roles = readTable(SHEETS.ROLES);
+  const adminRoleIds = (roles ? roles.records : []).filter(r => isActiveFlag(r.is_active) && String(r.name || '').toLowerCase().includes('admin')).map(r => String(r.id));
+  const assignments = readTable(SHEETS.USER_ROLE_ASSIGNMENTS);
+  const now = new Date();
+  const holders = unique((assignments ? assignments.records : []).filter(a => adminRoleIds.includes(String(a.role_id)) && isAssignmentActive(a, now)).map(a => String(a.user_id)));
+  return `${holders.length} (${holders.slice(0, 5).join(', ')}${holders.length > 5 ? ', ...' : ''})`;
+}
+
+/** Pending, unexpired invites. */
+function adminPendingInvites_() {
+  const table = readTable(SHEETS.USER_INVITES);
+  const now = new Date();
+  return (table ? table.records : []).filter(i => inviteStatus(i, now) === 'pending');
+}
+
+/** The last USER_LOGIN rows: who signed in (uid + email), newest first - to find the uid of the first admin. */
+function adminRecentSignIns() {
+  adminRun_('Recent sign-ins', () => {
+    const table = readTable(SHEETS.ADMIN_ACTION_LOGS);
+    const logins = (table ? table.records : []).filter(r => r.action_type === 'USER_LOGIN')
+      .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)));
+    const seen = {};
+    const lines = [];
+    logins.forEach(r => {
+      const uid = String(r.target_id || r.admin_user_id || '');
+      if (!uid || seen[uid] || lines.length >= 15) return;
+      seen[uid] = true;
+      let email = '';
+      try { email = JSON.parse(r.details || '{}').email || ''; } catch (error) { email = ''; }
+      const when = r.timestamp ? Utilities.formatDate(new Date(r.timestamp), 'Asia/Manila', 'yyyy-MM-dd HH:mm') : '';
+      lines.push(`- ${uid}  ${email}  (${when} Manila)`);
+    });
+    adminShow_('Recent sign-ins', lines.length
+      ? ['Copy the uid for "Make a user admin":', ''].concat(lines)
+      : ['No sign-ins recorded yet. Sign in to the app once (while no admin exists, the bootstrap lets you in), then check again.']);
+  });
+}
+
+/**
+ * Give a user the admin role (closes the bootstrap). Asks for the uid (or the email of an existing profile) and the
+ * company code (blank = the only / first company); uses the first active role whose name contains "admin",
+ * creating "System Admin" when there is none. Asks before writing.
+ */
+function adminMakeUserAdmin() {
+  adminRun_('Make a user admin', () => {
+    const ui = adminUi_();
+    const who = ui.prompt('Make a user admin', 'Firebase uid of the user (see 4. Users & access -> Recent sign-ins), or the email of an existing user profile:', ui.ButtonSet.OK_CANCEL);
+    if (who.getSelectedButton() !== ui.Button.OK) return;
+    const entered = String(who.getResponseText() || '').trim();
+    if (!entered) return;
+    const userId = entered.includes('@') ? findUserIdByEmail(entered) : entered;
+    if (!userId) {
+      adminShow_('Make a user admin', `No user profile has the email ${entered}. Use the uid instead.`);
+      return;
+    }
+    const companies = liveRecords(SHEETS.COMPANIES);
+    if (!companies.length) {
+      adminShow_('Make a user admin', 'There is no company yet. Create one first (in the app while bootstrap is open, or in the companies tab).');
+      return;
+    }
+    let company = companies[0];
+    if (companies.length > 1) {
+      const answer = ui.prompt('Make a user admin', `Company code for the assignment (blank = ${companies[0].code}):\n` +
+        companies.slice(0, 10).map(c => `- ${c.code}  ${c.name}`).join('\n'), ui.ButtonSet.OK_CANCEL);
+      if (answer.getSelectedButton() !== ui.Button.OK) return;
+      const code = String(answer.getResponseText() || '').trim().toUpperCase();
+      if (code) company = companies.find(c => String(c.code).toUpperCase() === code);
+      if (!company) {
+        adminShow_('Make a user admin', `No company with code ${code} - nothing changed.`);
+        return;
+      }
+    }
+    const roles = liveRecords(SHEETS.ROLES).filter(r => String(r.name || '').toLowerCase().includes('admin') &&
+      (!r.company_id || sameId(r.company_id, company.id)));
+    const role = roles[0];
+    if (!adminConfirm_('Make a user admin?', [`User: ${userId}`, `Company: ${company.code} (${company.name})`,
+      `Role: ${role ? role.name : 'System Admin (will be created)'}`, '', 'Apply now?'].join('\n'))) return;
+    const result = adminGrantAdmin_(userId, company, 'JARVIS Admin menu: make a user admin');
+    adminShow_('Make a user admin', result.status === 'success'
+      ? [`${userId} is now an admin.`, 'The bootstrap is closed: from now on only admins use admin screens, and new people get in by invite (Admin -> Users -> Invite).']
+      : [`Nothing changed: ${result.message}`]);
+  });
+}
+
+/** The editor running the menu (for created_by / the admin log). */
+function adminEditor_() {
+  return Session.getActiveUser().getEmail() || 'editor';
+}
+
+/**
+ * Give userId the admin role in company (the first active admin-named role usable there, or a new "System Admin").
+ * @returns {Object} createUserRoleAssignment result
+ */
+function adminGrantAdmin_(userId, company, notes) {
+  const editor = adminEditor_();
+  return withScriptLock(() => {
+    const role = liveRecords(SHEETS.ROLES).find(r => String(r.name || '').toLowerCase().includes('admin') &&
+      (!r.company_id || sameId(r.company_id, company.id)));
+    let roleId = role ? role.id : null;
+    if (!roleId) {
+      roleId = generateId('role');
+      appendRecord(SHEETS.ROLES, { id: roleId, name: 'System Admin', company_id: '', is_active: true, created_at: new Date(),
+        created_by: editor, updated_at: new Date(), updated_by: editor });
+    }
+    const assigned = createUserRoleAssignment({ user_id: userId, role_id: roleId, company_id: company.id,
+      assigned_by_user_id: editor, assignment_notes: notes });
+    if (assigned.status === 'success') {
+      dropAllowCache(userId);
+      logAdminAction(editor, 'MAKE_USER_ADMIN', 'user', userId, { role_id: roleId, company_id: company.id, via: 'JARVIS Admin menu' });
+    }
+    return assigned;
+  });
+}
+
+/** Pending invites (email, company, expiry). */
+function adminListInvites() {
+  adminRun_('Pending invites', () => {
+    const invites = adminPendingInvites_();
+    const lines = invites.slice(0, 20).map(i => `- ${i.email}  company ${i.company_id}  until ${i.expires_at ? Utilities.formatDate(new Date(i.expires_at), 'Asia/Manila', 'yyyy-MM-dd') : '-'}`);
+    adminShow_('Pending invites', lines.length ? [`${invites.length} pending:`].concat(lines, ['', 'Manage them in the app: Admin -> Users -> Invite.'])
+      : ['No pending invites. Create them in the app: Admin -> Users -> Invite.']);
+  });
+}
+
+// --- 5. Testing (temporary, v1.2) - docs/guides/GUIDE_Testing_SwitchRoles.md ----------------------------------------
+// You always sign in with Google as yourself; these items change the roles YOUR uid holds, so the real v9.6 checks
+// run as that role. Test roles are assignments whose notes start with "TEST". Nothing here is reachable from the app.
+
+const TEST_UID_PROPERTY = 'TEST_MY_UID';
+const TEST_PLACEHOLDER_UID = 'placeholder_admin';
+const TEST_NOTE = 'TEST';
+
+/** Your uid from Script Property TEST_MY_UID, or null with a dialog asking to run the setup first. */
+function testMyUid_() {
+  const uid = scriptProperty(TEST_UID_PROPERTY, '');
+  if (!uid) adminShow_('Testing', 'Run "5. Testing -> Set up my admin access" first (it remembers your uid).');
+  return uid || null;
+}
+
+/** Ask for a company (blank = the first one). @returns {Object|null} company, null when cancelled or unknown */
+function testPickCompany_(title) {
+  const companies = liveRecords(SHEETS.COMPANIES);
+  if (!companies.length) {
+    adminShow_(title, 'There is no company yet - create one first.');
+    return null;
+  }
+  if (companies.length === 1) return companies[0];
+  const ui = adminUi_();
+  const answer = ui.prompt(title, `Company code (blank = ${companies[0].code}):\n` +
+    companies.slice(0, 10).map(c => `- ${c.code}  ${c.name}`).join('\n'), ui.ButtonSet.OK_CANCEL);
+  if (answer.getSelectedButton() !== ui.Button.OK) return null;
+  const code = String(answer.getResponseText() || '').trim().toUpperCase();
+  const company = code ? companies.find(c => String(c.code).toUpperCase() === code) : companies[0];
+  if (!company) adminShow_(title, `No company with code ${code} - nothing changed.`);
+  return company || null;
+}
+
+/** Assignments of a user that are in force, with the role name. */
+function testRolesOf_(userId) {
+  const roles = recordsById(SHEETS.ROLES);
+  const table = readTable(SHEETS.USER_ROLE_ASSIGNMENTS);
+  const now = new Date();
+  return (table ? table.records : []).filter(a => sameId(a.user_id, userId) && isAssignmentActive(a, now))
+    .map(a => ({ ...a, role_name: (roles[String(a.role_id)] || {}).name || a.role_id }));
+}
+
+const testIsAdminRow_ = a => String(a.role_name || '').toLowerCase().includes('admin');
+const testIsTestRow_ = a => String(a.assignment_notes || '').indexOf(TEST_NOTE) === 0;
+
+/** Soft-delete assignments (one lock), refresh the allow-list cache of their users. @returns {number} removed */
+function testRemoveAssignments_(rows, reason) {
+  if (!rows.length) return 0;
+  return withScriptLock(() => {
+    rows.forEach(a => deleteUserRoleAssignment(a.id, reason));
+    unique(rows.map(a => String(a.user_id))).forEach(dropAllowCache);
+    return rows.length;
+  });
+}
+
+/** Make sure placeholder_admin holds the admin role (keeps the bootstrap closed). @returns {string} what happened */
+function testEnsurePlaceholder_(company) {
+  if (testRolesOf_(TEST_PLACEHOLDER_UID).some(testIsAdminRow_)) return 'placeholder admin: already in place';
+  const result = adminGrantAdmin_(TEST_PLACEHOLDER_UID, company, `${TEST_NOTE}: placeholder admin (no one can sign in as it)`);
+  return result.status === 'success' ? 'placeholder admin: added' : `placeholder admin: NOT added - ${result.message}`;
+}
+
+/**
+ * One-time setup: remember your uid, give it the admin role, add your user_profiles row (so you show in
+ * Admin -> Users) and the placeholder admin (GUIDE_Testing_SwitchRoles §1-§2).
+ */
+function testSetupMyAdmin() {
+  adminRun_('Set up my admin access', () => {
+    const ui = adminUi_();
+    const known = scriptProperty(TEST_UID_PROPERTY, '');
+    const who = ui.prompt('Set up my admin access', 'Your Firebase uid (Firebase console -> Authentication -> Users -> User UID,' +
+      ' or 4. Users & access -> Recent sign-ins)' + (known ? `\nBlank = ${known}` : '') + ':', ui.ButtonSet.OK_CANCEL);
+    if (who.getSelectedButton() !== ui.Button.OK) return;
+    const uid = String(who.getResponseText() || '').trim() || known;
+    if (!uid || uid === TEST_PLACEHOLDER_UID) {
+      adminShow_('Set up my admin access', 'A uid is required - nothing changed.');
+      return;
+    }
+    const company = testPickCompany_('Set up my admin access');
+    if (!company) return;
+    const profiles = readTable(SHEETS.USER_PROFILES);
+    const profile = (profiles ? profiles.records : []).find(p => sameId(p.user_id, uid));
+    let name = '';
+    let email = '';
+    if (!profile) {
+      const details = ui.prompt('Set up my admin access', 'Your name and Google email for your profile row, as: Name, email@example.com', ui.ButtonSet.OK_CANCEL);
+      if (details.getSelectedButton() !== ui.Button.OK) return;
+      const parts = String(details.getResponseText() || '').split(',').map(s => s.trim());
+      name = parts[0] || uid;
+      email = (parts[1] || '').toLowerCase();
+    }
+    const isAdmin = testRolesOf_(uid).some(testIsAdminRow_);
+    if (!adminConfirm_('Set up my admin access?', [`Your uid: ${uid}`, `Company: ${company.code}`,
+      isAdmin ? 'Admin role: already held' : 'Admin role: will be added',
+      profile ? 'Profile row: already there' : `Profile row: will be added (${name}${email ? `, ${email}` : ''})`,
+      'Placeholder admin: added if missing (keeps the doors shut while you test as a non-admin)', '', 'Apply now?'].join('\n'))) return;
+
+    PropertiesService.getScriptProperties().setProperty(TEST_UID_PROPERTY, uid);
+    const lines = [];
+    if (!isAdmin) {
+      const granted = adminGrantAdmin_(uid, company, 'JARVIS Admin menu: my admin access');
+      lines.push(granted.status === 'success' ? 'Admin role: added' : `Admin role: NOT added - ${granted.message}`);
+    } else {
+      lines.push('Admin role: already held');
+    }
+    if (!profile) {
+      const editor = adminEditor_();
+      withScriptLock(() => appendRecord(SHEETS.USER_PROFILES, { user_id: uid, display_name: name, email, status: 'active', is_active: true,
+        created_at: new Date(), created_by: editor, updated_at: new Date(), updated_by: editor }));
+      dropAllowCache(uid);
+      lines.push('Profile row: added');
+    } else {
+      lines.push('Profile row: already there');
+    }
+    lines.push(testEnsurePlaceholder_(company));
+    adminShow_('Set up my admin access - done', lines.concat(['', 'In the app: sign out and sign in again -> the Admin menu shows.']));
+  });
+}
+
+/** Give your uid a role for a while, tagged TEST (GUIDE §3). */
+function testGiveMeRole() {
+  adminRun_('Give me a test role', () => {
+    const uid = testMyUid_();
+    if (!uid) return;
+    const ui = adminUi_();
+    const roles = liveRecords(SHEETS.ROLES);
+    const pick = ui.prompt('Give me a test role', 'Role name (as listed):\n' + roles.slice(0, 25).map(r => `- ${r.name}`).join('\n'), ui.ButtonSet.OK_CANCEL);
+    if (pick.getSelectedButton() !== ui.Button.OK) return;
+    const wanted = String(pick.getResponseText() || '').trim().toLowerCase();
+    const matches = roles.filter(r => String(r.name || '').trim().toLowerCase() === wanted);
+    if (!matches.length) {
+      adminShow_('Give me a test role', `No role named "${wanted}" - nothing changed.`);
+      return;
+    }
+    const company = testPickCompany_('Give me a test role');
+    if (!company) return;
+    const role = matches.find(r => !r.company_id || sameId(r.company_id, company.id));
+    if (!role) {
+      adminShow_('Give me a test role', `"${matches[0].name}" belongs to another company - nothing changed.`);
+      return;
+    }
+    const more = ui.prompt('Give me a test role', 'Optional, as: <ticket type code>, <days>   (blank = every ticket type, 1 day)', ui.ButtonSet.OK_CANCEL);
+    if (more.getSelectedButton() !== ui.Button.OK) return;
+    const [typeCode, daysText] = String(more.getResponseText() || '').split(',').map(s => s.trim());
+    let ticketType = null;
+    if (typeCode) {
+      ticketType = liveRecords(SHEETS.TICKET_TYPES).find(t => String(t.code).toUpperCase() === typeCode.toUpperCase());
+      if (!ticketType) {
+        adminShow_('Give me a test role', `No ticket type with code ${typeCode} - nothing changed.`);
+        return;
+      }
+    }
+    const days = Math.max(1, Math.min(30, Number(daysText) || 1));
+    // A date-only end covers that whole day (Manila): 1 day = until tonight
+    const endDate = Utilities.formatDate(new Date(Date.now() + (days - 1) * 24 * 60 * 60 * 1000), MANILA_TZ, 'yyyy-MM-dd');
+    const result = withScriptLock(() => createUserRoleAssignment({ user_id: uid, role_id: role.id, company_id: company.id,
+      ticket_type_id: ticketType ? ticketType.id : '', assignment_type: 'temporary', effective_end_date: endDate,
+      assigned_by_user_id: adminEditor_(), assignment_notes: `${TEST_NOTE}: JARVIS Admin menu` }));
+    if (result.status === 'success') dropAllowCache(uid);
+    adminShow_('Give me a test role', result.status === 'success'
+      ? [`You now hold ${role.name} in ${company.code}${ticketType ? ` for ${ticketType.code}` : ''} until the end of ${endDate} (Manila).`,
+        '', 'Reload the app (Ctrl+F5) so the screens pick it up. Remove it with "Remove my test roles".']
+      : [`Nothing changed: ${result.message}`]);
+  });
+}
+
+/** The roles your uid holds now (TEST ones marked). */
+function testListMyRoles() {
+  adminRun_('My roles now', () => {
+    const uid = testMyUid_();
+    if (!uid) return;
+    const rows = testRolesOf_(uid);
+    const companies = recordsById(SHEETS.COMPANIES);
+    adminShow_('My roles now', [`uid ${uid}`, ''].concat(rows.length
+      ? rows.map(a => `- ${a.role_name} in ${(companies[String(a.company_id)] || {}).code || a.company_id}${testIsTestRow_(a) ? '  [TEST]' : ''}` +
+        `${a.effective_end_date ? `  until ${String(a.effective_end_date).slice(0, 10)}` : ''}`)
+      : ['No roles in force.']).concat(['', `Admin access: ${isAdminUser(uid) ? 'yes' : 'NO'}`]));
+  });
+}
+
+/** Remove your TEST role assignments (your real roles stay). */
+function testRemoveMyTestRoles() {
+  adminRun_('Remove my test roles', () => {
+    const uid = testMyUid_();
+    if (!uid) return;
+    const rows = testRolesOf_(uid).filter(testIsTestRow_);
+    if (!rows.length) {
+      adminShow_('Remove my test roles', 'You hold no TEST roles.');
+      return;
+    }
+    if (!adminConfirm_('Remove my test roles?', rows.map(a => `- ${a.role_name}`).concat(['', 'Remove them now?']).join('\n'))) return;
+    const removed = testRemoveAssignments_(rows, 'TEST role removed (JARVIS Admin menu)');
+    adminShow_('Remove my test roles', `${removed} test role(s) removed. Reload the app.`);
+  });
+}
+
+/** Remove your admin role to test as a normal user - only while the placeholder admin keeps the bootstrap closed. */
+function testDropMyAdmin() {
+  adminRun_('Test as non-admin', () => {
+    const uid = testMyUid_();
+    if (!uid) return;
+    if (!testRolesOf_(TEST_PLACEHOLDER_UID).some(testIsAdminRow_)) {
+      adminShow_('Test as non-admin', ['The placeholder admin is missing - removing your admin role would open the bootstrap',
+        '(every signed-in user could use admin actions, so the test would lie).', '', 'Run "Set up my admin access" first.']);
+      return;
+    }
+    const rows = testRolesOf_(uid).filter(testIsAdminRow_);
+    if (!rows.length) {
+      adminShow_('Test as non-admin', 'You hold no admin role already. "Restore my admin role" gives it back.');
+      return;
+    }
+    if (!adminConfirm_('Test as non-admin?', ['Your admin role(s) will be removed:'].concat(rows.map(a => `- ${a.role_name}`),
+      ['', 'The app hides Admin until you run "Restore my admin role" here (the app can\'t give it back).', '', 'Remove now?']).join('\n'))) return;
+    testRemoveAssignments_(rows, 'Admin role removed for testing (JARVIS Admin menu)');
+    adminShow_('Test as non-admin', 'You are a normal user now. Reload the app. Back: 5. Testing -> Restore my admin role.');
+  });
+}
+
+/** Give your uid the admin role again. */
+function testRestoreMyAdmin() {
+  adminRun_('Restore my admin role', () => {
+    const uid = testMyUid_();
+    if (!uid) return;
+    if (testRolesOf_(uid).some(testIsAdminRow_)) {
+      adminShow_('Restore my admin role', 'You already hold an admin role.');
+      return;
+    }
+    const company = testPickCompany_('Restore my admin role');
+    if (!company) return;
+    const result = adminGrantAdmin_(uid, company, 'JARVIS Admin menu: my admin access');
+    adminShow_('Restore my admin role', result.status === 'success' ? 'Admin role restored. Reload the app.' : `Nothing changed: ${result.message}`);
+  });
+}
+
+/**
+ * Remove every TEST assignment (all users). The placeholder admin is removed only when another admin is in force,
+ * so the bootstrap never opens by accident.
+ */
+function testCleanUp() {
+  adminRun_('Clean up test data', () => {
+    const table = readTable(SHEETS.USER_ROLE_ASSIGNMENTS);
+    const roles = recordsById(SHEETS.ROLES);
+    const now = new Date();
+    const live = (table ? table.records : []).filter(a => isAssignmentActive(a, now))
+      .map(a => ({ ...a, role_name: (roles[String(a.role_id)] || {}).name || '' }));
+    const testRows = live.filter(a => testIsTestRow_(a) && !sameId(a.user_id, TEST_PLACEHOLDER_UID));
+    const placeholder = live.filter(a => sameId(a.user_id, TEST_PLACEHOLDER_UID));
+    const otherAdmins = unique(live.filter(a => testIsAdminRow_(a) && !sameId(a.user_id, TEST_PLACEHOLDER_UID)).map(a => String(a.user_id)));
+    const dropPlaceholder = placeholder.length > 0 && otherAdmins.length > 0;
+    if (!testRows.length && !dropPlaceholder) {
+      adminShow_('Clean up test data', placeholder.length
+        ? 'No TEST roles. The placeholder admin stays: it is the only admin (removing it would open the bootstrap).'
+        : 'Nothing to clean up.');
+      return;
+    }
+    if (!adminConfirm_('Clean up test data?', [`${testRows.length} TEST role assignment(s) will be removed.`,
+      dropPlaceholder ? `Placeholder admin: removed (other admins: ${otherAdmins.join(', ')})` : 'Placeholder admin: kept',
+      '', 'Apply now?'].join('\n'))) return;
+    const removed = testRemoveAssignments_(testRows.concat(dropPlaceholder ? placeholder : []), 'Test data clean-up (JARVIS Admin menu)');
+    adminShow_('Clean up test data - done', `${removed} assignment(s) removed.`);
+  });
+}

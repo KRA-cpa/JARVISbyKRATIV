@@ -2,6 +2,7 @@
 // Offline test of the "JARVIS Admin" Sheet menu (second script file): the menu is built, every item calls a
 // function that exists, apply items show the dry run and change nothing when the answer is No.
 // v1.1 (AppScript v9.6+): the "4. Users & access" cases run only when the menu file has adminMakeUserAdmin.
+// v1.2: the "5. Testing (temporary)" cases run only when the menu file has testSetupMyAdmin.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -167,6 +168,102 @@ if (hasV11) {
       expires_at: new Date(Date.now() + 86400000).toISOString(), is_active: true });
     rt.ctx.adminListInvites();
     assert.match(dialogs.pop().text, /1 pending:\n- new@example\.com/);
+  });
+}
+
+// --- v1.2: 5. Testing (temporary) ---------------------------------------------------------------------------
+const hasV12 = fs.readFileSync(ADMIN, 'utf8').includes('function testSetupMyAdmin');
+
+if (hasV12) {
+  /** A rebuilt Sheet: one company, Manager + Finance roles, no admin yet. */
+  const testing = (options) => {
+    const env = fresh(options);
+    env.rt.ctx.rebuildAllTablesApply();
+    const S = env.rt.ctx.__TABLE_SCHEMAS;
+    const add = (t, r) => env.rt.sheets.get(t).appendRow(env.rt.ctx.rowFromRecord(S[t], r));
+    add('companies', { id: 'co_1', name: 'Main Co', code: 'MAIN', is_active: true });
+    add('roles', { id: 'r_mgr', name: 'Manager', company_id: '', is_active: true });
+    add('roles', { id: 'r_fin', name: 'Finance', company_id: 'co_1', is_active: true });
+    add('ticket_types', { id: 'tt_1', code: 'PR', name: 'Purchase', is_active: true });
+    const live = uid => env.rt.ctx.readTable('user_role_assignments').records
+      .filter(a => a.user_id === uid && env.rt.ctx.isAssignmentActive(a, new Date()));
+    return { ...env, add, live };
+  };
+  const setUp = () => {
+    const env = testing({ answer: 'YES', promptText: ['uid_me', 'Ken Tester, Ken@Example.com'] });
+    env.rt.ctx.testSetupMyAdmin();
+    return env;
+  };
+
+  test('v1.2 Set up my admin access: remembers the uid, admin role, profile row, placeholder admin', () => {
+    const { rt, dialogs, live } = setUp();
+    assert.match(dialogs.pop().text, /Admin role: added[\s\S]*Profile row: added[\s\S]*placeholder admin: added/);
+    assert.strictEqual(rt.props.TEST_MY_UID, 'uid_me');
+    assert.ok(rt.ctx.isAdminUser('uid_me'));
+    assert.ok(rt.ctx.isAdminUser('placeholder_admin'));
+    const profile = rt.ctx.readTable('user_profiles').records.find(p => p.user_id === 'uid_me');
+    assert.strictEqual(profile.email, 'ken@example.com');
+    assert.strictEqual(profile.display_name, 'Ken Tester');
+    assert.strictEqual(live('uid_me').length, 1);
+    // No -> nothing written
+    const no = testing({ answer: 'NO', promptText: ['uid_me', 'Ken, ken@example.com'] });
+    const before = snapshot(no.rt);
+    no.rt.ctx.testSetupMyAdmin();
+    assert.strictEqual(snapshot(no.rt), before);
+  });
+
+  test('v1.2 Give me a test role: TEST-tagged, temporary until tonight (Manila); listed; removed without touching admin', () => {
+    const env = setUp();
+    env.rt.ctx.SpreadsheetApp.getUi().prompt = (() => {
+      const answers = ['Manager', 'PR, 1'];
+      return (title, text) => { env.dialogs.push({ title, text }); const r = answers.shift() || ''; return { getSelectedButton: () => 'OK', getResponseText: () => r }; };
+    })();
+    env.rt.ctx.testGiveMeRole();
+    assert.match(env.dialogs.pop().text, /You now hold Manager in MAIN for PR until the end of \d{4}-\d{2}-\d{2}/);
+    const test = env.live('uid_me').find(a => a.role_id === 'r_mgr');
+    assert.ok(test && String(test.assignment_notes).startsWith('TEST'));
+    assert.strictEqual(test.assignment_type, 'temporary');
+    assert.strictEqual(test.ticket_type_id, 'tt_1');
+    env.rt.ctx.testListMyRoles();
+    assert.match(env.dialogs.pop().text, /Manager in MAIN  \[TEST\]/);
+    env.rt.ctx.testRemoveMyTestRoles();
+    assert.ok(!env.live('uid_me').some(a => a.role_id === 'r_mgr'), 'test role gone');
+    assert.ok(env.rt.ctx.isAdminUser('uid_me'), 'admin kept');
+  });
+
+  test('v1.2 Test as non-admin: refused without the placeholder; removes admin with it; Restore gives it back', () => {
+    const env = setUp();
+    env.rt.ctx.testDropMyAdmin();
+    assert.ok(!env.rt.ctx.isAdminUser('uid_me'));
+    assert.strictEqual(env.rt.ctx.adminBootstrapOpen(), false, 'placeholder keeps the bootstrap closed');
+    env.rt.ctx.testRestoreMyAdmin();
+    assert.ok(env.rt.ctx.isAdminUser('uid_me'));
+    // without the placeholder: refused
+    const bare = testing({ answer: 'YES' });
+    bare.rt.props.TEST_MY_UID = 'uid_me';
+    bare.rt.ctx.adminGrantAdmin_('uid_me', { id: 'co_1' }, 'x');
+    bare.rt.ctx.testDropMyAdmin();
+    assert.match(bare.dialogs.pop().text, /placeholder admin is missing/);
+    assert.ok(bare.rt.ctx.isAdminUser('uid_me'));
+  });
+
+  test('v1.2 Clean up: removes TEST roles; keeps the placeholder while it is the only admin, removes it otherwise', () => {
+    const env = setUp();
+    env.rt.ctx.createUserRoleAssignment({ user_id: 'uid_me', role_id: 'r_fin', company_id: 'co_1', assignment_notes: 'TEST: x' });
+    env.rt.ctx.testCleanUp();
+    assert.ok(!env.live('uid_me').some(a => a.role_id === 'r_fin'));
+    assert.strictEqual(env.live('placeholder_admin').length, 0, 'removed: uid_me is another admin');
+    const only = setUp();
+    only.rt.ctx.testDropMyAdmin();
+    only.rt.ctx.testCleanUp();
+    assert.strictEqual(only.live('placeholder_admin').length, 1, 'kept: the only admin');
+    assert.match(only.dialogs.pop().text, /placeholder admin stays/);
+  });
+
+  test('v1.2 items need the setup first', () => {
+    const { rt, dialogs } = testing();
+    rt.ctx.testGiveMeRole();
+    assert.match(dialogs.pop().text, /Set up my admin access" first/);
   });
 }
 

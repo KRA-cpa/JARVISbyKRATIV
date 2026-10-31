@@ -77,11 +77,11 @@ REVISION HISTORY:
 
 The main file has hundreds of functions, so finding one in the editor's Run dropdown is slow. The Admin Tools file puts the deploy steps in a Sheet menu:
 
-1. Apps Script editor → **Files ➕ → Script** → name it `admin` → paste `appscript_files/ADMIN_Tools_v1.1_20261031_1526.txt` → **Ctrl+S**. (It needs the main file v9.6+ in the same project; v1.0 is for v9.5.)
+1. Apps Script editor → **Files ➕ → Script** → name it `admin` → paste `appscript_files/ADMIN_Tools_v1.2_20261031_1609.txt` → **Ctrl+S**. (It needs the main file v9.6+ in the same project; v1.0 is for v9.5. v1.2 = v1.1 + **5. Testing (temporary)**: `docs/guides/GUIDE_Testing_SwitchRoles.md`.)
 2. Reload the Google Sheet → **JARVIS Admin** appears next to Help (after a few seconds). The first click asks for authorization.
 3. Items: **Status** (version in the editor, AUTH_MODE, whether PROXY_SECRET is set - never its value, SLA trigger, mail quota); **1. Schema** - Check tables (= `rebuildAllTables` dry run), Repair tables (shows the dry run, asks, then applies), schema report (xSchema), company code locks; **2. SLA escalation** - migrate old escalation settings, install / remove the trigger, preview; **3. Proxy auth** - set AUTH_MODE (refuses `enforce` while PROXY_SECRET is missing); **4. Users & access** (v1.1) - recent sign-ins (uid + email), make a user admin (creates a *System Admin* role when none exists), pending invites. Status also shows the admins, or *No admin yet - bootstrap open*.
 
-Every "apply" item asks Yes / No first. The menu is only visible to people who can edit the Sheet; the editor's Run dropdown keeps working as before (§2–§5c). Offline test: `node appscript_files/tools/ADMIN_TOOLS_TEST.js <APPSCRIPT file> <ADMIN_Tools file>` → 10 PASS (v1.1; 6 with v1.0).
+Every "apply" item asks Yes / No first. The menu is only visible to people who can edit the Sheet; the editor's Run dropdown keeps working as before (§2–§5c). Offline test: `node appscript_files/tools/ADMIN_TOOLS_TEST.js <APPSCRIPT file> <ADMIN_Tools file>` → 15 PASS (v1.2; 10 with v1.1, 6 with v1.0).
 
 ---
 
