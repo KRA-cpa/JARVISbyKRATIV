@@ -2,11 +2,12 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_NeonVercel_20261030.md | Author: Kenneth R. Advento | Version: 1.0.0
-Created: 30 October 2026 UTC+8 (Philippine Standard Time) | Modified: 30 October 2026 UTC+8 (Philippine Standard Time)
+Document: PLAN_Migration_NeonVercel_20261030.md | Author: Kenneth R. Advento | Version: 1.1.0
+Created: 30 October 2026 UTC+8 (Philippine Standard Time) | Modified: 31 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Plan to move the backend from Google Sheets + Apps Script to Vercel functions + Neon Postgres (+ Cloudflare R2), designed for heavy use, without changing the frontend's API contract | Status: Draft — for review; Phase 0 starts after AppScript v9.4 / v9.5 are live
 REVISION HISTORY:
 - v1.0.0 | 30 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Initial plan (session 7e008704), from the reco (19 Oct 2026) and docs/planning/REVIEW_AppScriptReco_20261030.md
+- v1.1.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §11 future option: client-hosted SQL database (shapes, pros / cons, decisions to keep the path open, testing without the client database)
 ===============================================================================
 -->
 
@@ -189,3 +190,48 @@ create table auth_identities (
 | SLA day logic | Postgres stores UTC; "Due Today", business days and holidays in Asia/Manila |
 | Open S1 part 3 | Admin-only routes need server-side checks before Phase 2 (they are written that way in the new handlers; REVIEW §4) |
 | Targets | Claude.md budgets are the starting proposal; change them as numbers, not by dropping them |
+
+---
+
+## §11 Future option — client-hosted ("local") SQL database
+
+> **Status:** future plan, not scheduled (user, 31 Oct 2026). We have no client database to test against, so the plan relies on running the same tests against Docker copies of the client's database engine (§11.4).
+
+### §11.1 Shapes it can take
+
+| Shape | What the client runs | What we change | Effort |
+|---|---|---|---|
+| **A. Client Postgres** (on-prem or their cloud) | Postgres 14+ | Only `DATABASE_URL`: same schema, migrations and handlers as Neon | Small |
+| **B. Client SQL Server / MySQL** | Their existing engine (common next to ERPs) | A second database dialect: query builder + dialect-specific migrations and locking | Medium–large |
+| **C. Fully on-prem app** | API server (Docker / Node) + database + static frontend on their network | B or A, plus self-hosted API (no Vercel), their own scheduler for the SLA job, their own mail relay | Large |
+
+### §11.2 Pros and cons
+
+| Pros | Cons |
+|---|---|
+| **Data residency / Data Privacy Act:** client data never leaves their network or provider (often the deciding factor for enterprises) | **We can't test against the real database:** version, collation, permissions and network differences show up only at the client |
+| Integration with the client's ERP: reports or views can join TicketFlow tables with ERP tables | **Support burden:** every client database is one more environment to upgrade, migrate and debug - remotely, through their IT |
+| No cloud database cost for the client; LAN latency can be very low | **Networking:** Vercel functions can't reach a private database without a tunnel (Cloudflare Tunnel, VPN, or a public IP allow-list) - or the API must be hosted on-prem (shape C) |
+| The client owns backups, retention and disaster recovery | Backups, HA and security patches become **their** responsibility - and outages land on us anyway |
+| Can reuse the client's sign-in (Active Directory / Entra ID) via the Auth.js adapter (§3) | Two dialects (B) double the testing for every schema or query change; Postgres-only features (partial indexes, `ON CONFLICT`, `FOR UPDATE SKIP LOCKED`, `jsonb`) need equivalents |
+| Easier to sell to clients that forbid SaaS | Releases need the client's change window; we can't hot-fix their database |
+
+### §11.3 Decisions to take now, while building on Neon (so the path stays open)
+
+1. **All database access through one repository layer** (`api/_lib/db/`): handlers never build SQL strings themselves, so a second dialect replaces one layer, not every handler.
+2. **Use a query builder that supports several dialects** (Kysely or Drizzle with dialect-specific schema files; Kysely supports Postgres, MySQL, SQL Server and SQLite) instead of hand-written Postgres SQL in handlers.
+3. **Keep Postgres-only features behind helpers:** `upsertOnConflict()`, `lockRowForUpdate()`, `jsonColumn()`. Each dialect implements them (SQL Server: `MERGE` / `WITH (UPDLOCK, ROWLOCK)` / `NVARCHAR(MAX)` + `ISJSON`).
+4. **Keep the existing portable choices:** text ids, timestamps stored in UTC, Asia/Manila only at display (compliance A17), soft deletes, no database triggers holding business rules.
+5. **Configuration only:** `DATABASE_URL`, `DB_DIALECT` (`postgres` default), `MAIL_TRANSPORT` (`resend` / `smtp`), `SCHEDULER` (`vercel-cron` / `external`). No code edits per client.
+6. **The SLA job as a plain HTTP endpoint** (`/api/cron/sla`, signed): Vercel Cron calls it in the cloud, and an on-prem scheduler (Task Scheduler / cron / Kubernetes CronJob) calls it at a client.
+
+### §11.4 How to test without the client's database
+
+- **CI matrix:** run the handler suite (the `ROUTES_TEST_v9.x` scenarios ported to the API) against Docker images of each supported engine - `postgres:16`, and `mcr.microsoft.com/mssql/server:2022-latest` / `mysql:8` if shape B is offered. GitHub Actions `services:` start them per run.
+- **Install checklist for the client's IT:** engine + version, collation (`Latin1_General_100_CI_AS_SC_UTF8` or equivalent for UTF-8), a dedicated database user with DDL rights for migrations, network path (tunnel or on-prem API), backups.
+- **Health endpoint** (`getSystemHealth` equivalent) reporting engine, version, migration level and time zone, so the first remote check after an install shows mismatches at once.
+- **A pilot client** before offering it widely.
+
+### §11.5 Recommendation
+
+Offer **shape A (client Postgres)** first: it is the same code as Neon and needs no extra dialect. Offer **B (SQL Server / MySQL)** only as a paid add-on when a client requires it, after §11.3 is in place and the CI matrix covers that engine. Treat **C** as a separate on-prem edition, priced with its support burden.
