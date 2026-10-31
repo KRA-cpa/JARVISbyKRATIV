@@ -2,18 +2,19 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PROGRESS_FeatureCompletion.md | Author: Kenneth R. Advento | Version: 1.1.0
+Document: PROGRESS_FeatureCompletion.md | Author: Kenneth R. Advento | Version: 1.2.0
 Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 31 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Living record of how complete JARVISbyERP is - against the original spec and against the full roadmap - recalculated at every version close | Status: Active (living document, not dated)
 REVISION HISTORY:
 - v1.0.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created from PLAN_FeatureGaps_Volume_20261031.md §10 (session 2d369f00); method carried over from session 7e008704 (30 Oct 2026)
 - v1.1.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Scope +2 (user onboarding / invites in v9.6): roadmap total 138 → 140, figures recalculated
+- v1.2.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | v9.6 deployed (ping 9.6.0, cloud session 017zmKf7): headline 87.0 % / 66.5 %, provisional until the §5d browser checks pass
 ===============================================================================
 -->
 
 # PROGRESS — Feature completion
 
-> **Headline (31 Oct 2026, v9.5 live):** **78.8 %** of the original spec · **57.8 %** of the full roadmap (spec + the v10 plan).
+> **Headline (31 Oct 2026, v9.6 deployed - ping `9.6.0`):** **87.0 %** of the original spec · **66.5 %** of the full roadmap (spec + the v10 plan). *Provisional:* the scoring rule counts a feature only once checked in the browser; the deploy guide §5d checks (sign-in, invite message, company email + test email, invite, Links) are not reported yet. Until then the last confirmed figures are 78.8 % / 57.8 % (v9.5).
 > After this plan (v10.2): 88.0 % spec · 91.4 % roadmap. 100 % on both needs file uploads + the ticket type Edit route.
 
 ---
@@ -128,6 +129,7 @@ Table C's effort-point totals aren't used for the headline: they gave the spec 9
 | 30 Oct 2026 | v9.5 built, not deployed | 78.8 % | - | session 7e008704 (first weighted estimate) |
 | 31 Oct 2026 | v9.5 live | 78.8 % | 58.6 % | session 2d369f00: scope +38 pts (§5); "built" and "live" now match for v9.5 |
 | 31 Oct 2026 | scope +2 (invites, v9.6) | 78.8 % | 57.8 % | session 2d369f00: roadmap total 138 → 140 |
+| 31 Oct 2026 | v9.6 deployed (ping 9.6.0) | 87.0 % | 66.5 % | session 017zmKf7: all v9.6 items built as planned (no scope change), so the planned v9.6 column holds; provisional until the §5d browser checks pass |
 
 ---
 
