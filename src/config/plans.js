@@ -1,9 +1,10 @@
 /**
  * Plans per company (AppScript v10.2, docs/planning/PLAN_PlanTiers_Subscriptions_20261031.md) - DISPLAY COPY ONLY.
  * The server decides what a company may do (compliance F1): PLAN_CATALOG in the AppScript file. This file holds the
- * names, labels and the area grouping the screens show, and a built-in copy of the catalogue used only when the server
- * doesn't answer getPlanCatalog yet (an older deployment) - the page says so when it falls back.
- * Keys must match the server's PLAN_FEATURE_TIERS / PLAN_LIMITS keys.
+ * names, labels and the area grouping the screens show, and a copy of the catalogue (PLAN_CATALOG_COPY) that the PUBLIC
+ * /plans page renders without any API call (no sign-in needed).
+ * TIERS / LIMITS below must equal the server's PLAN_FEATURE_TIERS / PLAN_LIMITS: `npm run check:api-contract` fails
+ * (gap "plan-copy ...") when they differ.
  * Layer: config (no imports).
  */
 
@@ -94,7 +95,7 @@ export const PLAN_STATE_LABELS = {
   unassigned: 'No plan set'
 };
 
-/** Built-in copy of the server catalogue (getPlanCatalog shape) - a fallback for display only. */
+/** Copy of the server catalogue (getPlanCatalog shape) for the public /plans page - display only. */
 const TIERS = {
   basic: [],
   advanced: ['type_builder', 'user_timezone_display', 'conditional_routing', 'chained_tickets', 'task_steps', 'copy_workflows',
@@ -110,7 +111,7 @@ const LIMITS = {
   enterprise: { users: 2000, ticket_types: null, steps_per_type: 30, tickets_per_month: 50000, upload_rows: 2000 }
 };
 
-export const FALLBACK_PLAN_CATALOG = {
+export const PLAN_CATALOG_COPY = {
   plans: PLAN_ORDER.map((plan, index) => ({
     plan,
     name: PLAN_NAMES[plan],

@@ -76,6 +76,9 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
   return children;
 };
 
+// v10.2: a page open to everyone, signed in or not (no redirect either way) - the public /plans page
+const OpenRoute = ({ children }) => children;
+
 // Public Route Component with Development Toggle
 const PublicRoute = ({ children }) => {
   const { isAuthenticated, loading } = useUser();
@@ -144,13 +147,13 @@ const AppRoutes = () => {
             }
           />
 
-          {/* v10.2: the plan catalogue (any signed-in user) */}
+          {/* v10.2: the plan catalogue - public (no sign-in, no API call); part of the future platform website */}
           <Route
             path="/plans"
             element={
-              <ProtectedRoute>
+              <OpenRoute>
                 <PlansPage />
-              </ProtectedRoute>
+              </OpenRoute>
             }
           />
 

@@ -361,6 +361,44 @@ for (const call of methodGaps.keys()) gaps.add(`missing-method ${call}`);
 for (const file of unmountedScreens()) gaps.add(`unmounted-component ${file}`);
 const iconGaps = missingIcons();
 for (const icon of iconGaps.keys()) gaps.add(`missing-icon ${icon}`);
+for (const diff of planCopyDiffs()) gaps.add(`plan-copy ${diff}`);
+
+/**
+ * v10.2: the public /plans page renders src/config/plans.js (no API call), so its TIERS / LIMITS must equal the server's
+ * PLAN_FEATURE_TIERS / PLAN_LIMITS in the AppScript file (the server enforces its own; F1). Each literal is evaluated as
+ * plain data. Files before v10.2 have no catalogue: nothing to compare.
+ * @returns {string[]} differences, e.g. "advanced.features" or "basic.limits.users"
+ */
+function planCopyDiffs() {
+  const literal = (text, name) => {
+    const start = text.indexOf(`const ${name} = {`);
+    if (start === -1) return null;
+    const end = text.indexOf('\n};', start);
+    // eslint-disable-next-line no-new-func
+    return new Function(`return ${text.slice(start + `const ${name} = `.length, end + 2)};`)();
+  };
+  const serverTiers = literal(appscript, 'PLAN_FEATURE_TIERS');
+  if (!serverTiers) return [];
+  const copyFile = path.join(SRC, 'config/plans.js');
+  if (!fs.existsSync(copyFile)) return ['missing src/config/plans.js'];
+  const copy = fs.readFileSync(copyFile, 'utf8').replace(/\r/g, '');
+  const copyTiers = literal(copy, 'TIERS');
+  const copyLimits = literal(copy, 'LIMITS');
+  const serverLimits = literal(appscript, 'PLAN_LIMITS');
+  if (!copyTiers || !copyLimits) return ['src/config/plans.js has no TIERS / LIMITS'];
+  const diffs = [];
+  const plans = [...new Set([...Object.keys(serverTiers), ...Object.keys(copyTiers)])].sort();
+  plans.forEach(plan => {
+    const a = JSON.stringify([...(serverTiers[plan] || [])].sort());
+    const b = JSON.stringify([...(copyTiers[plan] || [])].sort());
+    if (a !== b) diffs.push(`${plan}.features`);
+    const keys = [...new Set([...Object.keys(serverLimits[plan] || {}), ...Object.keys(copyLimits[plan] || {})])].sort();
+    keys.forEach(key => {
+      if (JSON.stringify((serverLimits[plan] || {})[key]) !== JSON.stringify((copyLimits[plan] || {})[key])) diffs.push(`${plan}.limits.${key}`);
+    });
+  });
+  return diffs;
+}
 
 /** Where a gap comes from, for the report. */
 function gapWhere(gap) {
@@ -368,6 +406,7 @@ function gapWhere(gap) {
   if (kind === 'action-key') return actionKeys.get(name) || [];
   if (kind === 'missing-method') return methodGaps.get(name) || [];
   if (kind === 'missing-icon') return iconGaps.get(name) || [];
+  if (kind === 'plan-copy') return ['src/config/plans.js vs PLAN_FEATURE_TIERS / PLAN_LIMITS'];
   return calls.get(name) || [];
 }
 

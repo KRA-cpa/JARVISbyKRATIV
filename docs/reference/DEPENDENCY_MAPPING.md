@@ -383,15 +383,16 @@ Until v9.1 nothing imported the ticket components or `AdminWorkflowBuilder`; `np
 
 - **Unmounted now**: 8 components + 2 icons (`AdminSLAEscalationManager` mounted in v9.5).
 
-### **💳 PLANS PER COMPANY - CATALOGUE PAGE (November 1, 2026 — AppScript v10.2 P1)**
+### **💳 PLANS PER COMPANY - PUBLIC CATALOGUE PAGE (November 1, 2026 — AppScript v10.2 P1)**
 
 | File | Layer | Imports (new in bold) | Used by |
 |---|---|---|---|
-| `src/config/plans.js` | Config (new, leaf) | - (plan names / taglines, feature labels by area, limit labels, state labels, `FALLBACK_PLAN_CATALOG`, `formatPlanLimit`; display copy only - the server's `PLAN_CATALOG` decides, F1) | `PlanCatalog` |
+| `src/config/plans.js` | Config (new, leaf) | - (plan names / taglines, feature labels by area, limit labels, state labels, **`PLAN_CATALOG_COPY`**, `formatPlanLimit`; display copy only - the server's `PLAN_CATALOG` decides, F1; `check:api-contract` fails on a "plan-copy" difference with `PLAN_FEATURE_TIERS` / `PLAN_LIMITS`) | `PlanCatalog` |
 | `src/api/googleSheet.js` | API | new **`Plans`** (`getCatalog` → `getPlanCatalog`, `getCompanyPlan(companyId, { includeUsage, all })`); both in the GET read list | hooks |
-| `src/hooks/useAPI.js` | Hooks | new **`usePlanCatalog`**, **`useCompanyPlans`** | `PlanCatalog` |
-| `src/components/plans/PlanCatalog.js` | Component (new, mounted) | **`usePlanCatalog`**, **`useCompanyPlans`**, `useCompanies`, `Icons`, **`config/plans`** (falls back to the built-in copy with a notice when the server has no v10.2 route yet) | `PlansPage` |
-| `src/pages/PlansPage.js` | Page (new) | `useUser`, `Header`, `Footer`, **`PlanCatalog`** | `App.js` route `/plans` (ProtectedRoute, any signed-in user) |
+| `src/hooks/useAPI.js` | Hooks | new **`usePlanCatalog`**, **`useCompanyPlans`** (for the P5 Plan & usage / Platform screens; the public page doesn't call them) | - (P5) |
+| `src/components/plans/PlanCatalog.js` | Component (new, mounted) | `Icons`, `react-router-dom` `Link`, **`config/plans`** - static, **no API call** | `PlansPage` |
+| `src/components/shared/PublicHeader.js` | Shared component (new, mounted) | `useUser` (isAuthenticated), `Icons` - no API call (Sign in / Go to dashboard) | `PlansPage` (signed out); the future platform website pages |
+| `src/pages/PlansPage.js` | Page (new) | `useUser`, `Header` (signed in) / **`PublicHeader`** (signed out), `Footer`, **`PlanCatalog`** | `App.js` route `/plans` - **`OpenRoute`** (public: no sign-in, no redirect) |
 | `src/components/shared/Header.js` | Shared component | nav link **Plans** (desktop + mobile, `Icons.Shield`) | every page |
 
 ### **🌏 COUNTRY CALENDARS, COMPANY TIME ZONES, DISPLAY ZONE (November 1, 2026 — AppScript v10.1)**
