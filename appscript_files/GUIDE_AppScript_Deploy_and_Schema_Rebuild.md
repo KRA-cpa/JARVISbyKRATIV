@@ -24,7 +24,9 @@ REVISION HISTORY:
 
 > Use this guide every time a new `APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt` file is created.
 > **Latest file is the one with the newest timestamp** in `appscript_files/`.
-> Current: `APPSCRIPT_v9.6_20261031_1510.txt` (contains v9.0–v9.5 - deploy it directly; nothing in between has to be deployed first)
+> Current: `APPSCRIPT_v9.7_20261031_1748.txt` (contains v9.0–v9.6 - deploy it directly; nothing in between has to be deployed first)
+
+> **v9.7 (on top of a live v9.6):** paste the file (§1) → §5 redeploy with the header's Deploy description → `?action=ping` says `9.7.0`. No rebuild apply, no new permission. Links are then accepted only for **https://docs.google.com** and **https://drive.google.com** (and need a name). To allow another host: Project Settings → Script Properties → `LINK_ALLOWED_HOSTS` = comma-separated hosts (e.g. `docs.google.com,drive.google.com,sharepoint.example.com`; takes effect at once). Push the frontend afterwards so older links on other hosts show as ⚠️ not clickable.
 
 > ⚠️ **v9.6 - do §5d. Order matters, or you can lock yourself out:**
 > 1. Paste `ADMIN_Tools_v1.1_20261031_1526.txt` over the `admin` script file (§0a) and the v9.6 main file (§1). Save.
@@ -48,7 +50,8 @@ REVISION HISTORY:
 > An older frontend keeps working for everything except approvals and the new screens.
 >
 > Offline tests (all must pass on the file you paste; run them with `TZ=Asia/Manila` - one v9.0 date test assumes Manila midnight):
-> - `node appscript_files/tools/ROUTES_TEST_v9.6.js appscript_files/APPSCRIPT_v9.6_20261031_1510.txt` → 24 PASS
+> - `node appscript_files/tools/ROUTES_TEST_v9.7.js appscript_files/APPSCRIPT_v9.7_20261031_1748.txt` → 6 PASS
+> - `ROUTES_TEST_v9.6.js` → 24 PASS
 > - `ROUTES_TEST_v9.5.js` → 25 PASS
 > - `ROUTES_TEST_v9.4.js` → 20 PASS, `ROUTES_TEST_v9.3.js` → 10 PASS
 > - `ROUTES_TEST_v9.2.js` → 14 PASS, `ROUTES_TEST_v9.1.js` → 18 PASS

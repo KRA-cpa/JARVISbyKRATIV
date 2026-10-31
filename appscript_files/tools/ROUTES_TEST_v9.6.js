@@ -23,7 +23,9 @@ const SECRET = 's';
  * options.noAdmin: no admin assignment (bootstrap open). options.mode: AUTH_MODE (default enforce).
  */
 function seed(options = {}) {
-  const rt = lib.makeRuntime(FILE, { properties: { AUTH_MODE: options.mode || 'enforce', PROXY_SECRET: SECRET, ...(options.properties || {}) } });
+  const rt = lib.makeRuntime(FILE, { properties: { AUTH_MODE: options.mode || 'enforce', PROXY_SECRET: SECRET,
+    // v9.7+ only allows docs / drive.google.com links; '*' keeps the v9.6 rule these link tests were written for
+    LINK_ALLOWED_HOSTS: '*', ...(options.properties || {}) } });
   rt.ctx.rebuildAllTablesApply();
   const S = rt.ctx.__TABLE_SCHEMAS;
   const add = (tableName, record) => rt.sheets.get(tableName).appendRow(rt.ctx.rowFromRecord(S[tableName], record));
@@ -310,7 +312,7 @@ test('closed ticket: fixing a reported link is allowed and logged; adding is adm
   assert.match(as('u_req', { action: 'addTicketAttachmentLink', ticket_id: id, file_url: 'https://b.example.com', file_name: 'B' }).error, /closed/);
   ok(as('u_admin', { action: 'addTicketAttachmentLink', ticket_id: id, file_url: 'https://b.example.com', file_name: 'B' }));
   ok(as('u_out', { action: 'reportAttachmentLinkBroken', attachment_id: link.id }));
-  ok(as('u_req', { action: 'updateAttachmentLink', attachment_id: link.id, file_url: 'https://a2.example.com' }));
+  ok(as('u_req', { action: 'updateAttachmentLink', attachment_id: link.id, file_url: 'https://a2.example.com', file_name: 'A' }));
   const log = rows('ticket_action_logs').find(l => l.action_type === 'LINK_FIXED');
   assert.strictEqual(JSON.parse(log.details).closed_ticket, true);
 });
@@ -407,7 +409,7 @@ test('every ADMIN_ONLY action is routed in doPost; ping reports 9.6.0 = header V
   lib.same(missing, []);
   const header = src.match(/\* Version: (\d+\.\d+)/)[1];
   assert.strictEqual(rt.get({ action: 'ping' }).version, `${header}.0`);
-  assert.strictEqual(rt.get({ action: 'ping' }).version, '9.6.0');
+  assert.ok(rt.get({ action: 'ping' }).version.localeCompare('9.6.0', undefined, { numeric: true }) >= 0);
 });
 
 // --- Review fixes (docs/planning/TODO_CodeReview_20261031.md) ------------------------------------------------

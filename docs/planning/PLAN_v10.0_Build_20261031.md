@@ -84,7 +84,7 @@ v10.0 is about **3× v9.6**: ~12 new helpers, 14 changed read paths, 2 new tabs 
 | `getSharedTicketsAction` :15223, `getTicketSharesAction` :15187 | scope; Restricted tickets drop out | M1, M4 |
 | `getTicketHistory` :7518, `getTicketActionLogs` :14249, `getTicketLinksAction` :13004, `getStepApprovals` :12175 | not found when hidden; `field_changes` masked | M1, M4 |
 | `getTicketAttachments` :16809, `canSeeTicketLinks` :16771 | use `canViewTicket` (C2); `canSeeTicketLinks` removed | M1 |
-| `addTicketAttachmentLink`, `updateAttachmentLink` (v9.6 links section) | **link name required** (user, 31 Oct 2026): refuse a blank / spaces-only `file_name` (v9.6 falls back to the URL); the frontend already requires it since `main3` after 55533fb | M1 |
+| `addTicketAttachmentLink`, `updateAttachmentLink` | ✅ **done in v9.7** (user, 31 Oct 2026): name required + allowed hosts (`LINK_ALLOWED_HOSTS`, default docs / drive.google.com). v10.0 starts from `APPSCRIPT_v9.7_20261031_1748.txt` | - |
 | `createTicket` :1700 | `canCreateTicket`; head snapshot; `is_confidential` from the mode; participants (requester, head, first-step pool); `awaiting_approval` event | M1, M2, M4, M5 |
 | `progressTicketWorkflow` :7125 (calls `triggerWorkflowNotifications` :7307) | participants (acted; close / open pool windows); events | M2, M5 |
 | `triggerWorkflowNotifications` :8023 | rewired to `queueNotifications` (no second notifier, A20) | M5 |

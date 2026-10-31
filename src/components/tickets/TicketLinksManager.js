@@ -6,8 +6,9 @@ import { useTicketAttachments } from '../../hooks/useAPI';
  * TicketLinksManager (AppScript v9.6, TicketDetail → Links)
  *
  * Links on a ticket (URL + name, optional description): no upload, no Drive permission. The server decides who may
- * add / remove / fix (requester, current approvers, admin - it returns can_manage) and checks the URL (http / https
- * only). Anyone who can see the ticket may report a link broken; a reported link can then be fixed in place by
+ * add / remove / fix (requester, current approvers, admin - it returns can_manage) and checks the URL: from AppScript
+ * v9.7 https on an allowed host only (Script Property LINK_ALLOWED_HOSTS, default docs.google.com + drive.google.com),
+ * and a name. A link saved earlier on another host comes back with link_allowed: false and is shown as plain text. Anyone who can see the ticket may report a link broken; a reported link can then be fixed in place by
  * someone who can manage links - also on a closed ticket - and the fix clears the report (plan §4.13).
  * Mounted only while the Links tab is open, so opening a ticket costs no extra call (F5).
  */
@@ -87,7 +88,8 @@ const TicketLinksManager = ({ ticketId, nameOf = (id) => id, notify }) => {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <Icons.Link size={14} className="text-gray-500 flex-shrink-0" />
-                      {isWebLink(link.file_url) ? (
+                      {/* AppScript v9.7: a link on a host that isn't allowed (saved earlier) is never clickable */}
+                      {link.link_allowed !== false && isWebLink(link.file_url) ? (
                         <a href={link.file_url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-600 hover:underline truncate">
                           {link.file_name || link.file_url}
                         </a>
@@ -96,6 +98,10 @@ const TicketLinksManager = ({ ticketId, nameOf = (id) => id, notify }) => {
                       )}
                       {reported && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-red-100 text-red-800">🔗 Reported broken</span>
+                      )}
+                      {link.link_allowed === false && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-yellow-100 text-yellow-800"
+                          title={link.file_url}>⚠️ Not an allowed domain - not opened</span>
                       )}
                     </div>
                     {link.description && <p className="text-xs text-gray-600 mt-1">{link.description}</p>}
@@ -142,7 +148,7 @@ const TicketLinksManager = ({ ticketId, nameOf = (id) => id, notify }) => {
                 {fixing && fixing.id === link.id && (
                   <form onSubmit={handleFix} className="grid grid-cols-1 gap-2 md:grid-cols-2">
                     <input type="url" required value={fixing.fileUrl} onChange={e => setFixing({ ...fixing, fileUrl: e.target.value })}
-                      placeholder="https://..." className={`${inputClass} md:col-span-2`} aria-label="New URL" />
+                      placeholder="https://docs.google.com/... or https://drive.google.com/..." className={`${inputClass} md:col-span-2`} aria-label="New URL" />
                     <input type="text" required maxLength={200} value={fixing.fileName} onChange={e => setFixing({ ...fixing, fileName: e.target.value })}
                       placeholder="Name (required)" className={inputClass} aria-label="Name" />
                     <input type="text" maxLength={1000} value={fixing.description} onChange={e => setFixing({ ...fixing, description: e.target.value })}
@@ -165,7 +171,8 @@ const TicketLinksManager = ({ ticketId, nameOf = (id) => id, notify }) => {
         <form onSubmit={handleAdd} className="border border-gray-200 rounded-md p-4 grid grid-cols-1 gap-3 md:grid-cols-2">
           <h4 className="md:col-span-2 text-sm font-medium text-gray-900">Add a link</h4>
           <input type="url" required value={form.fileUrl} onChange={e => setForm({ ...form, fileUrl: e.target.value })}
-            placeholder="https://drive.google.com/..." className={`${inputClass} md:col-span-2`} aria-label="URL" />
+            placeholder="https://docs.google.com/... or https://drive.google.com/..." className={`${inputClass} md:col-span-2`} aria-label="URL" />
+          <p className="md:col-span-2 -mt-2 text-xs text-gray-500">Google Docs, Sheets, Slides and Drive links only (https).</p>
           <input type="text" required maxLength={200} value={form.fileName} onChange={e => setForm({ ...form, fileName: e.target.value })}
             placeholder="Name (required, e.g. Quotation)" className={inputClass} aria-label="Name" />
           <input type="text" maxLength={1000} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}

@@ -1846,6 +1846,8 @@ ticket link / backup / invite / company email writes) refuse non-admins with `co
 responses carry the handler's `code` at the top level. Proxy 401 codes: `NOT_SIGNED_IN`, `SESSION_EXPIRED`,
 `SESSION_MAX_AGE` (sign-in older than `MAX_SESSION_HOURS`, default 12), `TOKEN_REJECTED`.
 
+**v9.7 link rules:** `addTicketAttachmentLink` / `updateAttachmentLink` accept only https URLs whose host is in Script Property `LINK_ALLOWED_HOSTS` (default `docs.google.com,drive.google.com`; exact host; `*` = any http(s), the v9.6 rule) and require `file_name`. `getTicketAttachments` rows carry `link_allowed` (false for a link saved earlier on a host not allowed now).
+
 **GET - new in v9.6:**
 
 | Action | Query | Returns (`data`) |
