@@ -40,7 +40,9 @@ function seed(options = {}) {
   const ok = res => { assert.strictEqual(res.success, true, res.error); return res.data; };
   const usCalendar = () => ok(as('u_admin', { action: 'saveCountryCalendar', country_code: 'US', name: 'United States', calendar_tz: 'America/New_York',
     allowed_timezones: ['America/New_York', 'America/Chicago', 'America/Los_Angeles'], weekend_days: [0, 6] }));
-  return { rt, add, rows, as, asGet, ok, usCalendar };
+  const logs = [];
+  rt.ctx.console.log = (...args) => logs.push(args.join(' '));
+  return { rt, add, rows, as, asGet, ok, usCalendar, logs };
 }
 
 // --- T1: zone math --------------------------------------------------------------------------------------------------
@@ -156,6 +158,102 @@ test('migrateCountryCalendars: dry run writes nothing; apply = PH row, every com
   assert.ok(env.rt.ctx.companyHolidayDays('co_ph').has('2026-12-30'), 'same holidays as before');
   const again = env.rt.ctx.migrateCountryCalendars({ dryRun: false });
   assert.strictEqual(again.companies + again.holidays_moved + (again.calendar_added ? 1 : 0), 0, JSON.stringify(again));
+});
+
+// --- T2: call sites on the company clock --------------------------------------------------------------------------
+
+/** co_us becomes a Dubai company: AE calendar (Fri / Sat weekend), zone Asia/Dubai. */
+function dubai(env) {
+  env.ok(env.as('u_admin', { action: 'saveCountryCalendar', country_code: 'AE', name: 'UAE', calendar_tz: 'Asia/Dubai', weekend_days: [5, 6] }));
+  env.ok(env.as('u_admin', { action: 'setCompanyRegion', company_id: 'co_us', country_code: 'AE', timezone: 'Asia/Dubai' }));
+}
+
+test('T2 step SLA: days skip the COMPANY country\'s weekend in its zone (Dubai Fri / Sat), Manila Sat / Sun stays the default', () => {
+  const env = seed();
+  dubai(env);
+  env.add('step_slas', { id: 'sla_ae', step_id: 'ws_1', duration: 1, unit: 'days', exclude_weekends: true, is_active: true });
+  env.add('step_slas', { id: 'sla_ph', step_id: 'ws_0', duration: 1, unit: 'days', exclude_weekends: true, is_active: true });
+  const start = '2026-11-05T06:00:00.000Z'; // Thursday: 10:00 in Dubai, 14:00 in Manila
+  const ae = env.rt.ctx.stepDueDateFor({ company_id: 'co_us', ticket_type_id: 'tt_1' }, { id: 'ws_1', name: 'Managers' }, start);
+  assert.strictEqual(ae.toISOString(), '2026-11-08T06:00:00.000Z', 'Fri + Sat skipped -> Sunday 10:00 Dubai');
+  const ph = env.rt.ctx.stepDueDateFor({ company_id: 'co_ph', ticket_type_id: 'tt_1' }, { id: 'ws_0', name: 'Managers' }, start);
+  assert.strictEqual(ph.toISOString(), '2026-11-06T06:00:00.000Z', 'Friday is a working day in Manila');
+  // the old 4-argument call (no clock) keeps the v9.5 Manila answer
+  assert.strictEqual(env.rt.ctx.calculateSLADueDate(start, 1, 'days', true).toISOString(), '2026-11-06T06:00:00.000Z');
+});
+
+test('T2 company SLA rule: business hours on the country\'s working days (Sun-Thu in Dubai) and its hours', () => {
+  const env = seed();
+  dubai(env);
+  const cal = env.rt.ctx.slaCalendar({ business_days: '', business_hours_start: '', business_hours_end: '' }, new Set(), env.rt.ctx.companyClock('co_us'));
+  assert.deepStrictEqual(plain(cal.business_days), [0, 1, 2, 3, 4], 'default = the AE working days');
+  assert.strictEqual(cal.tz, 'Asia/Dubai');
+  // Thursday 15:00 Dubai + 4 business hours: 2 h Thursday, Fri / Sat closed, 2 h on Sunday -> 10:00
+  const due = env.rt.ctx.addSlaTime('2026-11-05T11:00:00.000Z', 4, 'business_hours', cal);
+  assert.strictEqual(due.toISOString(), '2026-11-08T06:00:00.000Z');
+});
+
+test('T2 holidays in SLA time: a country holiday is skipped; a company "remove" makes it a working day again', () => {
+  const env = seed();
+  env.ok(env.as('u_admin', { action: 'importCountryHolidays', country_code: 'PH', dry_run: false, rows: [{ date: '2026-11-04', name: 'Test day' }] }));
+  const calFor = () => env.rt.ctx.slaCalendar({ exclude_holidays: true }, env.rt.ctx.companyHolidayDays('co_ph'), env.rt.ctx.companyClock('co_ph'));
+  const start = '2026-11-03T02:00:00.000Z'; // Tuesday 10:00 Manila
+  assert.strictEqual(env.rt.ctx.addSlaTime(start, 1, 'business_days', calFor()).toISOString(), '2026-11-05T02:00:00.000Z', 'Wed skipped');
+  env.add('company_holidays', { id: 'h_rm', company_id: 'co_ph', date: "'2026-11-04", name: 'We work', is_active: true, overrides_country: 'remove' });
+  assert.strictEqual(env.rt.ctx.addSlaTime(start, 1, 'business_days', calFor()).toISOString(), '2026-11-04T02:00:00.000Z', 'Wed counts again');
+});
+
+test('T2 ticket number: peek and create use the country calendar year (generateTicketNumber gets the company)', () => {
+  const env = seed();
+  dubai(env);
+  const year = env.rt.ctx.calendarYear('co_us');
+  const peek = env.ok(env.asGet('u_req', { action: 'getNextTicketNumber', company_id: 'co_us', ticket_type_id: 'tt_1' }));
+  assert.strictEqual(peek.ticket_number, `USC-PR-${year}-00000001`);
+  const created = env.ok(env.as('u_req', { action: 'createTicket', title: 'x', ticket_type_id: 'tt_1', requester_id: 'u_req', company_id: 'co_us' }));
+  assert.strictEqual(created.ticket_number, `USC-PR-${year}-00000001`);
+  const source = require('fs').readFileSync(FILE, 'utf8');
+  const calls = source.split('\n').filter(l => /generateTicketNumber\(/.test(l) && !/^function |^\s*\*/.test(l));
+  assert.ok(calls.length >= 2, calls.join('\n'));
+  calls.forEach(l => assert.match(l, /generateTicketNumber\([^,]+,[^,]+,[^,)]+\)/, `passes the company id: ${l.trim()}`));
+});
+
+test('T2 getTickets: no limit = one page of 50 ({ items, next_cursor, has_more }), no DEPRECATED log (D6)', () => {
+  const env = seed();
+  env.ok(env.as('u_req', { action: 'createTicket', title: 'a', ticket_type_id: 'tt_1', requester_id: 'u_req', company_id: 'co_ph' }));
+  const page = env.ok(env.asGet('u_req', { action: 'getTickets' }));
+  assert.ok(!Array.isArray(page) && Array.isArray(page.items));
+  assert.strictEqual(page.items.length, 1);
+  assert.strictEqual(page.has_more, false);
+  assert.ok('next_cursor' in page);
+  assert.ok(!env.logs.some(l => /DEPRECATED getTickets/.test(l)));
+});
+
+test('T2 date filters: a yyyy-MM-dd day is the asked company\'s day (Dubai vs Manila); no company = the default zone', () => {
+  const env = seed();
+  dubai(env);
+  const make = co => {
+    const id = String(env.ok(env.as('u_req', { action: 'createTicket', title: co, ticket_type_id: 'tt_1', requester_id: 'u_req', company_id: co })).id);
+    env.rt.ctx.updateRecordFields('tickets', id, { created_at: '2026-10-01T21:00:00.000Z' }); // Dubai 2 Oct 01:00; Manila 2 Oct 05:00
+    return id;
+  };
+  const us = make('co_us');
+  const ph = make('co_ph');
+  const ids = filters => env.ok(env.asGet('u_req', { action: 'getTickets', limit: 50, filters: JSON.stringify(filters) })).items.map(t => String(t.id));
+  assert.deepStrictEqual(ids({ company_id: 'co_us', date_from: '2026-10-02', date_to: '2026-10-02' }), [us]);
+  assert.deepStrictEqual(ids({ company_id: 'co_ph', date_from: '2026-10-02', date_to: '2026-10-02' }), [ph]);
+  env.rt.ctx.updateRecordFields('tickets', us, { created_at: '2026-10-01T19:30:00.000Z' }); // Dubai 1 Oct 23:30, Manila 2 Oct 03:30
+  assert.deepStrictEqual(ids({ company_id: 'co_us', date_from: '2026-10-02' }), [], 'still 1 Oct in Dubai');
+  assert.deepStrictEqual(ids({ company_id: 'co_us', date_to: '2026-10-01' }), [us]);
+  assert.deepStrictEqual(ids({ date_from: '2026-10-02', date_to: '2026-10-02' }).sort(), [us, ph].sort(), 'no company: Manila days');
+});
+
+test('T2 SLA status: "Due Today" is the company\'s today', () => {
+  const env = seed();
+  dubai(env);
+  const now = new Date('2026-11-05T19:30:00.000Z'); // Dubai Thu 23:30; Manila Fri 03:30
+  const due = '2026-11-05T20:30:00.000Z'; // Dubai Fri 00:30; Manila Fri 04:30
+  assert.strictEqual(env.rt.ctx.ticketSLAStatus({ status: 'Pending', company_id: 'co_us', step_due_date: due }, now), 'On Track');
+  assert.strictEqual(env.rt.ctx.ticketSLAStatus({ status: 'Pending', company_id: 'co_ph', step_due_date: due }, now), 'Due Today');
 });
 
 report();

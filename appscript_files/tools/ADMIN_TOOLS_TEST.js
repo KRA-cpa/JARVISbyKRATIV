@@ -313,5 +313,42 @@ if (/function adminBackfillParticipants\(/.test(fs.readFileSync(ADMIN, 'utf8')) 
   });
 }
 
+// v1.4 (AppScript v10.1): "7. Regions (v10.1)" - only when the menu file has it and the main file is v10.1+
+if (/function adminMigrateCountryCalendars\(/.test(fs.readFileSync(ADMIN, 'utf8')) && /function migrateCountryCalendars\(/.test(fs.readFileSync(MAIN, 'utf8'))) {
+  const regions = options => {
+    const env = fresh(options);
+    env.rt.ctx.rebuildAllTablesApply();
+    const S = env.rt.ctx.__TABLE_SCHEMAS;
+    env.rt.sheets.get('companies').appendRow(env.rt.ctx.rowFromRecord(S.companies, { id: 'co_1', name: 'Co', code: 'CO', is_active: true, country_code: '', timezone: '' }));
+    return env;
+  };
+
+  test('v1.4 Migrate to country calendars: No changes nothing, Yes applies, a second run has nothing to do; Status line', () => {
+    const no = regions({ answer: 'NO' });
+    no.rt.ctx.adminMigrateCountryCalendars();
+    assert.match(no.dialogs.pop().text, /Companies without a region \(would become Philippines \/ Asia\/Manila\): 1/);
+    assert.strictEqual(no.rt.ctx.readTable('country_calendars').records.length, 0);
+    no.rt.ctx.adminStatus();
+    assert.match(no.dialogs.pop().text, /Regions: migration NOT done \(1 compan/);
+
+    const env = regions();
+    env.rt.ctx.adminMigrateCountryCalendars();
+    assert.match(env.dialogs.pop().text, /1 compan\(ies\) set to Philippines \/ Asia\/Manila/);
+    assert.strictEqual(env.rt.ctx.readTable('companies').records[0].country_code, 'PH');
+    env.rt.ctx.adminMigrateCountryCalendars();
+    assert.match(env.dialogs.pop().text, /already migrated/);
+    env.rt.ctx.adminStatus();
+    assert.match(env.dialogs.pop().text, /Regions: migrated/);
+    env.rt.ctx.adminRegions();
+    assert.match(env.dialogs.pop().text, /PH [\s\S]*zone Asia\/Manila[\s\S]*- CO: PH \/ Asia\/Manila/);
+  });
+
+  test('v1.4 dates use the company zone (no MANILA_TZ left - the v10.1 main file removed it)', () => {
+    const source = fs.readFileSync(ADMIN, 'utf8');
+    assert.ok(!/MANILA_TZ/.test(source.replace(/^ \*.*$/gm, '')), 'MANILA_TZ only in the header notes');
+    assert.strictEqual(fresh().rt.ctx.adminTz_(''), 'Asia/Manila');
+  });
+}
+
 report();
 fs.unlinkSync(combined);

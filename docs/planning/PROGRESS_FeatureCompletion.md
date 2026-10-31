@@ -2,14 +2,15 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PROGRESS_FeatureCompletion.md | Author: Kenneth R. Advento | Version: 1.3.0
-Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 31 October 2026 UTC+8 (Philippine Standard Time)
+Document: PROGRESS_FeatureCompletion.md | Author: Kenneth R. Advento | Version: 1.4.0
+Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Living record of how complete JARVISbyERP is - against the original spec and against the full roadmap - recalculated at every version close | Status: Active (living document, not dated)
 REVISION HISTORY:
 - v1.0.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created from PLAN_FeatureGaps_Volume_20261031.md §10 (session 2d369f00); method carried over from session 7e008704 (30 Oct 2026)
 - v1.1.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Scope +2 (user onboarding / invites in v9.6): roadmap total 138 → 140, figures recalculated
 - v1.2.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | v9.6 deployed (ping 9.6.0, cloud session 017zmKf7): headline 87.0 % / 66.5 %, provisional until the §5d browser checks pass
 - v1.3.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Scope +14 (session ff4c803f): country calendars + time zones (v10.1, 4) and plans + subscriptions (v10.2, 10); roadmap total 140 → 154; version line v10.1-v10.4; figures recalculated
+- v1.4.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §4 milestone rows for v10.0 M1-M5, close + review, v10.1 T1 / T2 (built, not live; headline unchanged)
 ===============================================================================
 -->
 
@@ -120,7 +121,7 @@ Version line since 31 Oct 2026 (session ff4c803f): v10.0 → **v10.1** country c
 | 39 | Unmounted component clean-up | 1 | 0 % | 100 % | v10.4 |
 | 41 | User onboarding / invites | 2 | 0 % | 100 % | v9.6 |
 | 40 | File uploads | 3 | 0 % | 100 % | backlog (last) |
-| 42 | Country calendars (year, holidays, weekends) + company time zone | 3 | 0 % | 100 % | v10.1 - **T1 built** (calendars, clock, holidays, region; call sites in T2) |
+| 42 | Country calendars (year, holidays, weekends) + company time zone | 3 | 0 % | 100 % | v10.1 - **T1 + T2 built** (calendars, clock, holidays, region; SLA / escalation / ticket YEAR / filters / Due Today on the company clock; screens in T3) |
 | 43 | Per-user display time zone | 1 | 0 % | 100 % | v10.1 (gated to Advanced+ in v10.2) |
 | 44 | Plan catalogue + gate + limits + platform admin | 3 | 0 % | 100 % | v10.2 |
 | 45 | Subscriptions: trial end, grace, read-only, renew / downgrade | 3 | 0 % | 100 % | v10.2 |
@@ -152,6 +153,7 @@ Table C's effort-point totals aren't used for the headline: they gave the spec 9
 | 1 Nov 2026 | **v10.0 closed** (built, not live) | 87.0 % | 60.5 % | session ff4c803f: all v10.0 features built (23-28). Built-only it equals the planned v10.0 column: **88.0 % spec / 73.5 % roadmap** - the headline moves there once v10.0 is deployed and the browser checks pass |
 | 1 Nov 2026 | v10.0 review fixed (CR4-01..10) | 87.0 % | 60.5 % | session ff4c803f: `docs/planning/TODO_CodeReview_20261101.md`; no scope change |
 | 1 Nov 2026 | v10.1 T1 built, not live | 87.0 % | 60.5 % | session ff4c803f: country calendars + company clock helpers, holidays per country, region route, PH migration (feature 42 ≈ 40 %). Built-only roadmap 74.6 % |
+| 1 Nov 2026 | v10.1 T2 built, not live | 87.0 % | 60.5 % | session ff4c803f: call sites on the company clock - SLA rules + step SLAs (country weekends / working days, holidays), escalation run + email dates, Due Today, ticket number YEAR, report / list date days; getTickets always paged (D6); ADMIN_Tools v1.4 (feature 42 ≈ 80 %). Built-only roadmap 75.1 % |
 
 ---
 

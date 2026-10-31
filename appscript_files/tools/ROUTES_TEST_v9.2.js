@@ -237,7 +237,8 @@ test('chained ticket: the child gets a chained link (company + description); get
   const childId = String(links[0].child_ticket_id);
   assert.strictEqual(ticket(childId).ticket_type_id, 'tt_1');
 
-  const list = rt.get({ action: 'getTickets' }).data;
+  const answer = rt.get({ action: 'getTickets' }).data;
+  const list = Array.isArray(answer) ? answer : answer.items; // v10.1+: always a page (D6)
   const p = list.find(t => String(t.id) === parent);
   const c = list.find(t => String(t.id) === childId);
   same(p.chained_children.map(String), [childId]);

@@ -167,10 +167,16 @@
  *     getCountryHolidays, importCountryHolidays, setCompanyRegion; addPhilippineHolidays -> addCountryHolidays('PH').
  *     Editor: migrateCountryCalendars (dry run / apply: PH row, every company PH / Asia/Manila, all-company holidays ->
  *     the PH country calendar). Nothing changes for an existing PH company
+ *   T2 (call sites): the SLA calendar is the company's (zone, country weekend / working days, business hours, country +
+ *     company holidays) for company SLA rules, step SLAs (calculateSLADueDate + the company clock), the escalation run and
+ *     its email dates; 'Due Today' = the company's today; the ticket number YEAR (generateTicketNumber / the peek) from the
+ *     country calendar; report and list date filters are the asked company's days (dayStartIn / dayEndIn); invite expiry
+ *     in the company zone. MANILA_TZ / MANILA_OFFSET / the fixed +8 h helpers are gone (DEFAULT_TZ = the one default).
+ *     getTickets is always one page - without `limit` = 50 (D6: the v10.0 array answer is removed; ADMIN_Tools v1.4)
  *   - Rebuild apply needed: 2 new tabs (country_calendars, country_holidays); companies + 2, company_holidays + 1,
  *     user_preferences + 1 columns
- *   - Rebuild apply needed: 2 new tabs (ticket_participants, email_outbox); ticket_types + 4, tickets + 3, custom_fields + 1,
- *     notifications + 1 columns
+ *   - From v9.x also the v10.0 rebuild: 2 new tabs (ticket_participants, email_outbox); ticket_types + 4, tickets + 3,
+ *     custom_fields + 1, notifications + 1 columns
  *
  * Deploy description: v10.1 20261101_0101 - country calendars + company time zones (in progress)
  *   (paste at redeploy: Deploy > Manage deployments > Edit > New version > Description)
@@ -189,6 +195,11 @@ const SPREADSHEET_ID = "1EjFpr_yktSU6QAeBSAvcr6iWVtmaOCV1t5unvImmot4"; // Google
 
 // Reported by ping so a live deployment can be traced to its file. Must match the header's Version line.
 const API_VERSION = '10.1.0';
+
+// v10.1: the default country calendar + zone (every company without a region; design PLAN_CountryCalendars_TimeZones §2).
+// The only place a zone is written as text (compliance A17 v3).
+const DEFAULT_COUNTRY = 'PH';
+const DEFAULT_TZ = 'Asia/Manila';
 
 // Sheet (Table) Names - must match the tabs in your Google Sheet exactly.
 const SHEETS = {
@@ -252,6 +263,8 @@ var TABLE_CACHE = {};
 var ACTOR_SCOPES = {};
 // v10.0: sheet reads that reached the spreadsheet in this request (the [perf] log line)
 var TAB_READS = 0;
+// v10.1: companyClock() results per company for the current request (dropped by every write)
+var CLOCK_CACHE = {};
 // True inside doGet / doPost (withRequestScope). The cache is used only then; editor runs read uncached.
 let REQUEST_ACTIVE = false;
 let SS_HANDLE = null;
@@ -295,6 +308,7 @@ function resetRequestCache() {
   CACHE_FLAG = null;
   ACTOR_SCOPES = {};
   TAB_READS = 0;
+  CLOCK_CACHE = {};
 }
 
 /**
@@ -333,6 +347,7 @@ function perfLogged(kind, e, fn) {
  */
 function invalidateTable(sheetName) {
   ACTOR_SCOPES = {};
+  CLOCK_CACHE = {};
   if (sheetName) {
     delete TABLE_CACHE[sheetName];
   } else {
@@ -470,7 +485,7 @@ function getCurrentUserId() {
 /**
  * Current time as an ISO string in real UTC (A17). Until v9.4 this added 8 hours and still ended in Z;
  * Script Property TS_UTC_SINCE records when the stored values became real UTC (the migration corrects
- * older rows). Show Manila time with Utilities.formatDate(d, 'Asia/Manila', ...) - never shift.
+ * older rows). Show local time with formatDate in a named zone (v10.1: the company's - companyClock) - never shift.
  * @returns {string} ISO 8601 timestamp
  */
 function getCurrentTimestamp() {
@@ -1908,7 +1923,7 @@ function createTicket(payload, options = {}) {
   }
   const newTicketId = nextSequenceValue('ticket_id', highestTicketId);
 
-  const ticketNumber = generateTicketNumber(company.code, ticketType.code);
+  const ticketNumber = generateTicketNumber(company.code, ticketType.code, company.id);
 
   ticketsSheet.appendRow(rowFromRecord(sheetHeaders(ticketsSheet), {
     id: newTicketId,
@@ -1983,7 +1998,7 @@ function createTicket(payload, options = {}) {
  * (link_type 'chained') for the dashboard's parent/child view. children / parent keep every active link.
  * v10.0: only the tickets the caller may see (canViewTicket; design §4.2). With `limit` (M3, design §4.3) it answers one
  * page, newest first: { items, next_cursor, has_more } (no total - the dashboard counts come from getDashboard).
- * Without `limit` it keeps the old array for v10.0 only (logged "DEPRECATED"; removed in v10.1 - build plan D6).
+ * Without `limit`: the first page of 50 (v10.1 - the v10.0 array answer is gone, build plan D6).
  * @param {object} params - user_id; limit (default 50, max 100), cursor; filters (object or JSON text, or the same keys
  *   at the top level): status (one or a list; 'open' / 'closed' too), company_id, ticket_type_id, requester_id, mine,
  *   involved, date_from, date_to (created, yyyy-MM-dd, inclusive), q (ticket number prefix or title words)
@@ -2006,13 +2021,7 @@ function getTickets(params) {
       .concat(list.filter(t => views[String(t.id)] === 'stub').map(ticketStub))
       .sort((a, b) => order[String(a.id)] - order[String(b.id)]);
   };
-  const paged = params.limit !== undefined && params.limit !== null && params.limit !== '';
-
-  if (!paged) {
-    console.log('DEPRECATED getTickets without limit: use the paged form (the array answer is removed in v10.1)');
-    if (params.status) tickets = tickets.filter(t => t.status === params.status);
-    return present(tickets);
-  }
+  // v10.1 (build plan D6): always one page - the v10.0 array answer without `limit` is gone (no limit = 50)
 
   const limit = Math.min(Math.max(Math.floor(Number(params.limit)) || TICKET_PAGE_DEFAULT, 1), TICKET_PAGE_MAX);
   const filters = ticketFilterParams(params);
@@ -2116,8 +2125,10 @@ function ticketFilterParams(params) {
  * so a filter can't tell anything the stub doesn't show.
  */
 function applyTicketFilters(tickets, f, scope, views = {}) {
-  const from = f.date_from ? toDate(f.date_from) : null;
-  const toEnd = f.date_to ? endOfTerm(f.date_to) : null;
+  // v10.1: filter days are the company's days when one company is asked for (else the default zone)
+  const rangeTz = f.company_id ? companyClock(f.company_id).tz : DEFAULT_TZ;
+  const from = f.date_from ? dayStartIn(f.date_from, rangeTz) : null;
+  const toEnd = f.date_to ? dayEndIn(f.date_to, rangeTz) : null;
   const words = f.q ? f.q.split(/\s+/).filter(Boolean) : [];
   const slaNow = new Date();
   const involvedIds = {};
@@ -3168,7 +3179,7 @@ function getUserPreferences(userId) {
         return {
           user_id: data[i][0],
           dark_mode: data[i][1] || false,
-          timezone: data[i][2] || 'Asia/Manila',
+          timezone: data[i][2] || DEFAULT_TZ,
           language: data[i][3] || 'en',
           email_notifications: data[i][4] !== false, // Default to true
           desktop_notifications: data[i][5] !== false, // Default to true
@@ -3186,7 +3197,7 @@ function getUserPreferences(userId) {
     const defaultPreferences = {
       user_id: userId,
       dark_mode: false,
-      timezone: 'Asia/Manila',
+      timezone: DEFAULT_TZ,
       language: 'en',
       email_notifications: true,
       desktop_notifications: true,
@@ -3229,7 +3240,7 @@ function updateUserPreferences(userId, preferences) {
         rowIndex = i + 1; // Sheet rows are 1-indexed
         existingPrefs = {
           dark_mode: data[i][1] || false,
-          timezone: data[i][2] || 'Asia/Manila',
+          timezone: data[i][2] || DEFAULT_TZ,
           language: data[i][3] || 'en',
           email_notifications: data[i][4] !== false,
           desktop_notifications: data[i][5] !== false,
@@ -3248,7 +3259,7 @@ function updateUserPreferences(userId, preferences) {
     const updatedPrefs = {
       user_id: userId,
       dark_mode: preferences.dark_mode !== undefined ? preferences.dark_mode : (existingPrefs?.dark_mode || false),
-      timezone: preferences.timezone || existingPrefs?.timezone || 'Asia/Manila',
+      timezone: preferences.timezone || existingPrefs?.timezone || DEFAULT_TZ,
       language: preferences.language || existingPrefs?.language || 'en',
       email_notifications: preferences.email_notifications !== undefined ? preferences.email_notifications : (existingPrefs?.email_notifications !== false),
       desktop_notifications: preferences.desktop_notifications !== undefined ? preferences.desktop_notifications : (existingPrefs?.desktop_notifications !== false),
@@ -3457,7 +3468,7 @@ function logTicketAction(ticketId, userId, actionType, details) {
  * @param {string} typeCode - The short code for the ticket type.
  * @returns {string} - The formatted ticket number.
  */
-function generateTicketNumber(companyCode, typeCode) {
+function generateTicketNumber(companyCode, typeCode, companyId = null) {
   // v8.3 (CR-03): shared re-entrant lock - a locked doPost write already holds it
   return withScriptLock(() => {
     const ss = openSpreadsheet();
@@ -3466,7 +3477,8 @@ function generateTicketNumber(companyCode, typeCode) {
     const headers = data.shift();
 
     const sequenceName = `${companyCode}-${typeCode}`;
-    const year = Utilities.formatDate(new Date(), "Asia/Manila", "yyyy");
+    // v10.1 (design U10): the year of the company's country calendar
+    const year = companyId ? calendarYear(companyId) : dayIn(new Date(), DEFAULT_TZ).slice(0, 4);
 
     let currentNumber = 0;
     let rowIndex = -1;
@@ -8468,11 +8480,13 @@ function getWorkflowStepById(stepId) {
  * @param {boolean|string} excludeWeekends - Skip Saturday/Sunday when counting days
  * @returns {Date} Due date
  */
-function calculateSLADueDate(startDate, duration, unit, excludeWeekends) {
-  // v9.5 (A17): weekends are Manila weekends (getDay() used the script's time zone); same results otherwise
+function calculateSLADueDate(startDate, duration, unit, excludeWeekends, clock = null) {
+  // v9.5 (A17): weekends are Manila weekends (getDay() used the script's time zone); same results otherwise.
+  // v10.1: with the company's clock, days and weekends are the company zone's and its country's (Fri / Sat in AE)
   const skipWeekends = excludeWeekends === true || String(excludeWeekends).toUpperCase() === 'TRUE';
   const slaUnit = unit === 'days' || unit === 'minutes' ? unit : 'hours';
-  return addSlaTime(startDate, duration, slaUnit, { exclude_weekends: skipWeekends });
+  const zone = clock ? { tz: clock.tz, weekend_days: clock.weekendDays } : {};
+  return addSlaTime(startDate, duration, slaUnit, { ...zone, exclude_weekends: skipWeekends });
 }
 /**
  * Link two tickets (internal helper: chained tickets and the createTicketLink route).
@@ -12064,7 +12078,7 @@ const COLUMN_DEFAULTS = {
     require_immediate_head_approval: false, confidential_mode: 'off', confidential_admin_access: 'reveal_with_reason' },
   tickets: { is_confidential: false }, // v10.0
   ticket_attachments: { link_status: 'ok' }, // v9.6: broken-link reports
-  companies: { email_enabled: 'default', country_code: 'PH', timezone: 'Asia/Manila' }, // v9.6 email; v10.1 region (nothing changes)
+  companies: { email_enabled: 'default', country_code: DEFAULT_COUNTRY, timezone: DEFAULT_TZ }, // v9.6 email; v10.1 region (nothing changes)
   company_holidays: { overrides_country: 'add' } // v10.1
 };
 
@@ -12162,7 +12176,7 @@ function rebuildAllTables(dryRun = true) {
   Logger.log(`=== REBUILD ALL TABLES (${dryRun ? 'DRY RUN - no changes' : 'APPLY'}) ===`);
 
   const ss = openSpreadsheet();
-  const stamp = Utilities.formatDate(new Date(), 'Asia/Manila', 'yyyyMMdd_HHmmss');
+  const stamp = Utilities.formatDate(new Date(), DEFAULT_TZ, 'yyyyMMdd_HHmmss');
   const results = {
     success: true,
     dryRun: dryRun,
@@ -12305,7 +12319,7 @@ function toDate(value) {
 function endOfTerm(value) {
   const date = toDate(value);
   if (!date) return null;
-  const isMidnight = Utilities.formatDate(date, 'Asia/Manila', 'HH:mm:ss') === '00:00:00' && date.getMilliseconds() === 0;
+  const isMidnight = Utilities.formatDate(date, DEFAULT_TZ, 'HH:mm:ss') === '00:00:00' && date.getMilliseconds() === 0;
   return isMidnight ? new Date(date.getTime() + 24 * 60 * 60 * 1000) : date;
 }
 
@@ -13120,7 +13134,7 @@ function peekTicketNumber(companyId, ticketTypeId) {
   const counters = readTable(SHEETS.SEQUENCE_COUNTERS);
   const counter = (counters ? counters.records : []).find(c => String(c.sequence_name) === sequenceName);
   const next = (counter ? parseInt(counter.last_number, 10) || 0 : 0) + 1;
-  const year = Utilities.formatDate(new Date(), 'Asia/Manila', 'yyyy');
+  const year = calendarYear(companyId); // v10.1: the country calendar's year
 
   return {
     status: 'success',
@@ -13139,7 +13153,7 @@ function peekTicketNumber(companyId, ticketTypeId) {
 function generateTicketNumberAction(companyId, ticketTypeId) {
   const codes = resolveNumberingCodes(companyId, ticketTypeId);
   if (codes.status !== 'success') return codes;
-  return { status: 'success', data: { ticket_number: generateTicketNumber(codes.data.company.code, codes.data.ticketType.code) } };
+  return { status: 'success', data: { ticket_number: generateTicketNumber(codes.data.company.code, codes.data.ticketType.code, codes.data.company.id) } };
 }
 
 /** getTicketType route. */
@@ -14276,7 +14290,7 @@ function saveStepConditions(payload) {
 
 /** The calendar day of a moment in Philippine time (spec 3.2), as yyyy-MM-dd. v9.4 (A17): via formatDate. */
 function phDay(date) {
-  return Utilities.formatDate(date, 'Asia/Manila', 'yyyy-MM-dd');
+  return dayIn(date, DEFAULT_TZ); // v10.1: the default zone - company dates use companyClock(...).tz
 }
 
 /**
@@ -14288,7 +14302,8 @@ function ticketSLAStatus(ticket, now = new Date()) {
   const due = toDate(ticket.step_due_date);
   if (!due) return 'No SLA';
   if (due < now) return 'Overdue';
-  return phDay(due) === phDay(now) ? 'Due Today' : 'On Track';
+  const tz = companyClock(ticket.company_id).tz; // v10.1: 'Due Today' is the company's today
+  return dayIn(due, tz) === dayIn(now, tz) ? 'Due Today' : 'On Track';
 }
 
 /** id -> record of a table (empty when the tab doesn't exist). */
@@ -14501,8 +14516,10 @@ function getReportData(params = {}) {
   const columns = config.data.columns;
 
   const ticketTable = readTable(SHEETS.TICKETS);
-  const toEnd = params.date_to ? endOfTerm(params.date_to) : null;
-  const from = params.date_from ? toDate(params.date_from)
+  // v10.1: report days are the company's days (the default zone across companies)
+  const rangeTz = params.company_id ? companyClock(params.company_id).tz : DEFAULT_TZ;
+  const toEnd = params.date_to ? dayEndIn(params.date_to, rangeTz) : null;
+  const from = params.date_from ? dayStartIn(params.date_from, rangeTz)
     : new Date((toEnd || new Date()).getTime() - REPORT_DEFAULT_DAYS * DAY_MS);
   if (params.date_from && !from) return { status: 'error', message: 'date_from is not a date' };
   // review CR4-03: without date_to the range runs to now - the 1-year cap applies too
@@ -14913,7 +14930,7 @@ function companySLARuleValues(payload, partial) {
   ['escalation_recipients', 'business_days'].forEach(key => {
     if (!partial || has(key)) values[key] = JSON.stringify(Array.isArray(payload[key]) ? payload[key] : listParam(payload[key]));
   });
-  if (!partial && !values.timezone) values.timezone = 'Asia/Manila';
+  if (!partial && !values.timezone) values.timezone = DEFAULT_TZ;
   return { values };
 }
 
@@ -15732,8 +15749,6 @@ function getSharedTicketsAction(userId) {
  * =================================================================================
  */
 
-const MANILA_TZ = 'Asia/Manila';
-const MANILA_OFFSET = '+08:00'; // Asia/Manila has no daylight saving time, so a fixed offset is exact
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SLA_TRIGGERS = ['percent_elapsed', 'before_due', 'after_due'];
 const SLA_TRIGGER_UNITS = ['minutes', 'hours', 'days', 'business_hours', 'business_days'];
@@ -15742,93 +15757,73 @@ const SLA_EMAIL_MODES = ['default', 'on', 'off'];
 const SLA_MAX_NOTIFICATIONS_PER_RUN = 200;
 const SLA_EMAIL_QUOTA_RESERVE = 10; // daily MailApp quota kept for other mail
 
-// --- Business calendar (A17) ---------------------------------------------------------------
+// --- Business calendar (A17; v10.1: in the company's zone, with its country's weekends - no fixed Manila offset) ------
 
-/** ISO weekday in Manila: 1 = Monday ... 7 = Sunday. */
-function manilaWeekday(date) {
-  return Number(Utilities.formatDate(date, MANILA_TZ, 'u'));
-}
-
-/** HH:mm in Manila. */
-function manilaClock(date) {
-  return Utilities.formatDate(date, MANILA_TZ, 'HH:mm');
-}
-
-/** The moment `clock` (HH:mm) happens on the Manila calendar day `day` (yyyy-MM-dd). */
-function manilaAt(day, clock) {
-  return new Date(`${day}T${clock}:00${MANILA_OFFSET}`);
-}
-
-/** The Manila calendar day after `day`. */
-function nextManilaDay(day) {
-  return phDay(new Date(manilaAt(day, '12:00').getTime() + DAY_MS));
-}
-
-/** HH:mm from a cell: a time string ('8:00', '08:00') or a Date (Sheets turns typed times into dates). */
+/** HH:mm from a cell: a time string ('8:00', '08:00') or a Date (Sheets turns typed times into dates in its zone). */
 function normalizeClock(value, fallback) {
-  if (value instanceof Date && !isNaN(value.getTime())) return manilaClock(value);
+  if (value instanceof Date && !isNaN(value.getTime())) return clockIn(value, DEFAULT_TZ);
   const match = /^(\d{1,2}):(\d{2})/.exec(String(value || '').trim());
   return match ? `${match[1].padStart(2, '0')}:${match[2]}` : fallback;
 }
 
-/** yyyy-MM-dd from a holiday cell (a date string, or a Date when Sheets converted it). */
+/** yyyy-MM-dd from a holiday cell (a date string, or a Date when Sheets converted it in its own zone). */
 function holidayDay(value) {
-  if (value instanceof Date && !isNaN(value.getTime())) return phDay(value);
+  if (value instanceof Date && !isNaN(value.getTime())) return dayIn(value, DEFAULT_TZ);
   // A leading apostrophe keeps the cell as text in Sheets (it isn't returned there, but older rows / tests may have it)
   const match = /^'?(\d{4}-\d{2}-\d{2})/.exec(String(value || '').trim());
   return match ? match[1] : '';
 }
 
-/** Holiday days (yyyy-MM-dd) of a company: its own rows plus the rows for every company (blank company_id). */
-function holidayDaysFor(companyId, holidayRows = null) {
-  const rows = holidayRows || liveRecords(SHEETS.COMPANY_HOLIDAYS);
-  return new Set(rows.filter(h => !h.company_id || sameId(h.company_id, companyId)).map(h => holidayDay(h.date)).filter(Boolean));
-}
-
 /**
- * Calendar for SLA time: business hours and days from a company SLA rule (business_days use the JavaScript
- * convention of CompanySLAManager: 0 = Sunday ... 6 = Saturday), weekends and holidays.
+ * Calendar for SLA time (v10.1): the company's zone and its country's weekend days (companyClock), business hours and
+ * days from a company SLA rule (business_days use the JavaScript convention: 0 = Sunday ... 6 = Saturday; default = the
+ * country's working days and business hours), weekends and holidays (companyHolidayDays).
  * @param {Object|null} rule - company_sla_rules row (null: plain wall-clock time)
  * @param {Set} holidays - Holiday days of the ticket's company
+ * @param {Object} clock - companyClock() of the ticket's company (default: the default company clock)
  */
-function slaCalendar(rule, holidays) {
+function slaCalendar(rule, holidays, clock = null) {
+  const c = clock || companyClock('');
   const view = rule ? companySLARuleView(rule) : {};
+  const workDays = [0, 1, 2, 3, 4, 5, 6].filter(d => !c.weekendDays.includes(d));
   return {
-    start: normalizeClock(view.business_hours_start, '08:00'),
-    end: normalizeClock(view.business_hours_end, '17:00'),
-    business_days: view.business_days && view.business_days.length ? view.business_days.map(Number) : [1, 2, 3, 4, 5],
+    tz: c.tz,
+    weekend_days: c.weekendDays,
+    start: normalizeClock(view.business_hours_start, c.businessHours.start),
+    end: normalizeClock(view.business_hours_end, c.businessHours.end),
+    business_days: view.business_days && view.business_days.length ? view.business_days.map(Number) : workDays,
     exclude_weekends: rule ? boolFlag(view.exclude_weekends) : false,
     exclude_holidays: rule ? boolFlag(view.exclude_holidays) : false,
     holidays: holidays || new Set()
   };
 }
 
-/** Does this Manila day count? Business units follow business_days; plain days skip weekends when asked. */
+/** Does this calendar day count? Business units follow business_days; plain days skip the country's weekend when asked. */
 function slaDayCounts(day, cal, business) {
-  const isoWeekday = manilaWeekday(manilaAt(day, '12:00'));
+  const weekday = weekdayOfDay(day, cal.tz);
   if (business) {
-    if (!cal.business_days.includes(isoWeekday % 7)) return false;
-  } else if (cal.exclude_weekends && isoWeekday >= 6) {
+    if (!cal.business_days.includes(weekday)) return false;
+  } else if (cal.exclude_weekends && (cal.weekend_days || [0, 6]).includes(weekday)) {
     return false;
   }
   return !(cal.exclude_holidays && cal.holidays.has(day));
 }
 
 /**
- * start + amount of SLA time (v9.5, A17). minutes / hours: wall clock. days: calendar days (weekends / holidays
- * skipped when the calendar says so), same time of day. business_days: the Nth business day, time of day kept
- * inside business hours. business_hours: only time inside business hours on business days counts.
+ * start + amount of SLA time (v9.5, A17; v10.1 in the calendar's zone). minutes / hours: wall clock. days: calendar days
+ * (weekends / holidays skipped when the calendar says so), same time of day. business_days: the Nth business day, time
+ * of day kept inside business hours. business_hours: only time inside business hours on business days counts.
  * @param {Date} start - Start
  * @param {number} amount - Amount
  * @param {string} unit - One of SLA_TRIGGER_UNITS
- * @param {Object} cal - slaCalendar() (optional)
+ * @param {Object} cal - slaCalendar() (optional; default: Manila, Mon-Fri 08:00-17:00)
  * @returns {Date}
  */
 function addSlaTime(start, amount, unit, cal = {}) {
   const begin = new Date(start);
   const n = Number(amount) || 0;
-  const calendar = { start: '08:00', end: '17:00', business_days: [1, 2, 3, 4, 5], exclude_weekends: false,
-    exclude_holidays: false, holidays: new Set(), ...cal };
+  const calendar = { tz: DEFAULT_TZ, weekend_days: [0, 6], start: '08:00', end: '17:00', business_days: [1, 2, 3, 4, 5],
+    exclude_weekends: false, exclude_holidays: false, holidays: new Set(), ...cal };
   switch (unit) {
     case 'minutes': return new Date(begin.getTime() + n * 60 * 1000);
     case 'days': return addSlaDays(begin, n, calendar, false);
@@ -15839,27 +15834,28 @@ function addSlaTime(start, amount, unit, cal = {}) {
 }
 
 function addSlaDays(begin, n, cal, business) {
-  let day = phDay(begin);
+  let day = dayIn(begin, cal.tz);
   let advanced = 0;
   let counted = 0;
   while (counted < n && advanced < 3660) {
-    day = nextManilaDay(day);
+    day = nextDayIn(day, cal.tz);
     advanced++;
     if (slaDayCounts(day, cal, business)) counted++;
   }
-  if (!business) return new Date(begin.getTime() + advanced * DAY_MS); // exact time of day
-  const clock = manilaClock(begin);
-  return manilaAt(day, clock < cal.start ? cal.start : (clock > cal.end ? cal.end : clock));
+  const clock = clockIn(begin, cal.tz);
+  // plain days: the same wall-clock time on that day (seconds kept; a daylight-saving change doesn't shift it)
+  if (!business) return new Date(zoneAt(day, clock, cal.tz).getTime() + (begin.getTime() % 60000));
+  return zoneAt(day, clock < cal.start ? cal.start : (clock > cal.end ? cal.end : clock), cal.tz);
 }
 
 function addBusinessMinutes(begin, minutes, cal) {
   let remaining = minutes;
   let cursor = begin;
-  let day = phDay(begin);
+  let day = dayIn(begin, cal.tz);
   for (let guard = 0; guard < 3660; guard++) {
     if (slaDayCounts(day, cal, true)) {
-      const open = manilaAt(day, cal.start);
-      const close = manilaAt(day, cal.end);
+      const open = zoneAt(day, cal.start, cal.tz);
+      const close = zoneAt(day, cal.end, cal.tz);
       const from = cursor > open ? cursor : open;
       if (from < close) {
         const available = (close.getTime() - from.getTime()) / 60000;
@@ -15867,8 +15863,8 @@ function addBusinessMinutes(begin, minutes, cal) {
         remaining -= available;
       }
     }
-    day = nextManilaDay(day);
-    cursor = manilaAt(day, '00:00');
+    day = nextDayIn(day, cal.tz);
+    cursor = zoneAt(day, '00:00', cal.tz);
   }
   return new Date(begin.getTime() + minutes * 60000); // no working time at all in the calendar
 }
@@ -15895,12 +15891,12 @@ function stepDueDateFor(ticket, step, start) {
   const rule = companySLARuleFor(ticket.company_id, ticket.ticket_type_id, step.name);
   if (rule) {
     const view = companySLARuleView(rule);
-    return addSlaTime(start, view.duration, view.unit, slaCalendar(rule, holidayDaysFor(ticket.company_id)));
+    return addSlaTime(start, view.duration, view.unit, slaCalendar(rule, companyHolidayDays(ticket.company_id), companyClock(ticket.company_id)));
   }
   const stepSLA = getStepSLAs(step.id);
   if (stepSLA.status === 'success' && stepSLA.data.length > 0) {
     const sla = stepSLA.data[0];
-    return calculateSLADueDate(start, sla.duration, sla.unit, sla.exclude_weekends);
+    return calculateSLADueDate(start, sla.duration, sla.unit, sla.exclude_weekends, companyClock(ticket.company_id));
   }
   return '';
 }
@@ -16521,6 +16517,7 @@ function slaEscalationPass(now, dryRun) {
   const steps = recordsById(SHEETS.WORKFLOW_STEPS);
   const companySla = liveRecords(SHEETS.COMPANY_SLA_RULES);
   const holidayRows = liveRecords(SHEETS.COMPANY_HOLIDAYS);
+  const countryHolidayRows = liveRecords(SHEETS.COUNTRY_HOLIDAYS); // v10.1: each country's days, read once per run
 
   const holders = (roleIds, ticket) => assignments.filter(a => roleIds.includes(String(a.role_id)) && sameId(a.company_id, ticket.company_id) &&
     (!a.ticket_type_id || sameId(a.ticket_type_id, ticket.ticket_type_id))).map(a => String(a.user_id));
@@ -16538,7 +16535,7 @@ function slaEscalationPass(now, dryRun) {
     const start = visitStartedAt(ticket, historyRows);
     const due = toDate(ticket.step_due_date);
     const companyRule = companySLARuleFor(ticket.company_id, ticket.ticket_type_id, step.name, companySla);
-    const cal = slaCalendar(companyRule, holidayDaysFor(ticket.company_id, holidayRows));
+    const cal = slaCalendar(companyRule, companyHolidayDays(ticket.company_id, holidayRows, countryHolidayRows), companyClock(ticket.company_id));
     const visit = isoOrBlank(start);
 
     const dueRules = ticketRules.filter(rule => {
@@ -16569,10 +16566,11 @@ function slaEscalationPass(now, dryRun) {
     const type = top.escalation_action === 'escalate_role' ? 'sla_escalated' : (overdue ? 'sla_overdue' : 'sla_warning');
     const label = ticket.ticket_number || `#${ticket.id}`;
     const title = type === 'sla_escalated' ? `Escalated: ${label}` : (overdue ? `Overdue: ${label}` : `SLA warning: ${label}`);
-    const dueText = Utilities.formatDate(due, MANILA_TZ, 'yyyy-MM-dd HH:mm');
+    const noticeTz = companyClock(ticket.company_id).tz; // v10.1: in the company's zone
+    const dueText = `${dayIn(due, noticeTz)} ${clockIn(due, noticeTz)}`;
     // v10.0 M4: a Restricted ticket's title never goes into a notice or email (design §4.11)
     const message = (top.message ? `${top.message} - ` : '') + (isRestrictedTicket(ticket) ? `${RESTRICTED_LABEL} ticket` : `"${ticket.title || ''}"`) +
-      ` at step ${step.name || ticket.current_step_id}, due ${dueText} (Manila)` +
+      ` at step ${step.name || ticket.current_step_id}, due ${dueText} (${noticeTz})` +
       (grantedNow.length ? '. You can now act on this step.' : '');
     // v9.6: the company's email_enabled (on / off) overrides the ticket type's sla_email
     const emailOn = companyEmailEnabled(companies[String(ticket.company_id)], ticketTypes[String(ticket.ticket_type_id)]);
@@ -17135,7 +17133,7 @@ function sendInviteEmail(invite, company) {
   const body = [`Hello ${invite.display_name || invite.email},`, '',
     `You have been invited to JARVIS (${companyName}).`,
     `Sign in with the Google account ${invite.email} at:`, appUrl(), '',
-    expires ? `The invite is valid until ${Utilities.formatDate(expires, MANILA_TZ, 'yyyy-MM-dd')} (Manila).` : '',
+    expires ? `The invite is valid until ${dayIn(expires, companyClock(invite.company_id).tz)} (${companyClock(invite.company_id).tz}).` : '',
     'No password or link code is needed: signing in with that Google account accepts the invite.'].join('\n');
   return sendCompanyEmail(company, { to: invite.email, subject: `[JARVIS] You're invited to ${companyName}`, body });
 }
@@ -18376,8 +18374,6 @@ function archiveOldLogsApply() {
  * =================================================================================
  */
 
-const DEFAULT_COUNTRY = 'PH';
-const DEFAULT_TZ = 'Asia/Manila';
 const DEFAULT_BUSINESS_HOURS = { start: '08:00', end: '17:00' };
 /** The Philippines - the calendar every existing company keeps (design A2: nothing changes). */
 const PH_CALENDAR = { country_code: 'PH', name: 'Philippines', calendar_tz: DEFAULT_TZ, allowed_timezones: [DEFAULT_TZ],
@@ -18485,12 +18481,28 @@ function countryCalendars() {
  * existing companies). Reads companies + country_calendars once per request (A16).
  */
 function companyClock(companyId) {
+  const cacheKey = String(companyId || '');
+  if (REQUEST_ACTIVE && CLOCK_CACHE[cacheKey]) return CLOCK_CACHE[cacheKey];
   const company = companyId ? (recordsById(SHEETS.COMPANIES)[String(companyId)] || {}) : {};
   const calendars = countryCalendars();
   const code = String(company.country_code || DEFAULT_COUNTRY).toUpperCase();
   const cal = calendars[code] || calendars[DEFAULT_COUNTRY];
   const tz = company.timezone && cal.allowed_timezones.includes(String(company.timezone)) ? String(company.timezone) : cal.calendar_tz;
-  return { country: cal.country_code, tz: tz, calendarTz: cal.calendar_tz, weekendDays: cal.weekend_days, businessHours: cal.default_business_hours };
+  const clock = { country: cal.country_code, tz: tz, calendarTz: cal.calendar_tz, weekendDays: cal.weekend_days, businessHours: cal.default_business_hours };
+  if (REQUEST_ACTIVE) CLOCK_CACHE[cacheKey] = clock;
+  return clock;
+}
+
+/** A date filter's start in a zone: a yyyy-MM-dd day starts at that zone's midnight; anything else is read as a moment. */
+function dayStartIn(value, tz) {
+  const day = /^\d{4}-\d{2}-\d{2}$/.exec(String(value || '').trim());
+  return day ? zoneAt(day[0], '00:00', tz) : toDate(value);
+}
+
+/** A date filter's end (exclusive) in a zone: a yyyy-MM-dd day ends at the next midnight there; else endOfTerm. */
+function dayEndIn(value, tz) {
+  const day = /^\d{4}-\d{2}-\d{2}$/.exec(String(value || '').trim());
+  return day ? zoneAt(nextDayIn(day[0], tz), '00:00', tz) : endOfTerm(value);
 }
 
 /** The year of `date` on the company's country calendar (the ticket number YEAR - design U10). */

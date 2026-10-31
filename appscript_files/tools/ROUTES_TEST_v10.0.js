@@ -16,6 +16,8 @@ if (!FILE) {
 }
 const { test, report } = lib.makeTestRunner();
 const SECRET = 's';
+/** A getTickets answer as a list: v10.0 without limit = an array; a page otherwise and always from v10.1 (D6). */
+const listOf = data => (Array.isArray(data) ? data : (data && data.items) || []);
 
 /**
  * co_1 + co_2. Ticket types: tt_priv (private, sharing on) and tt_collab (collaborative), one Manager step each in co_1.
@@ -66,7 +68,7 @@ function seed(options = {}) {
   const ok = res => { assert.strictEqual(res.success, true, res.error); return res.data; };
   const createTicket = (type, uid = 'u_req', company = 'co_1') => String(ok(as(uid, { action: 'createTicket', title: `${type} ticket`,
     ticket_type_id: type, requester_id: uid, company_id: company })).id);
-  const visibleIds = uid => ok(asGet(uid, { action: 'getTickets' })).map(t => String(t.id)).sort();
+  const visibleIds = uid => listOf(ok(asGet(uid, { action: 'getTickets', limit: 100 }))).map(t => String(t.id)).sort();
   const logs = [];
   rt.ctx.console.log = (...args) => logs.push(args.join(' '));
   return { rt, add, rows, as, asGet, ok, createTicket, visibleIds, logs };
@@ -253,8 +255,8 @@ test('the rebuild defaults existing ticket types to private (D2) and adds the v1
 test('D1 warn mode: a claimed id is filtered; no actor at all is unfiltered and logged "unscoped"', () => {
   const env = seed({ mode: 'warn' });
   const id = String(env.ok(env.rt.post({ action: 'createTicket', title: 'x', ticket_type_id: 'tt_priv', requester_id: 'u_req', company_id: 'co_1' })).id);
-  assert.deepStrictEqual(env.ok(env.rt.get({ action: 'getTickets', user_id: 'u_peer' })).map(t => String(t.id)), []);
-  assert.deepStrictEqual(env.ok(env.rt.get({ action: 'getTickets' })).map(t => String(t.id)), [id]);
+  assert.deepStrictEqual(listOf(env.ok(env.rt.get({ action: 'getTickets', user_id: 'u_peer' }))).map(t => String(t.id)), []);
+  assert.deepStrictEqual(listOf(env.ok(env.rt.get({ action: 'getTickets' }))).map(t => String(t.id)), [id]);
   assert.ok(env.logs.some(l => /AUTH warn: unscoped getTickets/.test(l)), env.logs.join('\n'));
 });
 
@@ -499,13 +501,21 @@ test('M3 filters + search: status (open / closed / exact), company, type, mine, 
   assert.deepStrictEqual(ids('u_far', {}), []);
 });
 
-test('M3 compat: without limit the old array answer stays for v10.0 (logged DEPRECATED); links only for the page', () => {
+test('M3 compat: without limit v10.0 keeps the old array (logged DEPRECATED), v10.1+ a page of 50 (D6); links only for the page', () => {
   const env = seed();
   const [a, b] = manyTickets(env, 2);
   env.add('ticket_links', { id: 'lk_c', parent_ticket_id: a, child_ticket_id: b, link_type: 'chained', company_id: 'co_1', is_active: true });
   const old = env.ok(env.asGet('u_req', { action: 'getTickets' }));
-  assert.ok(Array.isArray(old));
-  assert.ok(env.logs.some(l => /DEPRECATED getTickets without limit/.test(l)));
+  const v = env.rt.get({ action: 'ping' }).version;
+  if (v.localeCompare('10.1.0', undefined, { numeric: true }) < 0) {
+    assert.ok(Array.isArray(old));
+    assert.ok(env.logs.some(l => /DEPRECATED getTickets without limit/.test(l)));
+  } else {
+    assert.ok(!Array.isArray(old) && Array.isArray(old.items), 'a page without limit');
+    assert.deepStrictEqual(old.items.map(t => String(t.id)).sort(), [a, b].sort());
+    assert.strictEqual(old.has_more, false);
+    assert.ok(!env.logs.some(l => /DEPRECATED getTickets/.test(l)));
+  }
   const page = env.ok(env.asGet('u_req', { action: 'getTickets', limit: 1 })).items;
   assert.deepStrictEqual(page.map(t => String(t.id)), [b]);
   assert.strictEqual(String(page[0].chained_parent), a, 'the page item still carries its links');

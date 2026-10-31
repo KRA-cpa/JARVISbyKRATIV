@@ -322,7 +322,8 @@ test('getTickets keeps parent / child links (links indexed once, P7)', () => {
   const child = createTicket();
   const linked = rt.ctx.createTicketLink(parent, child, { link_type: 'chained', company_id: 'co_1', user_id: 'u_admin' });
   assert.strictEqual(linked.status, 'success', linked.message);
-  const tickets = ok(rt.get({ action: 'getTickets' }));
+  const answer = ok(rt.get({ action: 'getTickets' }));
+  const tickets = Array.isArray(answer) ? answer : answer.items; // v10.1+: always a page (D6)
   const p = tickets.find(t => String(t.id) === parent);
   const c = tickets.find(t => String(t.id) === child);
   same(p.children.map(String), [child]);
