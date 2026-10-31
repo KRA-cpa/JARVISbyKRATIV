@@ -6,6 +6,7 @@ import { useToast } from '../shared/Toast';
 import WorkflowStep from './WorkflowStep';
 import TicketTagManager from './TicketTagManager';
 import TicketCollaborationManager from './TicketCollaborationManager';
+import TicketLinksManager from './TicketLinksManager';
 import Icons from '../shared/Icons';
 
 // Ticket statuses that end the workflow (AppScript TERMINAL_TICKET_STATUSES)
@@ -22,7 +23,12 @@ const HISTORY_LABELS = {
   COMPLETED: 'Completed',
   CANCELLED: 'Cancelled',
   REOPENED: 'Reopened',
-  UPDATED: 'Updated'
+  UPDATED: 'Updated',
+  // AppScript v9.6 attachment links
+  LINK_ADDED: 'Link added',
+  LINK_REMOVED: 'Link removed',
+  LINK_REPORTED: 'Link reported broken',
+  LINK_FIXED: 'Link fixed'
 };
 
 /**
@@ -44,7 +50,12 @@ const TicketDetail = ({ ticket, onClose, onStatusChange }) => {
   const { data: escalations } = useSLAEscalationEvents(ticket?.id);
   const { data: commentRules } = useCommentRequirements(ticket?.ticket_type_id, ticket?.company_id);
   const { updateTicketStatus, loading: isPerformingAction } = useTicketMutations();
-  const { ToastContainer, success, error: showError } = useToast();
+  const toast = useToast();
+  const { ToastContainer, success, error: showError } = toast;
+  const notify = (type, message) => {
+    (toast[type] || toast.info)(message);
+    if (type === 'success') refetchHistory(); // link changes add history lines
+  };
 
   const [activeTab, setActiveTab] = useState('details');
   const [actionComment, setActionComment] = useState('');
@@ -374,6 +385,7 @@ const TicketDetail = ({ ticket, onClose, onStatusChange }) => {
     { id: 'details', name: 'Details', icon: Icons.Info },
     { id: 'workflow', name: 'Workflow', icon: Icons.Workflow },
     { id: 'history', name: 'History', icon: Icons.History, count: (history || []).length },
+    { id: 'links', name: 'Links', icon: Icons.Link },
     ...(tagsOn ? [{ id: 'tags', name: 'Tags', icon: Icons.Tag }] : []),
     ...(sharingOn ? [{ id: 'sharing', name: 'Sharing', icon: Icons.Share }] : []),
     { id: 'actions', name: 'Actions', icon: Icons.Create }
@@ -438,6 +450,9 @@ const TicketDetail = ({ ticket, onClose, onStatusChange }) => {
             {activeTab === 'history' && renderHistoryTab()}
             {activeTab === 'actions' && renderActionsTab()}
             {activeTab === 'workflow' && renderWorkflowTab()}
+            {activeTab === 'links' && (
+              <TicketLinksManager ticketId={ticket.id} nameOf={nameOf} notify={notify} />
+            )}
             {activeTab === 'tags' && tagsOn && (
               <TicketTagManager
                 ticketId={ticket.id}

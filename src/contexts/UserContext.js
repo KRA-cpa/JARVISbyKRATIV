@@ -1,8 +1,12 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { auth } from '../config/firebase';
-import { API } from '../api/googleSheet';
+import { API, AUTH_EVENT, SIGN_OUT_CODES } from '../api/googleSheet';
 import DEV_CONFIG, { MOCK_USER } from '../config/development';
+import {
+  ACTIVITY_EVENTS, ACTIVITY_WRITE_INTERVAL_MS, clearLastActivity, isIdleExpired, readLastActivity,
+  setSessionNotice, writeLastActivity
+} from '../utils/sessionGuard';
 
 // User Context
 const UserContext = createContext();
@@ -161,6 +165,26 @@ function calculatePermissions(roles) {
 // User Provider Component
 export const UserProvider = ({ children }) => {
   const [state, dispatch] = useReducer(userReducer, initialState);
+  // v9.6: set while the app ends a session itself, so the auth listener doesn't treat it as a new sign-in
+  const endingRef = useRef(false);
+
+  /**
+   * End the session because of `reason` (IDLE, SESSION_MAX_AGE, SESSION_EXPIRED, NOT_INVITED, ACCOUNT_DISABLED):
+   * the login page shows the matching notice once. Protected routes redirect to /login once the user is gone.
+   */
+  const endSession = React.useCallback(async (reason) => {
+    if (endingRef.current) return;
+    endingRef.current = true;
+    setSessionNotice(reason);
+    clearLastActivity();
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+    dispatch({ type: USER_ACTION_TYPES.LOGOUT });
+    endingRef.current = false;
+  }, []);
 
   // Firebase Auth State Listener with Development Toggle
   useEffect(() => {
@@ -178,6 +202,12 @@ export const UserProvider = ({ children }) => {
     // Original Firebase auth logic for production
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        // v9.6: reopening the app after more than 60 minutes without activity ends the session (no warning)
+        if (isIdleExpired()) {
+          await endSession('IDLE');
+          return;
+        }
+        if (readLastActivity() === null) writeLastActivity();
         dispatch({ type: USER_ACTION_TYPES.SET_USER, payload: firebaseUser });
 
         // Fetch user roles and companies from backend
@@ -197,6 +227,51 @@ export const UserProvider = ({ children }) => {
     return () => unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // These functions are stable and don't need to be in the dependency array
+
+  // v9.6: the API layer announces answers that end the sign-in (not invited, deactivated, 12-hour cap, expired)
+  useEffect(() => {
+    if (DEV_CONFIG.DISABLE_AUTH) return undefined;
+    const onAuthCode = (event) => {
+      const code = event && event.detail ? event.detail.code : null;
+      if (SIGN_OUT_CODES.includes(code) && auth.currentUser) endSession(code);
+    };
+    window.addEventListener(AUTH_EVENT, onAuthCode);
+    return () => window.removeEventListener(AUTH_EVENT, onAuthCode);
+  }, [endSession]);
+
+  // v9.6: idle sign-out after 60 minutes without click / key / scroll / touch / tab focus, shared across tabs
+  useEffect(() => {
+    if (DEV_CONFIG.DISABLE_AUTH || !state.isAuthenticated) return undefined;
+    let lastWrite = 0;
+    const touch = () => {
+      const now = Date.now();
+      if (now - lastWrite < ACTIVITY_WRITE_INTERVAL_MS) return;
+      // Activity in another tab may be newer; the idle check below reads the shared value
+      if (isIdleExpired(now)) return;
+      lastWrite = now;
+      writeLastActivity(now);
+    };
+    const check = () => {
+      if (isIdleExpired()) endSession('IDLE');
+    };
+    const onFocus = () => {
+      check();
+      touch();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') onFocus();
+    };
+    ACTIVITY_EVENTS.forEach(name => window.addEventListener(name, touch, { passive: true, capture: true }));
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisible);
+    const interval = setInterval(check, 60 * 1000);
+    return () => {
+      ACTIVITY_EVENTS.forEach(name => window.removeEventListener(name, touch, { capture: true }));
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisible);
+      clearInterval(interval);
+    };
+  }, [state.isAuthenticated, endSession]);
 
   // Fetch user roles and companies from backend
   const fetchUserData = React.useCallback(async (user) => {
@@ -233,8 +308,20 @@ export const UserProvider = ({ children }) => {
     } catch (error) {
       console.error('Error fetching user data:', error);
 
-      // Fallback to mock data if API fails
-      console.warn('Falling back to mock user data');
+      // v9.6: no mock Admin in production. Before, any failure (and so a NOT_INVITED user) got a mock Admin role
+      // and company. A sign-in refusal ends the session through the jarvis-auth event; anything else is shown.
+      if (!DEV_CONFIG.DISABLE_AUTH) {
+        dispatch({ type: USER_ACTION_TYPES.SET_USER_ROLES, payload: [] });
+        dispatch({ type: USER_ACTION_TYPES.SET_USER_COMPANIES, payload: [] });
+        if (!SIGN_OUT_CODES.includes(error.code)) {
+          dispatch({ type: USER_ACTION_TYPES.SET_ERROR, payload: `Could not load your account: ${error.message}` });
+        }
+        dispatch({ type: USER_ACTION_TYPES.SET_LOADING, payload: false });
+        return;
+      }
+
+      // Development without auth only: fall back to mock data
+      console.warn('Falling back to mock user data (development)');
       const mockRoles = [
         {
           id: 'role_1',
@@ -283,7 +370,10 @@ export const UserProvider = ({ children }) => {
         prompt: 'select_account'
       });
 
+      // v9.6: a fresh sign-in starts a fresh idle clock (before the auth listener checks it)
+      clearLastActivity();
       const result = await signInWithPopup(auth, provider);
+      writeLastActivity();
 
       // User will be set automatically by the auth state listener
       return result.user;
@@ -316,6 +406,7 @@ export const UserProvider = ({ children }) => {
   // Sign out
   const logout = async () => {
     try {
+      clearLastActivity();
       await signOut(auth);
       dispatch({ type: USER_ACTION_TYPES.LOGOUT });
     } catch (error) {

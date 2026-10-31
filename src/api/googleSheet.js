@@ -103,7 +103,8 @@ class CircuitBreaker {
       this.onSuccess();
       return result;
     } catch (error) {
-      this.onFailure();
+      // v9.6: an auth refusal (401 / 403) is an answer, not an outage - it doesn't open the circuit
+      if (!error.status || (error.status !== 401 && error.status !== 403)) this.onFailure();
       throw error;
     }
   }
@@ -123,6 +124,30 @@ class CircuitBreaker {
 }
 
 const circuitBreaker = new CircuitBreaker();
+
+// v9.6: answers that mean "this sign-in can't continue". UserContext listens for the `jarvis-auth` window event,
+// signs out and sends the user to /login with the matching notice. NOT_SIGNED_IN is left out: it is also what a
+// request sent before Firebase restored the session gets.
+export const AUTH_EVENT = 'jarvis-auth';
+export const SIGN_OUT_CODES = ['NOT_INVITED', 'ACCOUNT_DISABLED', 'SESSION_MAX_AGE', 'SESSION_EXPIRED'];
+
+/** An Error carrying the backend's code and the HTTP status (401 / 403 bodies are JSON with { code, error }). */
+function apiError(message, code = null, status = null) {
+  const error = new Error(message);
+  if (code) error.code = code;
+  if (status) error.status = status;
+  return error;
+}
+
+/** Tell the app about a code that ends the sign-in (once per code per page load is enough for the listener). */
+function announceAuthCode(code) {
+  if (!code || !SIGN_OUT_CODES.includes(code) || typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new CustomEvent(AUTH_EVENT, { detail: { code } }));
+  } catch (error) {
+    console.warn('Could not announce the auth code:', error.message);
+  }
+}
 
 // Request queue to limit concurrent API calls
 class RequestQueue {
@@ -199,7 +224,18 @@ class HTTPClient {
           clearTimeout(timeoutId);
 
           if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            // v9.6: the proxy answers 401 / 403 with { code, error } - keep them, and don't retry (same answer again)
+            if (response.status === 401 || response.status === 403) {
+              let body = null;
+              try {
+                body = await response.json();
+              } catch (parseError) {
+                body = null;
+              }
+              throw apiError((body && body.error) || `HTTP ${response.status}: ${response.statusText}`,
+                (body && body.code) || null, response.status);
+            }
+            throw apiError(`HTTP ${response.status}: ${response.statusText}`, null, response.status);
           }
 
           const data = await response.json();
@@ -225,7 +261,7 @@ class HTTPClient {
           return data;
         } catch (error) {
           lastError = error;
-          if (attempt < CONFIG.MAX_RETRIES && error.name !== 'AbortError') {
+          if (attempt < CONFIG.MAX_RETRIES && error.name !== 'AbortError' && error.status !== 401 && error.status !== 403) {
             await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY * attempt));
             continue;
           }
@@ -311,7 +347,9 @@ class BaseAPI {
         'getDashboard',
         // AppScript v9.5 reads (SLA escalation, notifications, holidays)
         'getSLAEscalationRules', 'getSLAEscalationEvents', 'testSLAEscalations', 'getNotifications',
-        'getCompanyHolidays', 'getSLANotificationSettings'
+        'getCompanyHolidays', 'getSLANotificationSettings',
+        // AppScript v9.6 reads (invites, company email settings, ticket attachment links)
+        'getUserInvites', 'getCompanyEmailSettings', 'getTicketAttachments'
       ];
 
       const isGetRequest = readActions.includes(action);
@@ -374,7 +412,8 @@ class BaseAPI {
       // AppScript v9.0+ sends success: false + status: 'error' for unknown actions and handler failures;
       // success: false alone (older deployments) is a failure too, not an empty result
       if (response.status === 'error' || response.success === false) {
-        throw new Error(response.error || 'API request failed');
+        // v9.6: keep the backend's code (NOT_INVITED, ADMIN_ONLY, ...) for the caller and the auth listener
+        throw apiError(response.error || 'API request failed', response.code || null);
       }
 
       // Cache successful reads: 5 minutes without a payload (lists like getCompanies), a short burst window with
@@ -395,10 +434,11 @@ class BaseAPI {
       return response;
     } catch (error) {
       console.error(`API Error [${action}]:`, error);
+      announceAuthCode(error.code);
 
       // Return mock data in development if API fails - say so once per action, so a broken route
-      // doesn't hide behind mock data
-      if (CONFIG.ENABLE_MOCK_DATA) {
+      // doesn't hide behind mock data. Never for an auth refusal: that must reach the screen.
+      if (CONFIG.ENABLE_MOCK_DATA && !error.code) {
         if (!mockWarnedActions.has(action)) {
           mockWarnedActions.add(action);
           console.warn(`[MOCK] ${action}: backend failed (${error.message}) - showing mock data`);
@@ -406,7 +446,7 @@ class BaseAPI {
         return this.getMockData(action, payload);
       }
 
-      throw new Error(`Failed to ${action}: ${error.message}`);
+      throw apiError(`Failed to ${action}: ${error.message}`, error.code || null, error.status || null);
     }
   }
 
@@ -2927,6 +2967,112 @@ class AuditLogAPI extends BaseAPI {
   }
 }
 
+/**
+ * User invites (AppScript v9.6, admins only): an invited person signs in with Google using the invited email and
+ * the backend creates their profile and roles. No token in the email - the Google sign-in is the proof.
+ */
+class InvitesAPI extends BaseAPI {
+  constructor() {
+    super('invites');
+  }
+
+  // status: 'pending' (default) | 'accepted' | 'revoked' | 'expired' | 'all'
+  async getAll({ status = 'pending', companyId } = {}) {
+    const response = await this.makeRequest('getUserInvites', { status, company_id: companyId || undefined });
+    return response.data || [];
+  }
+
+  // { email, display_name, company_id, user_profile_type_id, role_grants: [{ role_id, ticket_type_id }],
+  //   immediate_approver_id, backup_approver_id, send_email }
+  async create(invite) {
+    const response = await this.makeRequest('createUserInvite', invite);
+    cache.invalidate('invites');
+    return response.data;
+  }
+
+  async resend(inviteId) {
+    const response = await this.makeRequest('resendUserInvite', { invite_id: inviteId });
+    cache.invalidate('invites');
+    return response.data;
+  }
+
+  async revoke(inviteId, reason = '') {
+    const response = await this.makeRequest('revokeUserInvite', { invite_id: inviteId, reason });
+    cache.invalidate('invites');
+    return response.data;
+  }
+}
+
+/** Company email settings (AppScript v9.6, admins only): on/off over the ticket type, sender name, Reply-To, CC, footer. */
+class CompanyEmailAPI extends BaseAPI {
+  constructor() {
+    super('company_email');
+  }
+
+  async get(companyId) {
+    const response = await this.makeRequest('getCompanyEmailSettings', { company_id: companyId });
+    return response.data;
+  }
+
+  // settings: { email_enabled: 'default' | 'on' | 'off', email_sender_name, email_reply_to, email_cc, email_footer }
+  async save(companyId, settings) {
+    const response = await this.makeRequest('saveCompanyEmailSettings', { company_id: companyId, ...settings });
+    cache.invalidate('company_email');
+    return response.data;
+  }
+
+  // to: optional; the backend defaults to the admin's own address
+  async sendTest(companyId, to = '') {
+    const response = await this.makeRequest('sendCompanyTestEmail', { company_id: companyId, to: to || undefined });
+    return response.data;
+  }
+}
+
+/**
+ * Ticket attachment links (AppScript v9.6): URL + name on a ticket. The server decides who may add / remove / fix
+ * (requester, current approvers, admin) and returns can_manage; anyone who can see the ticket may report a link broken.
+ */
+class AttachmentsAPI extends BaseAPI {
+  constructor() {
+    super('attachments');
+  }
+
+  // { ticket_id, can_manage, closed, attachments: [{ id, file_name, file_url, description, link_status, report_note, ... }] }
+  async getForTicket(ticketId) {
+    const response = await this.makeRequest('getTicketAttachments', { ticket_id: ticketId });
+    return response.data || { ticket_id: String(ticketId), can_manage: false, closed: false, attachments: [] };
+  }
+
+  async addLink(ticketId, { fileUrl, fileName, description = '', stepId = '' }) {
+    const response = await this.makeRequest('addTicketAttachmentLink', {
+      ticket_id: ticketId, file_url: fileUrl, file_name: fileName, description, step_id: stepId || undefined
+    });
+    cache.invalidate('attachments');
+    return response.data;
+  }
+
+  async remove(attachmentId, reason = '') {
+    const response = await this.makeRequest('removeTicketAttachment', { attachment_id: attachmentId, reason });
+    cache.invalidate('attachments');
+    return response.data;
+  }
+
+  async reportBroken(attachmentId, note = '') {
+    const response = await this.makeRequest('reportAttachmentLinkBroken', { attachment_id: attachmentId, note });
+    cache.invalidate('attachments');
+    return response.data;
+  }
+
+  // Only while the link is reported broken; saving clears the report
+  async fixLink(attachmentId, { fileUrl, fileName, description }) {
+    const response = await this.makeRequest('updateAttachmentLink', {
+      attachment_id: attachmentId, file_url: fileUrl, file_name: fileName, description
+    });
+    cache.invalidate('attachments');
+    return response.data;
+  }
+}
+
 export const API = {
   Companies: new CompanyAPI(),
   Roles: new RoleAPI(),
@@ -2945,6 +3091,10 @@ export const API = {
   AuditLogs: new AuditLogAPI(),
   Tags: new TagsAPI(),
   Sharing: new SharingAPI(),
+  // AppScript v9.6
+  Invites: new InvitesAPI(),
+  CompanyEmail: new CompanyEmailAPI(),
+  Attachments: new AttachmentsAPI(),
   // Universal Entity Architecture APIs
   UserProfileTypes: new UserProfileTypesAPI(),
   RoleTypes: new RoleTypesAPI()
@@ -2967,6 +3117,9 @@ export const reportsAPI = API.Reports;
 export const auditLogAPI = API.AuditLogs;
 export const tagsAPI = API.Tags;
 export const sharingAPI = API.Sharing;
+export const invitesAPI = API.Invites;
+export const companyEmailAPI = API.CompanyEmail;
+export const attachmentsAPI = API.Attachments;
 export const userProfileTypesAPI = API.UserProfileTypes;
 export const roleTypesAPI = API.RoleTypes;
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
+import { takeSessionNotice } from '../utils/sessionGuard';
 import Icons from '../components/shared/Icons';
 import LoadingScreen from '../components/shared/LoadingScreen';
 
@@ -8,6 +9,13 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const { signInWithGoogle, loading, error, clearError, isAuthenticated, user } = useUser();
   const [isSigningIn, setIsSigningIn] = useState(false);
+  // v9.6: why the app signed the user out (idle, 12-hour cap, not invited, deactivated) - shown once
+  const [notice, setNotice] = useState(null);
+
+  useEffect(() => {
+    const pending = takeSessionNotice();
+    if (pending) setNotice(pending);
+  }, [isAuthenticated]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -20,6 +28,7 @@ const LoginPage = () => {
     try {
       setIsSigningIn(true);
       clearError();
+      setNotice(null);
       await signInWithGoogle();
       // Navigation will be handled by the useEffect above
     } catch (error) {
@@ -51,6 +60,16 @@ const LoginPage = () => {
             Please sign in to continue
           </p>
         </div>
+
+        {/* v9.6: session notice (only after the app ended the session) */}
+        {notice && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4" role="status">
+            <div className="flex items-center space-x-2">
+              <Icons.Info size={20} className="text-amber-600 flex-shrink-0" />
+              <p className="text-sm text-amber-800">{notice.message}</p>
+            </div>
+          </div>
+        )}
 
         {/* Error Display */}
         {error && (

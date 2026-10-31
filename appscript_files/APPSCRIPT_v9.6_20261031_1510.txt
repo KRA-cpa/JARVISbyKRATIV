@@ -16794,20 +16794,21 @@ function addTicketAttachmentLink(payload = {}) {
   return { status: 'success', data: attachmentView(record), message: 'Link added' };
 }
 
-/** The attachment, its ticket, and the actor; or an error response. */
+/** The live attachment and its ticket, or an error response. */
 function attachmentContext(payload) {
   const found = findRecord(SHEETS.TICKET_ATTACHMENTS, payload.attachment_id || payload.id);
   if (!found || !liveRecord(found.record)) return { error: { status: 'error', message: 'Attachment not found' } };
   const ticket = ticketRecord(found.record.ticket_id);
   if (!ticket) return { error: { status: 'error', message: `Ticket ${found.record.ticket_id} not found` } };
-  return { attachment: found.record, ticket, actor: actorId(payload.user_id) };
+  return { attachment: found.record, ticket };
 }
 
 /** removeTicketAttachment: { attachment_id, reason? } - soft delete (requester / current approver / admin). */
 function removeTicketAttachment(payload = {}) {
   const ctx = attachmentContext(payload);
   if (ctx.error) return ctx.error;
-  const { attachment, ticket, actor } = ctx;
+  const { attachment, ticket } = ctx;
+  const actor = actorId(payload.user_id);
   if (!canManageTicketLinks(actor, ticket)) return { status: 'error', message: 'Only the requester, the current approvers or an admin can remove links' };
   if (ticketIsClosed(ticket) && !isAdminUser(actor)) return { status: 'error', message: 'This ticket is closed: only an admin can remove links' };
   updateRecordFields(SHEETS.TICKET_ATTACHMENTS, attachment.id, deactivateAuditFields(payload.reason || 'Removed', actor));
@@ -16823,7 +16824,8 @@ function removeTicketAttachment(payload = {}) {
 function reportAttachmentLinkBroken(payload = {}) {
   const ctx = attachmentContext(payload);
   if (ctx.error) return ctx.error;
-  const { attachment, ticket, actor } = ctx;
+  const { attachment, ticket } = ctx;
+  const actor = actorId(payload.user_id);
   if (!actor) return { status: 'error', message: 'Sign in to report a link' };
   const note = String(payload.note || '').trim().slice(0, 500);
   const already = String(attachment.link_status) === 'reported_broken';
@@ -16851,7 +16853,8 @@ function reportAttachmentLinkBroken(payload = {}) {
 function updateAttachmentLink(payload = {}) {
   const ctx = attachmentContext(payload);
   if (ctx.error) return ctx.error;
-  const { attachment, ticket, actor } = ctx;
+  const { attachment, ticket } = ctx;
+  const actor = actorId(payload.user_id);
   if (String(attachment.link_status) !== 'reported_broken') {
     return { status: 'error', message: 'Only a link reported broken can be edited - remove it and add a new one instead' };
   }

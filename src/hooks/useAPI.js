@@ -911,6 +911,87 @@ export const useSLANotificationSettings = () => {
   return useAPIData(['sla_notification_settings'], () => API.SLA.getNotificationSettings());
 };
 
+// --- AppScript v9.6: invites, company email settings, ticket attachment links ---------------------------------
+
+/** Runs a write: loading / error state, the error re-thrown for the caller's message (shared by the v9.6 hooks). */
+const useWriteRunner = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const run = useCallback(async (fn) => {
+    try {
+      setLoading(true);
+      setError(null);
+      return await fn();
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  return { loading, error, run };
+};
+
+/** Invites (admins): the list for a status + create / resend / revoke, each followed by a refetch (F5). */
+export const useUserInvites = (status = 'pending', enabled = true) => {
+  const { data, loading, error, refetch } = useAPIData(['user_invites', status], () => API.Invites.getAll({ status }), { enabled });
+  const { loading: saving, error: saveError, run } = useWriteRunner();
+  const after = useCallback(async (fn) => {
+    const result = await run(fn);
+    await refetch();
+    return result;
+  }, [run, refetch]);
+  return {
+    invites: data || [],
+    loading,
+    error,
+    refetch,
+    saving,
+    saveError,
+    createInvite: useCallback(invite => after(() => API.Invites.create(invite)), [after]),
+    resendInvite: useCallback(id => after(() => API.Invites.resend(id)), [after]),
+    revokeInvite: useCallback((id, reason) => after(() => API.Invites.revoke(id, reason)), [after])
+  };
+};
+
+/** A company's email settings (admins) + save / send test email. */
+export const useCompanyEmailSettings = (companyId) => {
+  const { data, loading, error, refetch } = useAPIData(['company_email', companyId], () => API.CompanyEmail.get(companyId), { enabled: !!companyId });
+  const { loading: saving, error: saveError, run } = useWriteRunner();
+  const save = useCallback(async (settings) => {
+    const result = await run(() => API.CompanyEmail.save(companyId, settings));
+    await refetch();
+    return result;
+  }, [run, refetch, companyId]);
+  const sendTest = useCallback(to => run(() => API.CompanyEmail.sendTest(companyId, to)), [run, companyId]);
+  return { settings: data, loading, error, refetch, saving, saveError, save, sendTest };
+};
+
+/** A ticket's attachment links + add / remove / report broken / fix (the server decides who may do what). */
+export const useTicketAttachments = (ticketId) => {
+  const { data, loading, error, refetch } = useAPIData(['ticket_attachments', ticketId], () => API.Attachments.getForTicket(ticketId), { enabled: !!ticketId });
+  const { loading: saving, error: saveError, run } = useWriteRunner();
+  const after = useCallback(async (fn) => {
+    const result = await run(fn);
+    await refetch();
+    return result;
+  }, [run, refetch]);
+  return {
+    attachments: data?.attachments || [],
+    canManage: !!data?.can_manage,
+    closed: !!data?.closed,
+    loading,
+    error,
+    refetch,
+    saving,
+    saveError,
+    addLink: useCallback(link => after(() => API.Attachments.addLink(ticketId, link)), [after, ticketId]),
+    removeLink: useCallback((id, reason) => after(() => API.Attachments.remove(id, reason)), [after]),
+    reportBroken: useCallback((id, note) => after(() => API.Attachments.reportBroken(id, note)), [after]),
+    fixLink: useCallback((id, link) => after(() => API.Attachments.fixLink(id, link)), [after])
+  };
+};
+
 // Universal Entity Architecture hooks
 // includeInactive: admin lists show deactivated types too, so they can be reactivated
 export const useUserProfileTypes = (companyId = null, includeInactive = false) => {
@@ -1065,6 +1146,10 @@ const useAPIModule = {
   useNotifications,
   useCompanyHolidays,
   useSLANotificationSettings,
+  // AppScript v9.6
+  useUserInvites,
+  useCompanyEmailSettings,
+  useTicketAttachments,
   // Universal Entity Architecture hooks
   useUserProfileTypes,
   useUserProfileTypeMutations,

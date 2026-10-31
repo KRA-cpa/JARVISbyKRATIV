@@ -5,6 +5,7 @@ import { useToast } from '../shared/Toast';
 import { useUsers } from '../../hooks/useAPI';
 import DateBasedRoleAssignmentManager from './DateBasedRoleAssignmentManager';
 import UserGeneralRoleSelector, { GeneralRoleBadge, filterUsersByGeneralRole } from './UserGeneralRoleSelector';
+import AdminUserInvites from './AdminUserInvites';
 
 /**
  * AdminUserList Component
@@ -16,10 +17,15 @@ import UserGeneralRoleSelector, { GeneralRoleBadge, filterUsersByGeneralRole } f
  * - Disables features requiring Firebase authentication
  *
  * Users come from getUsers (AppScript v9.0+): user_profiles rows plus id, name, roles[], general_role.
+ * v9.6: Invite (AdminUserInvites) - new users get in by invite; their profile and roles are created on the first
+ * Google sign-in with the invited email.
  */
 const AdminUserList = () => {
-  const { warning, ToastContainer } = useToast();
+  const toast = useToast();
+  const { warning, ToastContainer } = toast;
   const [selectedUser, setSelectedUser] = useState(null);
+  const [showInvites, setShowInvites] = useState(false);
+  const notify = (type, message) => (toast[type] || toast.info)(message);
   const [roleFilter, setRoleFilter] = useState('all');
 
   // API hooks
@@ -29,10 +35,6 @@ const AdminUserList = () => {
   const FIREBASE_FEATURES_ENABLED = false;
 
   // Handle user actions (disabled for Firebase features)
-  const handleCreateUser = () => {
-    warning('User creation requires Firebase authentication setup. Please contact your system administrator.');
-  };
-
   const handleResetPassword = () => {
     warning('Password reset requires Firebase authentication setup. Please contact your system administrator.');
   };
@@ -84,15 +86,19 @@ const AdminUserList = () => {
           </div>
           <div className="flex space-x-3">
             <button
-              onClick={handleCreateUser}
-              disabled={!FIREBASE_FEATURES_ENABLED}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => setShowInvites(open => !open)}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              <Icons.Plus size={16} className="mr-2" />
-              Create User
+              <Icons.UserPlus size={16} className="mr-2" />
+              Invite
             </button>
           </div>
         </div>
+
+        {/* v9.6: invites */}
+        {showInvites && (
+          <AdminUserInvites users={users || []} onClose={() => setShowInvites(false)} notify={notify} />
+        )}
 
         {/* Firebase Status Notice */}
         {!FIREBASE_FEATURES_ENABLED && (
@@ -102,8 +108,8 @@ const AdminUserList = () => {
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-yellow-800">Limited Functionality</h3>
                 <div className="mt-2 text-sm text-yellow-700">
-                  <p>User creation, password reset, and deletion require Firebase authentication setup.</p>
-                  <p className="mt-1">Currently available: view users, assign and end roles.</p>
+                  <p>Password reset and deletion are handled by Google sign-in, not here.</p>
+                  <p className="mt-1">Available: invite users, view users, assign and end roles.</p>
                 </div>
               </div>
             </div>
@@ -117,12 +123,11 @@ const AdminUserList = () => {
             <h3 className="text-lg font-medium text-gray-900 mb-2">No users found</h3>
             <p className="text-gray-500 mb-6">Users appear here once they have a user profile</p>
             <button
-              onClick={handleCreateUser}
-              disabled={!FIREBASE_FEATURES_ENABLED}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => setShowInvites(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              <Icons.Plus size={16} className="mr-2" />
-              Create First User
+              <Icons.UserPlus size={16} className="mr-2" />
+              Invite the first user
             </button>
           </div>
         ) : (

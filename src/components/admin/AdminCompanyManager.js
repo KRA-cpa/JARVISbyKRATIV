@@ -4,6 +4,7 @@ import { companyAPI } from '../../api/googleSheet';
 import { useUser } from '../../contexts/UserContext';
 import { useToast } from '../shared/Toast';
 import Icons from '../shared/Icons';
+import CompanyEmailSettings from './CompanyEmailSettings';
 
 // Only true / 'TRUE' is locked - before AppScript v9.1, editing a company wrote a date into code_locked
 const isCodeLocked = company => company?.code_locked === true || String(company?.code_locked).toUpperCase() === 'TRUE';
@@ -11,7 +12,11 @@ const isCodeLocked = company => company?.code_locked === true || String(company?
 const AdminCompanyManager = () => {
   const { user } = useUser();
   const { data: companies, loading, error, refetch } = useCompanies();
-  const { ToastContainer, success, error: showError } = useToast();
+  const toast = useToast();
+  const { ToastContainer, success, error: showError } = toast;
+  // v9.6: the company whose email settings are open
+  const [emailCompany, setEmailCompany] = useState(null);
+  const notify = (type, message) => (toast[type] || toast.info)(message);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingCompany, setEditingCompany] = useState(null);
   const [formData, setFormData] = useState({ name: '', code: '' });
@@ -332,6 +337,14 @@ const AdminCompanyManager = () => {
 
                 <div className="flex items-center space-x-2 self-end sm:self-auto">
                   <button
+                    onClick={() => setEmailCompany(company)}
+                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+                    title="Email settings"
+                    aria-label={`Email settings for ${company.name}`}
+                  >
+                    <Icons.Bell size={16} />
+                  </button>
+                  <button
                     onClick={() => setEditingCompany(company)}
                     className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
                     title="Edit Company"
@@ -388,6 +401,11 @@ const AdminCompanyManager = () => {
 
       {/* Form */}
       {(showCreateForm || editingCompany) && renderForm()}
+
+      {/* v9.6: company email settings */}
+      {emailCompany && (
+        <CompanyEmailSettings company={emailCompany} onClose={() => setEmailCompany(null)} notify={notify} />
+      )}
 
       {/* Company List */}
       {renderCompanyList()}
