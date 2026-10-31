@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
-import { takeSessionNotice } from '../utils/sessionGuard';
+import { clearSessionNotice, takeSessionNotice } from '../utils/sessionGuard';
 import Icons from '../components/shared/Icons';
 import LoadingScreen from '../components/shared/LoadingScreen';
 
@@ -30,6 +30,7 @@ const LoginPage = () => {
       setIsSigningIn(true);
       clearError();
       setNotice(null);
+      clearSessionNotice();
       await signInWithGoogle();
       // Navigation will be handled by the useEffect above
     } catch (error) {

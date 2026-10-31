@@ -80,16 +80,28 @@ export function setSessionNotice(code, serverMessage = '') {
   }
 }
 
-/** The notice to show once, or null; reading it removes it. */
+/**
+ * The notice to show, or null. Reading does NOT remove it (the login page may mount more than once while the session
+ * ends - a read-once notice was lost that way in the v9.6 browser check); clearSessionNotice() removes it when the
+ * user signs in again.
+ */
 export function takeSessionNotice() {
   try {
     const storage = safeStorage('sessionStorage');
     const raw = storage?.getItem(SESSION_NOTICE_KEY);
     if (!raw) return null;
-    storage.removeItem(SESSION_NOTICE_KEY);
     const notice = JSON.parse(raw);
     return notice && SESSION_NOTICES[notice.code] ? { code: notice.code, message: notice.message || SESSION_NOTICES[notice.code] } : null;
   } catch (error) {
     return null;
+  }
+}
+
+/** Forget the notice (the user is signing in again). */
+export function clearSessionNotice() {
+  try {
+    safeStorage('sessionStorage')?.removeItem(SESSION_NOTICE_KEY);
+  } catch (error) {
+    // nothing stored
   }
 }

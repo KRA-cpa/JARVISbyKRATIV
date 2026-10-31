@@ -4,7 +4,7 @@ import { auth } from '../config/firebase';
 import { API, AUTH_EVENT, SIGN_OUT_CODES } from '../api/googleSheet';
 import DEV_CONFIG, { MOCK_USER } from '../config/development';
 import {
-  ACTIVITY_EVENTS, ACTIVITY_WRITE_INTERVAL_MS, clearLastActivity, isIdleExpired, readLastActivity,
+  ACTIVITY_EVENTS, ACTIVITY_WRITE_INTERVAL_MS, clearLastActivity, clearSessionNotice, isIdleExpired, readLastActivity,
   setSessionNotice, writeLastActivity
 } from '../utils/sessionGuard';
 
@@ -175,6 +175,7 @@ export const UserProvider = ({ children }) => {
   const endSession = React.useCallback(async (reason, serverMessage = '') => {
     if (endingRef.current) return;
     endingRef.current = true;
+    console.info(`[session] ended: ${reason}`);
     setSessionNotice(reason, serverMessage);
     clearLastActivity();
     try {
@@ -183,6 +184,11 @@ export const UserProvider = ({ children }) => {
       console.error('Error signing out:', error);
     }
     dispatch({ type: USER_ACTION_TYPES.LOGOUT });
+    // A fresh /login page shows the notice, whatever was mounted or in flight (browser check 4, 31 Oct 2026)
+    if (typeof window !== 'undefined' && window.location && window.location.pathname !== '/login') {
+      window.location.replace('/login');
+      return;
+    }
     endingRef.current = false;
   }, []);
 
@@ -208,6 +214,7 @@ export const UserProvider = ({ children }) => {
           return;
         }
         if (readLastActivity() === null) writeLastActivity();
+        clearSessionNotice(); // signed in: an old notice must not come back later
         dispatch({ type: USER_ACTION_TYPES.SET_USER, payload: firebaseUser });
 
         // Fetch user roles and companies from backend
