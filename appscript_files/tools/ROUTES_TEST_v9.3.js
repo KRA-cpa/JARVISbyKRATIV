@@ -248,7 +248,9 @@ test('tags / sharing switches: off by default; on is free; off is refused once i
 
   ok(rt.post({ action: 'assignTags', ticket_id: id, tag_ids: [tag.id], user_id: 'u_req' }));
   const type = ok(rt.get({ action: 'getTicketType', ticket_type_id: 'tt_1' }));
-  same(type.features, { enable_tags: true, enable_sharing: true, tags_locked: true, sharing_locked: false });
+  // Only the switches this suite owns: later versions add fields (v9.5 sla_email)
+  const { enable_tags, enable_sharing, tags_locked, sharing_locked } = type.features;
+  same({ enable_tags, enable_sharing, tags_locked, sharing_locked }, { enable_tags: true, enable_sharing: true, tags_locked: true, sharing_locked: false });
   fails(features({ enable_tags: false }), /Tags are in use/);
   ok(features({ enable_sharing: false }));
 

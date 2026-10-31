@@ -406,6 +406,15 @@ export const useTicketsForApproval = (userId) => {
   );
 };
 
+// Companies + ticket types + approval inbox + counts in one call (AppScript v9.4 getDashboard, compliance F5)
+export const useDashboard = (userId) => {
+  return useAPIData(
+    ['dashboard', userId],
+    () => API.Tickets.getDashboard(userId),
+    { enabled: !!userId }
+  );
+};
+
 // Which actions need a comment for a ticket type / company (AppScript v9.1)
 export const useCommentRequirements = (ticketTypeId, companyId = null) => {
   return useAPIData(
@@ -802,234 +811,104 @@ export const useSLADueTodayTickets = () => {
 };
 
 /**
- * Hook for getting escalation rules for a ticket type/step
+ * SLA escalation rules of a company (+ ticket type, + step) - AppScript v9.5 getSLAEscalationRules.
+ * The server runs the escalations (every 15 minutes); the browser only shows and edits the rules (compliance F1).
  */
-export const useSLAEscalationRules = (ticketTypeId, stepId) => {
+export const useSLAEscalationRules = (companyId, ticketTypeId = null, stepId = null) => {
   return useAPIData(
-    ['sla_escalation_rules', ticketTypeId, stepId],
-    async () => {
-      if (!ticketTypeId) return [];
-
-      // TODO: Replace with actual API call
-      // For now, return mock escalation rules
-      const { DEFAULT_ESCALATION_RULES } = await import('../utils/slaEscalation');
-
-      // Return rules filtered by ticket type and step
-      return DEFAULT_ESCALATION_RULES.APPROVAL_24H.map(rule => ({
-        ...rule,
-        ticketTypeId,
-        stepId: stepId || 'all',
-        id: `${ticketTypeId}_${stepId || 'all'}_${rule.id}`
-      }));
-    },
-    {
-      enabled: !!ticketTypeId,
-      staleTime: 5 * 60 * 1000 // 5 minutes - escalation rules don't change often
-    }
+    ['sla_escalation_rules', companyId, ticketTypeId, stepId],
+    () => API.SLA.getEscalationRules(companyId, ticketTypeId, stepId),
+    { enabled: !!companyId }
   );
 };
 
 /**
- * Hook for managing escalation rule mutations
+ * Escalation rule writes + the admin preview / run (AppScript v9.5). userId is the signed-in admin.
  */
-export const useSLAEscalationMutations = () => {
+export const useSLAEscalationMutations = (userId) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const createEscalationRule = async (ruleData) => {
+  const run = useCallback(async (fn) => {
     try {
       setLoading(true);
       setError(null);
-
-      // TODO: Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      return {
-        success: true,
-        rule: {
-          ...ruleData,
-          id: `rule_${Date.now()}`,
-          created_at: new Date().toISOString()
-        }
-      };
+      return await fn();
     } catch (err) {
       setError(err.message);
       throw err;
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const updateEscalationRule = async (ruleId, ruleData) => {
-    try {
-      setLoading(true);
-      setError(null);
+  const createEscalationRule = useCallback(rule => run(() => API.SLA.createEscalationRule(userId, rule)), [run, userId]);
+  const updateEscalationRule = useCallback((ruleId, rule) => run(() => API.SLA.updateEscalationRule(userId, ruleId, rule)), [run, userId]);
+  const deleteEscalationRule = useCallback(ruleId => run(() => API.SLA.deleteEscalationRule(userId, ruleId)), [run, userId]);
+  const testEscalations = useCallback(() => run(() => API.SLA.testEscalations(userId)), [run, userId]);
+  const runEscalationsNow = useCallback((dryRun = true) => run(() => API.SLA.runEscalationsNow(userId, dryRun)), [run, userId]);
 
-      // TODO: Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 500));
+  return { loading, error, createEscalationRule, updateEscalationRule, deleteEscalationRule, testEscalations, runEscalationsNow };
+};
 
-      return {
-        success: true,
-        rule: {
-          ...ruleData,
-          id: ruleId,
-          updated_at: new Date().toISOString()
-        }
-      };
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const deleteEscalationRule = async (ruleId) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // TODO: Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      return { success: true };
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const testEscalationRule = async (ruleId, ticketId) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // TODO: Replace with actual API call to test rule
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      return {
-        success: true,
-        testResults: {
-          ruleId,
-          ticketId,
-          triggered: true,
-          notificationsSent: 1,
-          timestamp: new Date().toISOString()
-        }
-      };
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return {
-    loading,
-    error,
-    createEscalationRule,
-    updateEscalationRule,
-    deleteEscalationRule,
-    testEscalationRule
-  };
+/** What fired on a ticket (AppScript v9.5 getSLAEscalationEvents), for the ticket timeline. */
+export const useSLAEscalationEvents = (ticketId) => {
+  return useAPIData(
+    ['sla_escalation_events', ticketId],
+    () => API.SLA.getEscalationEvents(ticketId),
+    { enabled: !!ticketId }
+  );
 };
 
 /**
- * Hook for SLA notification monitoring
+ * The signed-in user's in-app notifications (AppScript v9.5): items, unread count, mark read. Refreshes every
+ * minute and when the window regains focus.
  */
-export const useSLANotificationMonitor = () => {
-  const [notifications, setNotifications] = useState([]);
-  const [isMonitoring, setIsMonitoring] = useState(true);
-  const [lastCheck, setLastCheck] = useState(new Date());
+export const useNotifications = (userId) => {
+  const { data, loading, error, refetch } = useAPIData(
+    ['notifications', userId],
+    () => API.Notifications.getAll(userId),
+    { enabled: !!userId }
+  );
 
-  const processNotifications = useCallback(async () => {
-    if (!isMonitoring) return;
-
-    try {
-      // Get all active tickets
-      const tickets = await API.Tickets.getAll();
-      if (!tickets || tickets.length === 0) return;
-
-      // Filter active tickets with SLA
-      const activeTickets = tickets.filter(ticket =>
-        ticket.step_due_date &&
-        !['completed', 'closed', 'rejected'].includes(ticket.status)
-      );
-
-      // Process escalations for each ticket
-      const { SLAEscalationEngine } = await import('../utils/slaEscalation');
-      const escalationEngine = new SLAEscalationEngine();
-
-      const newNotifications = [];
-
-      for (const ticket of activeTickets) {
-        // Get escalation rules for this ticket
-        // TODO: Replace with actual API call
-        const escalationRules = [];
-
-        if (escalationRules.length > 0) {
-          const { getSLAStatus } = await import('../utils/slaCalculator');
-          const slaStatus = getSLAStatus(ticket.step_due_date);
-
-          const ticketEscalations = escalationEngine.processTicketEscalations(
-            ticket,
-            slaStatus,
-            escalationRules
-          );
-
-          if (ticketEscalations.length > 0) {
-            newNotifications.push(...ticketEscalations.map(esc => ({
-              ...esc.notification,
-              ticketId: ticket.id,
-              ruleId: esc.ruleId
-            })));
-          }
-        }
-      }
-
-      if (newNotifications.length > 0) {
-        setNotifications(prev => [...prev, ...newNotifications]);
-      }
-
-      setLastCheck(new Date());
-    } catch (err) {
-      console.error('SLA notification monitoring error:', err);
-    }
-  }, [isMonitoring]);
-
-  const clearNotifications = useCallback(() => {
-    setNotifications([]);
-  }, []);
-
-  const removeNotification = useCallback((id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  }, []);
-
-  // Set up monitoring interval
   useEffect(() => {
-    if (!isMonitoring) return;
+    if (!userId) return undefined;
+    const interval = setInterval(refetch, 60 * 1000);
+    const onFocus = () => refetch();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [userId, refetch]);
 
-    // Initial check
-    processNotifications();
-
-    // Set up periodic checks (every 5 minutes)
-    const interval = setInterval(processNotifications, 5 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, [processNotifications, isMonitoring]);
+  const markRead = useCallback(async (ids = null) => {
+    if (!userId) return;
+    await API.Notifications.markRead(userId, ids);
+    await refetch();
+  }, [userId, refetch]);
 
   return {
-    notifications,
-    isMonitoring,
-    setIsMonitoring,
-    lastCheck,
-    clearNotifications,
-    removeNotification,
-    processNotifications
+    notifications: data?.items || [],
+    unreadCount: data?.unread_count || 0,
+    loading,
+    error,
+    refetch,
+    markRead
   };
+};
+
+/** Holidays of a company plus the ones for every company (AppScript v9.5 getCompanyHolidays). */
+export const useCompanyHolidays = (companyId = null, year = null) => {
+  return useAPIData(
+    ['company_holidays', companyId, year],
+    () => API.SLA.getHolidays(companyId, year)
+  );
+};
+
+/** Email settings for SLA notices: global default + per ticket type (AppScript v9.5). */
+export const useSLANotificationSettings = () => {
+  return useAPIData(['sla_notification_settings'], () => API.SLA.getNotificationSettings());
 };
 
 // Universal Entity Architecture hooks
@@ -1179,10 +1058,13 @@ const useAPIModule = {
   useSLAPerformanceByCompany,
   useSLAPerformanceByTicketType,
   useGlobalSLAPerformance,
-  // SLA Escalation hooks
+  // SLA Escalation hooks (AppScript v9.5)
   useSLAEscalationRules,
   useSLAEscalationMutations,
-  useSLANotificationMonitor,
+  useSLAEscalationEvents,
+  useNotifications,
+  useCompanyHolidays,
+  useSLANotificationSettings,
   // Universal Entity Architecture hooks
   useUserProfileTypes,
   useUserProfileTypeMutations,

@@ -19,6 +19,7 @@ import CrossCompanyTicketLinker from '../components/admin/CrossCompanyTicketLink
 import AdminReportConfigManager from '../components/admin/AdminReportConfigManager';
 import AdminAuditLogViewer from '../components/admin/AdminAuditLogViewer';
 import CompanySLAManager from '../components/admin/CompanySLAManager';
+import AdminSLAEscalationManager from '../components/admin/AdminSLAEscalationManager';
 import AdminSystemBackup from '../components/admin/AdminSystemBackup';
 import APIConnectionStatus from '../components/admin/APIConnectionStatus';
 import Footer from '../components/shared/Footer';
@@ -142,17 +143,6 @@ const AdminPage = () => {
     };
   };
 
-  // Mock notifications
-  const mockNotifications = [
-    {
-      type: 'info',
-      title: 'System maintenance scheduled',
-      message: 'System maintenance scheduled for Sunday 2:00 AM PHT',
-      timestamp: '1 hour ago',
-      read: false
-    }
-  ];
-
   // Consolidated admin tabs configuration with grouped sections
   const adminTabs = [
     {
@@ -216,6 +206,13 @@ const AdminPage = () => {
       icon: Icons.Clock,
       description: 'Company SLA targets, escalation and business hours per ticket type step',
       component: CompanySLAManager
+    },
+    {
+      id: 'sla-escalations',
+      name: 'SLA Escalations',
+      icon: Icons.Notification,
+      description: 'Timed notices and escalation levels per step, holidays and SLA email (AppScript v9.5)',
+      component: AdminSLAEscalationManager
     },
     {
       id: 'system',
@@ -326,6 +323,8 @@ const AdminPage = () => {
         return 'Who changed what';
       case 'sla-rules':
         return 'Per company';
+      case 'sla-escalations':
+        return 'Levels per step';
       case 'system':
         return 'Health + backup';
       case 'dropdowns':
@@ -375,7 +374,6 @@ const AdminPage = () => {
       <Header
         user={user}
         userRole={userRoles?.[0]?.name?.toLowerCase() || 'admin'}
-        notifications={mockNotifications}
       />
 
       {/* Main Content */}

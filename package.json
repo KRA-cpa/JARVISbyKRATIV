@@ -17,6 +17,7 @@
     "date-fns": "^4.1.0",
     "express": "^5.1.0",
     "firebase": "^11.9.0",
+    "jose": "^5.9.6",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.9.1",
@@ -42,7 +43,8 @@
     "test:debug": "node --inspect-brk scripts/test-runner.js",
     "test:api-endpoints": "node scripts/test-api.js",
     "test:api-health": "node scripts/test-api.js --health",
-    "check:api-contract": "node scripts/check-api-contract.js"
+    "check:api-contract": "node scripts/check-api-contract.js",
+    "check:code-rules": "node scripts/check-code-rules.js --self-test && node scripts/check-code-rules.js"
   },
   "jest": {
     "moduleNameMapper": {

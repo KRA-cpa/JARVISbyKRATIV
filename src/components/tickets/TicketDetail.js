@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useUser } from '../../contexts/UserContext';
-import { useCompanies, useTicketTypes, useUsers, useTicketHistory, useTicketMutations, useCommentRequirements, useTicketActionLogs } from '../../hooks/useAPI';
+import { useCompanies, useTicketTypes, useUsers, useTicketHistory, useTicketMutations, useCommentRequirements, useTicketActionLogs, useSLAEscalationEvents } from '../../hooks/useAPI';
 import { getSLAStatus } from '../../utils/slaCalculator';
 import { useToast } from '../shared/Toast';
 import WorkflowStep from './WorkflowStep';
@@ -40,6 +40,8 @@ const TicketDetail = ({ ticket, onClose, onStatusChange }) => {
   const { data: ticketTypes } = useTicketTypes();
   const { data: users } = useUsers();
   const { data: history, loading: historyLoading, refetch: refetchHistory } = useTicketHistory(ticket?.id);
+  // SLA escalations the server fired on this ticket (AppScript v9.5)
+  const { data: escalations } = useSLAEscalationEvents(ticket?.id);
   const { data: commentRules } = useCommentRequirements(ticket?.ticket_type_id, ticket?.company_id);
   const { updateTicketStatus, loading: isPerformingAction } = useTicketMutations();
   const { ToastContainer, success, error: showError } = useToast();
@@ -266,6 +268,33 @@ const TicketDetail = ({ ticket, onClose, onStatusChange }) => {
         <div className="text-center py-8">
           <Icons.History size={32} className="mx-auto text-gray-400 mb-4" />
           <p className="text-gray-500">No history available</p>
+        </div>
+      )}
+
+      {(escalations || []).length > 0 && (
+        <div className="border-t border-gray-200 pt-4">
+          <h4 className="text-sm font-medium text-gray-900 mb-2">SLA escalations</h4>
+          {escalations.map(event => (
+            <div key={event.id} className="flex items-start space-x-3 mb-3">
+              <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                event.escalation_action === 'escalate_role' ? 'bg-orange-100' : 'bg-yellow-100'
+              }`}>
+                <Icons.Warning size={16} className={event.escalation_action === 'escalate_role' ? 'text-orange-600' : 'text-yellow-600'} />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-gray-900">
+                    Level {event.level}{event.rule_name ? ` - ${event.rule_name}` : ''}
+                    <span className="font-normal text-gray-500">
+                      {event.escalation_action === 'escalate_role' ? ' escalated' : ' notified'} {event.recipient_user_ids.length} user(s)
+                    </span>
+                  </p>
+                  <span className="text-sm text-gray-500">{formatDate(event.fired_at)}</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Step due {formatDate(event.due_at)}</p>
+              </div>
+            </div>
+          ))}
         </div>
       )}
       </>

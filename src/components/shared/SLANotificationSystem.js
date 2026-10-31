@@ -1,223 +1,90 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useUser } from '../../contexts/UserContext';
-import { useTickets } from '../../hooks/useAPI';
+import { useTickets, useNotifications } from '../../hooks/useAPI';
 import { useToast } from './Toast';
 import Icons from './Icons';
-import {
-  SLAEscalationEngine,
-  DEFAULT_ESCALATION_RULES
-} from '../../utils/slaEscalation';
 import { getSLAStatus } from '../../utils/slaCalculator';
 
+const SLA_TYPES = ['sla_warning', 'sla_overdue', 'sla_escalated'];
+const manilaTime = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' });
+const formatTime = iso => {
+  const date = new Date(iso);
+  return isNaN(date.getTime()) ? '' : manilaTime.format(date);
+};
+
 /**
- * SLA Notification System Component
+ * SLA Notification System (Dashboard)
  *
- * Monitors tickets for SLA breaches and sends automated notifications
- * Runs in the background and provides real-time SLA alerts
+ * Shows the SLA picture and the signed-in user's SLA notices. The escalations themselves run on the server
+ * (AppScript v9.5 runSLAEscalations, every 15 minutes) and land in the user's notifications - this component
+ * only reads them (compliance F1). New unread notices pop up once as a toast.
  */
 const SLANotificationSystem = () => {
-  const { hasPermission } = useUser();
+  const { user, hasPermission } = useUser();
+  const userId = user?.uid || user?.id;
   const { data: tickets } = useTickets();
+  const { notifications, markRead } = useNotifications(userId);
   // Its own toast container: useToast keeps its toasts in this component's state
-  const { ToastContainer, success, warning, error } = useToast();
+  const { ToastContainer, warning, error } = useToast();
+  const shown = useRef(null);
 
-  // Component state
-  const [isActive, setIsActive] = useState(true);
-  const [lastCheck, setLastCheck] = useState(new Date());
-  const [notificationQueue, setNotificationQueue] = useState([]);
-  const [escalationEngine] = useState(() => new SLAEscalationEngine());
-  const [stats, setStats] = useState({
-    ticketsMonitored: 0,
-    overdueTickets: 0,
-    dueTodayTickets: 0,
-    escalationsTriggered: 0
-  });
+  const shouldShow = hasPermission('canViewTickets') || hasPermission('canApproveTickets');
 
-  // Check if user should receive SLA notifications
-  const shouldReceiveNotifications = hasPermission('canViewTickets') || hasPermission('canApproveTickets');
+  // Statuses are 'Completed' / 'Rejected' / 'Cancelled' (AppScript TERMINAL_TICKET_STATUSES)
+  const stats = useMemo(() => {
+    const active = (tickets || []).filter(ticket =>
+      ticket.step_due_date && !['completed', 'closed', 'rejected', 'cancelled'].includes(String(ticket.status || '').toLowerCase()));
+    const statuses = active.map(ticket => getSLAStatus(ticket.step_due_date).type);
+    return {
+      ticketsMonitored: active.length,
+      overdueTickets: statuses.filter(type => type === 'overdue').length,
+      dueTodayTickets: statuses.filter(type => type === 'due_today').length
+    };
+  }, [tickets]);
 
-  // Process SLA monitoring
-  const processSLAMonitoring = useCallback(async () => {
-    if (!isActive || !tickets || !shouldReceiveNotifications) return;
+  const slaNotices = notifications.filter(n => SLA_TYPES.includes(n.type));
+  const unreadSla = slaNotices.filter(n => !n.is_read).map(n => n.id);
 
-    try {
-      // Statuses are 'Completed' / 'Rejected' / 'Cancelled' (AppScript TERMINAL_TICKET_STATUSES)
-      const activeTickets = tickets.filter(ticket =>
-        ticket.step_due_date &&
-        !['completed', 'closed', 'rejected', 'cancelled'].includes(String(ticket.status || '').toLowerCase())
-      );
-
-      let overdueCount = 0;
-      let dueTodayCount = 0;
-      let escalationsTriggered = 0;
-
-      const newNotifications = [];
-
-      for (const ticket of activeTickets) {
-        const slaStatus = getSLAStatus(ticket.step_due_date);
-
-        // Count statistics
-        if (slaStatus.type === 'overdue') overdueCount++;
-        if (slaStatus.type === 'due_today') dueTodayCount++;
-
-        // Get escalation rules (mock for now)
-        const escalationRules = getEscalationRulesForTicket(ticket);
-
-        // Process escalations
-        const ticketEscalations = escalationEngine.processTicketEscalations(
-          ticket,
-          slaStatus,
-          escalationRules
-        );
-
-        if (ticketEscalations.length > 0) {
-          escalationsTriggered += ticketEscalations.length;
-          newNotifications.push(...ticketEscalations.map(esc => ({
-            ...esc.notification,
-            ticketId: ticket.id,
-            ruleId: esc.ruleId
-          })));
-        }
-      }
-
-      // Update statistics
-      setStats({
-        ticketsMonitored: activeTickets.length,
-        overdueTickets: overdueCount,
-        dueTodayTickets: dueTodayCount,
-        escalationsTriggered
-      });
-
-      // Process new notifications
-      if (newNotifications.length > 0) {
-        await processNotifications(newNotifications);
-      }
-
-      setLastCheck(new Date());
-    } catch (err) {
-      console.error('SLA monitoring error:', err);
-    }
-    // processNotifications (and the toast functions it uses) are new each render; listing them would re-run
-    // the check - and its 5-minute interval - on every render
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, tickets, shouldReceiveNotifications, escalationEngine]);
-
-  // Get escalation rules for a ticket (mock implementation)
-  const getEscalationRulesForTicket = (ticket) => {
-    // TODO: Replace with actual API call to get escalation rules
-    // For now, return default rules based on ticket type
-    return DEFAULT_ESCALATION_RULES.APPROVAL_24H.filter(rule => rule.isActive);
-  };
-
-  // Process notifications
-  const processNotifications = async (notifications) => {
-    const userNotifications = notifications.filter(notification =>
-      shouldReceiveNotification(notification)
-    );
-
-    for (const notification of userNotifications) {
-      await sendNotification(notification);
-    }
-
-    setNotificationQueue(prev => [...prev, ...userNotifications]);
-  };
-
-  // Check if user should receive specific notification
-  const shouldReceiveNotification = (notification) => {
-    if (!notification.targetRoles || notification.targetRoles.length === 0) return true;
-
-    // TODO: Check user roles against target roles
-    // For now, return true for any user with ticket permissions
-    return shouldReceiveNotifications;
-  };
-
-  // Send individual notification
-  const sendNotification = async (notification) => {
-    try {
-      // Display toast notification
-      switch (notification.priority) {
-        case 'critical':
-          error(`🚨 ${notification.title}: ${notification.message}`);
-          break;
-        case 'high':
-          warning(`⚠️ ${notification.title}: ${notification.message}`);
-          break;
-        default:
-          success(`📋 ${notification.title}: ${notification.message}`);
-      }
-
-      // TODO: Add email notifications, push notifications, etc.
-      // TODO: Log notification to backend for audit trail
-
-    } catch (err) {
-      console.error('Failed to send notification:', err);
-    }
-  };
-
-  // Set up monitoring interval
+  // A toast for each unread SLA notice that arrived since the page opened (the first load only marks them seen)
   useEffect(() => {
-    if (!isActive || !shouldReceiveNotifications) return;
+    if (!notifications.length) return;
+    if (shown.current === null) {
+      shown.current = new Set(notifications.map(n => n.id));
+      return;
+    }
+    notifications.filter(n => !n.is_read && SLA_TYPES.includes(n.type) && !shown.current.has(n.id)).forEach(n => {
+      shown.current.add(n.id);
+      (n.type === 'sla_warning' ? warning : error)(`${n.title}: ${n.message}`);
+    });
+    // warning / error are new each render; listing them would re-run this on every render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notifications]);
 
-    // Initial check
-    processSLAMonitoring();
-
-    // Set up periodic monitoring (every 5 minutes)
-    const interval = setInterval(processSLAMonitoring, 5 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, [processSLAMonitoring, isActive, shouldReceiveNotifications]);
-
-  // Manual trigger for testing
-  const handleManualCheck = () => {
-    processSLAMonitoring();
-    success('SLA monitoring check completed');
-  };
-
-  // Clear notification queue
-  const clearNotifications = () => {
-    setNotificationQueue([]);
-    success('Notification queue cleared');
-  };
-
-  // Don't render if user shouldn't receive notifications
-  if (!shouldReceiveNotifications) return null;
+  if (!shouldShow) return null;
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
       <ToastContainer />
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
-          <div className={`w-3 h-3 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
+          <div className="w-3 h-3 rounded-full bg-green-500" />
           <h3 className="text-lg font-medium text-gray-900">SLA Monitoring</h3>
         </div>
-
-        <div className="flex items-center space-x-2">
+        {unreadSla.length > 0 && (
           <button
-            onClick={() => setIsActive(!isActive)}
-            className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200 ${
-              isActive
-                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+            onClick={() => markRead(unreadSla)}
+            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
           >
-            {isActive ? 'Active' : 'Inactive'}
+            Mark SLA notices read
           </button>
-
-          <button
-            onClick={handleManualCheck}
-            className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors duration-200"
-            title="Manual Check"
-          >
-            <Icons.Refresh size={16} />
-          </button>
-        </div>
+        )}
       </div>
 
       {/* Statistics */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <div className="text-center">
           <div className="text-2xl font-bold text-gray-900">{stats.ticketsMonitored}</div>
-          <div className="text-sm text-gray-600">Monitored</div>
+          <div className="text-sm text-gray-600">With an SLA</div>
         </div>
         <div className="text-center">
           <div className="text-2xl font-bold text-red-600">{stats.overdueTickets}</div>
@@ -228,112 +95,42 @@ const SLANotificationSystem = () => {
           <div className="text-sm text-gray-600">Due Today</div>
         </div>
         <div className="text-center">
-          <div className="text-2xl font-bold text-blue-600">{stats.escalationsTriggered}</div>
-          <div className="text-sm text-gray-600">Escalations</div>
+          <div className="text-2xl font-bold text-blue-600">{unreadSla.length}</div>
+          <div className="text-sm text-gray-600">Unread notices</div>
         </div>
       </div>
 
-      {/* Last Check Time */}
-      <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-        <span>Last checked: {lastCheck.toLocaleTimeString()}</span>
-        <span>Next check: {new Date(lastCheck.getTime() + 5 * 60 * 1000).toLocaleTimeString()}</span>
-      </div>
-
-      {/* Recent Notifications */}
-      {notificationQueue.length > 0 && (
+      {/* Recent SLA notices */}
+      {slaNotices.length > 0 ? (
         <div className="border-t border-gray-200 pt-4">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-medium text-gray-900">
-              Recent Notifications ({notificationQueue.length})
-            </h4>
-            <button
-              onClick={clearNotifications}
-              className="text-xs text-gray-500 hover:text-gray-700"
-            >
-              Clear All
-            </button>
-          </div>
-
-          <div className="space-y-2 max-h-32 overflow-y-auto">
-            {notificationQueue.slice(-5).map((notification, index) => (
+          <h4 className="text-sm font-medium text-gray-900 mb-2">Your SLA notices</h4>
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {slaNotices.slice(0, 5).map(notice => (
               <div
-                key={index}
+                key={notice.id}
                 className={`p-2 rounded-lg text-xs ${
-                  notification.priority === 'critical'
-                    ? 'bg-red-50 text-red-700'
-                    : notification.priority === 'high'
-                    ? 'bg-orange-50 text-orange-700'
-                    : 'bg-blue-50 text-blue-700'
-                }`}
+                  notice.type === 'sla_warning' ? 'bg-yellow-50 text-yellow-800' : 'bg-red-50 text-red-700'
+                } ${notice.is_read ? 'opacity-60' : ''}`}
               >
-                <div className="font-medium">{notification.title}</div>
-                <div className="truncate">{notification.message}</div>
-                <div className="text-gray-500 mt-1">
-                  {new Date(notification.timestamp).toLocaleTimeString()}
-                </div>
+                <div className="font-medium">{notice.title}</div>
+                <div className="truncate">{notice.message}</div>
+                <div className="text-gray-500 mt-1">{formatTime(notice.created_at)}</div>
               </div>
             ))}
           </div>
         </div>
-      )}
-
-      {/* Status Message */}
-      {isActive ? (
-        <div className="mt-4 p-3 bg-green-50 rounded-lg">
+      ) : (
+        <div className="mt-2 p-3 bg-green-50 rounded-lg">
           <div className="flex items-center space-x-2">
             <Icons.Success size={16} className="text-green-600" />
             <span className="text-sm text-green-700">
-              SLA monitoring is active. Automatic checks every 5 minutes.
-            </span>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-          <div className="flex items-center space-x-2">
-            <Icons.Warning size={16} className="text-gray-600" />
-            <span className="text-sm text-gray-700">
-              SLA monitoring is paused. Click "Active" to resume monitoring.
+              No SLA notices for you. The server checks every ticket's SLA every 15 minutes.
             </span>
           </div>
         </div>
       )}
     </div>
   );
-};
-
-/**
- * SLA Notification Hook
- *
- * Provides access to SLA notification system from other components
- */
-export const useSLANotifications = () => {
-  const [notifications, setNotifications] = useState([]);
-  const [isMonitoring, setIsMonitoring] = useState(false);
-
-  const addNotification = useCallback((notification) => {
-    setNotifications(prev => [...prev, {
-      ...notification,
-      id: Date.now(),
-      timestamp: new Date().toISOString()
-    }]);
-  }, []);
-
-  const removeNotification = useCallback((id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  }, []);
-
-  const clearNotifications = useCallback(() => {
-    setNotifications([]);
-  }, []);
-
-  return {
-    notifications,
-    isMonitoring,
-    setIsMonitoring,
-    addNotification,
-    removeNotification,
-    clearNotifications
-  };
 };
 
 export default SLANotificationSystem;

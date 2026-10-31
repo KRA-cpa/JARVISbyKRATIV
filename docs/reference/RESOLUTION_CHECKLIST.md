@@ -1,10 +1,10 @@
 # RESOLUTION CHECKLIST - MANDATORY REFERENCE
 
 **Document Type:** 🚨 **MANDATORY REFERENCE FOR ALL ERROR RESOLUTION**
-**Version:** 1.2
-**Date:** September 25, 2025 (v1.1: October 18, 2026 — code review compliance checks added; v1.2: October 19, 2026 — API contract checks)
+**Version:** 1.3
+**Date:** September 25, 2025 (v1.1: October 18, 2026 — code review compliance checks added; v1.2: October 19, 2026 — API contract checks; v1.3: October 30, 2026 — cache, actor, read budget, UTC, counterpart checks)
 **Status:** ENFORCED - Must be consulted before any error resolution
-**Companion:** `docs/guides/GUIDE_CodeReview_Compliance.md` — rules A1–A13 / S1–S9 behind the ⚖️ checks below
+**Companion:** `docs/guides/GUIDE_CodeReview_Compliance.md` — rules A1–A20 / F1–F6 / S1–S9 behind the ⚖️ checks below
 
 ---
 
@@ -60,6 +60,12 @@ Check each technical domain independently with specific rules:
 - Do props match expected structure?
 - Are error states handled gracefully?
 
+**⚖️ Counterpart rules (F1–F6):**
+- [ ] **Server owns the rule (F1)**: is the value (SLA status, escalation, permission) computed by the backend, or re-derived in the browser? A browser copy drifts and fires per open tab
+- [ ] **Time display (F3)**: off by 8 hours? Look for `getTime() + 8 * 60 * 60 * 1000` (`toPhilippineTime`) - show with `Intl` and `timeZone: 'Asia/Manila'`
+- [ ] **Real save (F4)**: "saved" but gone after reload? Look for `setTimeout` promises / `TODO: Replace with actual API call` (`npm run check:code-rules`)
+- [ ] **Stale after write (F5)**: the write succeeded but the list shows old data - is the entity cache invalidated after the write?
+
 #### **🔌 API DOMAIN CHECK (10 Required Checks)**
 
 **Endpoint Structure:**
@@ -79,6 +85,7 @@ Check each technical domain independently with specific rules:
 - [ ] **Route exists**: `npm run check:api-contract` - is the action routed in `doGet` (if it is in `readActions`) or `routePostAction` of the newest AppScript file? An empty list or "no data" can be an unrouted action (before v9.0 they answered without `status: 'error'`)
 - [ ] **Handler defined**: the case calls a function that exists (the check flags `undefined-function`)
 - [ ] **No `action` key**: the payload has no key named `action` - it would replace the route name in the flat POST body
+- [ ] **Identity (A15 / F2 / F6)**: "Only admins can …" for an admin, or the wrong user in history? Check the proxy log line (uid), `AUTH_MODE`, and that the handler uses `actorId(...)`, not a payload `user_id`
 
 **Specific API Tests:**
 - Does endpoint respond to ping/health check?
@@ -107,6 +114,11 @@ Check each technical domain independently with specific rules:
 - [ ] **Write Lock (A5)**: Writes run under `withScriptLock()` (automatic for `doPost` writes); no direct `LockService` calls
 - [ ] **Error Responses (A6/A7/A8)**: `{status:'error'}` results go through `createHandlerResponse()`; request keys match `src/api/googleSheet.js`; ids compared with `String()`
 - [ ] **Non-Destructive (A4)**: Nothing reachable from `doPost`/`doGet` clears or deletes a tab; init/seed functions are idempotent
+- [ ] **Stale read in one request (A14)**: a value written earlier in the same request reads back old? The write is missing `invalidateTable(...)`; run the offline suite with the stale-cache detector. Quick test: Script Property `CACHE_ENABLED=false` - if the bug disappears, it's an invalidation
+- [ ] **Slow action (A16)**: reads inside a loop / per-item helper calls? `npm run check:code-rules` and the read-count assertions
+- [ ] **Times 8 hours off / wrong day (A17)**: a `+8h` shift, `getDay()` in the script time zone, or a row written before `TS_UTC_SINCE`
+- [ ] **Duplicate ids (A18)**: an id from `getLastRow()` or `max(id)+1`
+- [ ] **Code change "does nothing" (A20)**: a second function with the same name later in the file wins
 
 **Specific AppScript Tests:**
 - Can function execute independently in Apps Script editor?

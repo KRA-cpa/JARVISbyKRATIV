@@ -1,12 +1,11 @@
 # Known frontend->backend contract gaps - checked by scripts/check-api-contract.js
 # Format: <kind> <action>. This list may only shrink: fix a gap, then remove its line
 # (node scripts/check-api-contract.js --update). Never add a line to silence a new gap.
-# Last updated against APPSCRIPT_v9.3_20261019_2015.txt
+# Last updated against APPSCRIPT_v9.5_20261030_0650.txt
 
 missing-icon Icons.Database
 missing-icon Icons.FileText
 unmounted-component src/components/admin/AdminCustomFieldManager.js
-unmounted-component src/components/admin/AdminSLAEscalationManager.js
 unmounted-component src/components/admin/AdminTicketTypeManager.js
 unmounted-component src/components/admin/BulkOperationsManager.js
 unmounted-component src/components/admin/BulkRoleAssignmentDialog.js

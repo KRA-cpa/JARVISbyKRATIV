@@ -28,11 +28,29 @@
 
 ---
 
-## ✅ AUTHORITATIVE COLUMN LIST (October 17, 2026 — AppScript v8.1+, latest v9.3)
+## ✅ AUTHORITATIVE COLUMN LIST (October 17, 2026 — AppScript v8.1+, latest v9.5)
 
-`TABLE_SCHEMAS` in the latest `appscript_files/APPSCRIPT_v9.3_20261019_2015.txt` is now the single source of truth
-for the headers of all 35 tables (v9.3 moved the tag / sharing names from TAG_SHEETS into SHEETS). Where this
+`TABLE_SCHEMAS` in the latest `appscript_files/APPSCRIPT_v9.5_20261030_0650.txt` is now the single source of truth
+for the headers of all 39 tables (v9.3 moved the tag / sharing names from TAG_SHEETS into SHEETS). Where this
 document and the code disagree, the code wins.
+
+**v9.5 (October 30, 2026) — SLA escalation: 4 new tables, tickets: 27 → 28, ticket_types: 12 → 13 columns.**
+- `sla_escalation_rules` (23): id, company_id, ticket_type_id, step_id (blank = every step of the type), level, name,
+  trigger (percent_elapsed | before_due | after_due), trigger_value, trigger_unit (percent | minutes | hours | days |
+  business_hours | business_days), escalation_action (notify | escalate_role - not `action`, compliance A13),
+  notify_current_approvers, notify_requester, notify_role_ids (JSON), notify_emails (JSON), message + audit /
+  deactivation columns. One live rule per company + type + step + level.
+- `sla_escalation_events` (15): id, rule_id, ticket_id, company_id, step_id, visit_started_at, level, escalation_action,
+  due_at, fired_at, recipient_user_ids (JSON), granted_role_ids (JSON), notification_count, is_active, created_at.
+  Key: ticket + step + visit_started_at + rule - a level fires once per visit of a step.
+- `notifications` (14): id, user_id, company_id, ticket_id, type (sla_warning | sla_overdue | sla_escalated), title,
+  message, link, is_read, read_at, email_status (none | sent | pref_off | no_email | quota | error), is_active,
+  created_at, updated_at.
+- `company_holidays` (12): id, company_id (blank = every company), date (text yyyy-MM-dd), name + audit / deactivation.
+- `tickets` + `step_started_at` (when the ticket reached its current step; blank before v9.5 - the history is used).
+- `ticket_types` + `sla_email` (default | on | off; COLUMN_DEFAULTS 'default').
+- Timestamps written from v9.4 on are real UTC (before, audit columns from getCurrentTimestamp() were 8 h ahead;
+  Script Property TS_UTC_SINCE records the switch). v9.4 also adds the 'ticket_id' row to sequence_counters.
 
 **v9.3 (October 19, 2026) — 2 new tables, ticket_types: 10 → 12 columns.**
 - `dropdown_company_assignments` (12): id, dropdown_list_id, company_id, is_global + audit / deactivation columns.

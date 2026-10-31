@@ -2,8 +2,8 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_AppScript_Deploy_and_Schema_Rebuild.md | Author: Kenneth R. Advento | Version: 1.6.0
-Created: 17 October 2026 UTC+8 (Philippine Standard Time) | Modified: 19 October 2026 UTC+8 (Philippine Standard Time)
+Document: GUIDE_AppScript_Deploy_and_Schema_Rebuild.md | Author: Kenneth R. Advento | Version: 1.7.0
+Created: 17 October 2026 UTC+8 (Philippine Standard Time) | Modified: 30 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Step-by-step guide to paste a new AppScript version and rebuild all Google Sheet tables safely | Status: Active
 
 REVISION HISTORY:
@@ -15,6 +15,7 @@ REVISION HISTORY:
 - v1.4.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v9.0 (API contract routes, roles & approvals); deploy the frontend with it (breaking: approve payload, loud errors); roles 5 → 12 columns (rebuild apply needed); §5 ping reports the file version
 - v1.5.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v9.1 (core ticket loop, workflow admin, links, company lock, comment requirements); ticket_links 14 → 17 columns; new §3a repairCompanyLocks(); v9.0 may be skipped (v9.1 includes it)
 - v1.6.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v9.3 (v9.2 routing / reports / audit log + v9.3 dropdown access, company SLA rules, config export / import / backup, tags & sharing); 2 new tabs, ticket_types 10 → 12 columns; Drive permission for backups; §5a turn tags / sharing on per ticket type; v9.0–v9.2 may be skipped
+- v1.7.0 | 30 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v9.5 (v9.4 request cache, proxy auth, real UTC + v9.5 SLA escalation); 4 new tabs, tickets 27 → 28, ticket_types 12 → 13 columns; §5b proxy auth rollout (Script Properties PROXY_SECRET / AUTH_MODE + Vercel env, warn → enforce); §5c SLA escalation setup (migration, trigger with mail + trigger permissions, holidays, email); v9.4 may be skipped
 ===============================================================================
 -->
 
@@ -22,7 +23,13 @@ REVISION HISTORY:
 
 > Use this guide every time a new `APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt` file is created.
 > **Latest file is the one with the newest timestamp** in `appscript_files/`.
-> Current: `APPSCRIPT_v9.3_20261019_2015.txt` (contains v9.0–v9.2 - deploy it directly; nothing in between has to be deployed first)
+> Current: `APPSCRIPT_v9.5_20261030_0650.txt` (contains v9.0–v9.4 - deploy it directly; nothing in between has to be deployed first)
+
+> ⚠️ **v9.4 / v9.5 - also do §5b and §5c after §5:**
+> - v9.4 checks a shared secret from the Vercel proxy and takes the acting user from the verified Firebase token (`AUTH_MODE` - default `warn`, which only logs). Set the Script Properties and Vercel env in §5b before switching to `enforce`.
+> - v9.4 stores timestamps in real UTC (they were 8 hours ahead); the Script Property `TS_UTC_SINCE` records when. Nothing to do by hand.
+> - v9.5 adds SLA escalation (rules, a 15-minute trigger, in-app notifications, optional email) and lets a company SLA rule set the step due date. §5c installs the trigger - it asks for **send email** and **trigger** permissions.
+> - Deploy the frontend from the same commit: the bell, Admin → SLA Escalations and `getDashboard` call v9.4 / v9.5 routes.
 
 > ⚠️ **v9.0 – v9.3 change the API contract** - deploy the frontend from the same commit right after §5:
 > - The approve request sends `decision` (v9.0), and failures return `status: 'error'`, which the frontend shows instead of an empty list.
@@ -33,12 +40,14 @@ REVISION HISTORY:
 > An older frontend keeps working for everything except approvals and the new screens.
 >
 > Offline tests (all must pass on the file you paste):
-> - `node appscript_files/tools/ROUTES_TEST_v9.3.js appscript_files/APPSCRIPT_v9.3_20261019_2015.txt` → 10 PASS
+> - `node appscript_files/tools/ROUTES_TEST_v9.5.js appscript_files/APPSCRIPT_v9.5_20261030_0650.txt` → 25 PASS
+> - `ROUTES_TEST_v9.4.js` → 20 PASS, `ROUTES_TEST_v9.3.js` → 10 PASS
 > - `ROUTES_TEST_v9.2.js` → 14 PASS, `ROUTES_TEST_v9.1.js` → 18 PASS
 > - `ROUTES_AND_APPROVALS_TEST_v9.0.js` → 21 PASS
 > - `CODE_REVIEW_FIXES_TEST_v8.3.js` → 11 PASS (same file)
+> - `node scripts/test-proxy-auth.js` → 20 PASS (the Vercel proxy)
 >
-> Contract: `npm run check:api-contract` → OK. Never apply with v8.2.
+> Checks: `npm run check:api-contract` → OK, `npm run check:code-rules` → OK. Never apply with v8.2.
 
 **Time needed:** ~15 minutes | **Risk:** Low — the rebuild never deletes data and backs up every tab it changes
 
@@ -58,10 +67,10 @@ REVISION HISTORY:
 
 1. Open the Google Sheet → **Extensions → Apps Script** (or open the project from script.google.com).
 2. In the left panel, click the script file (usually `Code.gs`).
-3. In the repo, open the latest file: `appscript_files/APPSCRIPT_v9.3_20261019_2015.txt` → select all → copy.
+3. In the repo, open the latest file: `appscript_files/APPSCRIPT_v9.5_20261030_0650.txt` → select all → copy.
 4. In the editor: **Ctrl+A** → **Ctrl+V** to replace everything.
 5. **Ctrl+S** to save. If a red error bar appears, the paste was incomplete — repeat steps 3–5.
-6. Quick check: the first lines must say `Version: 9.3`.
+6. Quick check: the first lines must say `Version: 9.5`.
 
 > Pasting and saving updates the **editor** only. The live web app keeps serving the old version until you redeploy (§5).
 
@@ -88,7 +97,12 @@ This **only reports**. It changes nothing.
 **Review before applying:**
 - **`added`** — new columns, empty for existing rows. Normal.
 - **`defaulted`** — added columns that existing rows get a value for instead of blank (`COLUMN_DEFAULTS`): `entity_category = 'ticket'` in `custom_fields` / `custom_field_values`, and (v9.0) `is_active = TRUE` in `roles`. Normal.
-- **v9.3 expects**
+- **v9.5 expects**
+  - `CREATED: sla_escalation_rules`, `CREATED: sla_escalation_events`, `CREATED: notifications`, `CREATED: company_holidays`
+  - `REPAIRED: tickets … added: [step_started_at]` (blank for existing tickets - the escalation run falls back to the ticket history)
+  - `REPAIRED: ticket_types … added: [sla_email] … defaulted: [sla_email]` (`default`: follows the global email setting, which is off)
+  - v9.4 changes no table.
+- **v9.3 expects** (if v9.3 was never applied)
   - `CREATED: dropdown_company_assignments` and `CREATED: company_sla_rules`
   - `REPAIRED: ticket_types … added: [enable_tags, enable_sharing] … defaulted: [enable_tags, enable_sharing]` (both off)
   - if v9.1 was never applied, also `REPAIRED: ticket_links … added: [enforce_blocking_rules, sync_status, notify_on_update] … defaulted: [enforce_blocking_rules, sync_status, notify_on_update]`
@@ -137,16 +151,17 @@ From now on the first ticket of a company locks its code. Admin → Companies �
 |---|---|---|---|---|---|
 | companies | 15 | step_slas | 13 | user_profile_types | 13 |
 | roles | 12 | step_conditions | 16 | role_types | 17 |
-| tickets | 27 | dropdown_lists | 12 | user_profiles | 19 |
+| tickets | 28 | dropdown_lists | 12 | user_profiles | 19 |
 | ticket_history | 11 | dropdown_options | 5 | ticket_tags | 18 |
-| ticket_types | 12 | ticket_attachments | 19 | ticket_tag_assignments | 13 |
+| ticket_types | 13 | ticket_attachments | 19 | ticket_tag_assignments | 13 |
 | comment_requirements | 16 | report_configurations | 18 | tag_categories | 15 |
 | custom_fields | 19 | ticket_links | 17 | tag_usage_statistics | 8 |
 | custom_field_values | 18 | sequence_counters | 2 | ticket_collaborations | 20 |
 | workflow_steps | 19 | ticket_action_logs | 6 | collaboration_requests | 19 |
 | step_approvers | 2 | admin_action_logs | 7 | collaboration_notifications | 10 |
 | user_role_assignments | 24 | user_preferences | 12 | shared_ticket_access_logs | 9 |
-| dropdown_company_assignments | 12 | company_sla_rules | 25 | | |
+| dropdown_company_assignments | 12 | company_sla_rules | 25 | sla_escalation_rules | 23 |
+| sla_escalation_events | 15 | notifications | 14 | company_holidays | 12 |
 
 A table with **more** columns than listed had `extra` columns, which are kept at the end — that's expected. Delete them in the Sheet by hand once you're sure they aren't needed.
 
@@ -158,10 +173,10 @@ A table with **more** columns than listed had `extra` columns, which are kept at
 
 1. **Deploy → Manage deployments**.
 2. Select the active web-app deployment → **✏️ Edit**.
-3. **Version → New version** → **Description**: copy the `Deploy description:` line from the header of the file you pasted (v9.3: `v9.3 20261019_2015 - dropdown access, company SLA rules, config export/import, tags & sharing`; v9.2: `v9.2 20261019_1946 - conditional routing, task steps, reports, audit log`; v9.1: `v9.1 20261019_1400 - core ticket loop routes, workflow admin, links, company lock, comment rules`; v9.0: `v9.0 20261019_0501 - API contract routes, roles & approval engine, loud errors`). For v8.3, which predates that line, use `v8.3 20261017_1510 - code review fixes CR-01..CR-07`. → **Deploy**.
+3. **Version → New version** → **Description**: copy the `Deploy description:` line from the header of the file you pasted (v9.5: `v9.5 20261030_0650 - SLA escalation rules + notifications + business calendar`; v9.4: `v9.4 20261030_0627 - request cache, one dropdown read, proxy auth, real UTC timestamps`; v9.3: `v9.3 20261019_2015 - dropdown access, company SLA rules, config export/import, tags & sharing`; v9.2: `v9.2 20261019_1946 - conditional routing, task steps, reports, audit log`; v9.1: `v9.1 20261019_1400 - core ticket loop routes, workflow admin, links, company lock, comment rules`; v9.0: `v9.0 20261019_0501 - API contract routes, roles & approval engine, loud errors`). For v8.3, which predates that line, use `v8.3 20261017_1510 - code review fixes CR-01..CR-07`. → **Deploy**.
 4. The web-app URL stays the same — no frontend change needed.
 5. Open the app → Admin page → confirm the API status shows connected and lists load.
-6. From v9.0, `<web app URL>?action=ping` returns the file's `API_VERSION` - `"version": "9.3.0"` for v9.3. Before v9.0 it always said `8.0.0`. `?action=getSystemHealth` lists any tab whose headers differ from `TABLE_SCHEMAS`.
+6. From v9.0, `<web app URL>?action=ping` returns the file's `API_VERSION` - `"version": "9.5.0"` for v9.5. Before v9.0 it always said `8.0.0`. `?action=getSystemHealth` lists any tab whose headers differ from `TABLE_SCHEMAS`.
 
 ---
 
@@ -172,6 +187,34 @@ Both are **off** for every ticket type after the rebuild.
 1. App → **Admin → Ticket Types**: each row has **Tags: off** and **Sharing: off** pills - click one to turn it on.
 2. A switch can be turned off again only until the first ticket of that type is tagged / shared. After that the backend refuses, so no tag or share is orphaned (remove the tags / shares first if you really need it off).
 3. Then: **Admin → SLA Rules** for company SLA targets, **Admin → System & Backup** → **Back up to Drive** once to confirm the Drive permission works (the file appears in the script owner's Drive).
+
+---
+
+## §5b After v9.4: proxy auth (Script Properties + Vercel env), warn first
+
+Until v9.4 anyone with the web-app URL could act as any user (the request said who it was). Now the Vercel proxy verifies the Firebase ID token and forwards the uid with a shared secret.
+
+1. Make a secret: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+2. Apps Script editor → **Project Settings** (gear) → **Script Properties** → add `PROXY_SECRET` = the secret, `AUTH_MODE` = `warn`. (Optional: `CACHE_ENABLED` = `false` turns the v9.4 table cache off without a redeploy.)
+3. Vercel → Project → **Settings → Environment Variables** (Production): `PROXY_SECRET` (same value), `AUTH_MODE` = `warn`, `APPS_SCRIPT_URL` = the web-app `/exec` URL, `FIREBASE_PROJECT_ID` = the Firebase project id (it falls back to `REACT_APP_FIREBASE_PROJECT_ID`). Redeploy the frontend.
+4. Use the app for a while, then check:
+   - Vercel → **Logs**: each proxy line has `"auth":"verified"` and your `user_id`.
+   - Apps Script → **Executions**: no `AUTH warn:` lines for normal use (they mean a request came without a verified user, or claimed a different user than its token).
+5. Switch both `AUTH_MODE` values to `enforce` (Script Property + Vercel env, then redeploy Vercel). Requests without the secret or without a signed-in user are now refused (`ping` still answers).
+6. To roll back: set both to `warn` (or `off` = v9.3 behaviour).
+
+> Still open (REVIEW S1 part 3): admin-only routes check the caller only where a v9.x handler already did (reports, audit log, config export / import, SLA escalation admin). Any signed-in Google account can still call the other admin writes - see `docs/planning/REVIEW_AppScriptReco_20261030.md` §4.
+
+## §5c After v9.5: SLA escalation
+
+1. **Migrate old escalation settings** (company SLA rules' warning threshold / escalation fields → escalation levels): function **`migrateCompanyEscalationsToRules`** → Run (dry run, the log lists the levels) → **`migrateCompanyEscalationsToRulesApply`** → Run. Running it again creates nothing.
+2. **Install the trigger**: function **`installSLAEscalationTrigger`** → Run → Google asks for permission to **send email as you** and **run when you're not there** → Allow. Run it again any time - it removes duplicates. (`removeSLAEscalationTrigger` turns it off.)
+3. **Dry run**: function **`runSLAEscalationsDryRun`** → Run → the log lists what would fire now (nothing is written or sent).
+4. App → **Admin → SLA Escalations**:
+   - **Rules**: company → ticket type → **Add Level** (e.g. level 1 at 75% to the current approvers, level 2 two hours overdue escalating to a Department Head role). **Preview** shows what would fire now.
+   - **Holidays**: **Philippine holidays for <year>...** → check the list (Eid and Chinese New Year are proclaimed yearly - add them by hand) → **Add them**. They count when a company SLA rule has "exclude holidays".
+   - **Email**: in-app notices always; turn email on per ticket type or by default. People who switched email off in their profile get in-app only.
+5. **Smoke test**: a company SLA rule of 1 hour for a step + a level at 50% → create a ticket → within ~15 minutes (after 30 minutes of SLA time) the approvers see a bell notification (and an email when on).
 
 ---
 

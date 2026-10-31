@@ -1,578 +1,521 @@
-import React, { useState, useEffect } from 'react';
-import { useCompanies, useTicketTypes, useRoles } from '../../hooks/useAPI';
+import React, { useState } from 'react';
+import { useUser } from '../../contexts/UserContext';
+import {
+  useCompanies, useTicketTypes, useRoles, useWorkflowSteps, useSLAEscalationRules, useSLAEscalationMutations,
+  useCompanyHolidays, useSLANotificationSettings
+} from '../../hooks/useAPI';
+import { API } from '../../api/googleSheet';
 import { useToast } from '../shared/Toast';
-import { useConfirmation, useInformation } from '../shared/ConfirmationModal';
+import { useConfirmation } from '../shared/ConfirmationModal';
 import Icons from '../shared/Icons';
 import {
-  ESCALATION_TYPES,
-  ESCALATION_TRIGGERS,
-  DEFAULT_ESCALATION_RULES,
-  SLAEscalationEngine
+  ESCALATION_TRIGGERS, ESCALATION_ACTIONS, ESCALATION_UNITS, TRIGGER_LABELS, ACTION_LABELS, UNIT_LABELS, SLA_EMAIL_MODES,
+  emptyEscalationRule, validateEscalationRule, describeRule
 } from '../../utils/slaEscalation';
 
+const inputClass = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent';
+const listText = list => (list || []).join(', ');
+const splitList = text => String(text || '').split(',').map(s => s.trim()).filter(Boolean);
+
 /**
- * SLA Escalation Rules Management Component
+ * AdminSLAEscalationManager - Admin -> SLA Escalations (AppScript v9.5, Phase 5.2)
  *
- * Allows administrators to configure escalation rules for SLA management
- * including notifications, reassignments, and automated actions
+ * Rules: escalation levels per company + ticket type + step ("all steps" rows apply where a step has no rule of
+ * that level). Each level fires once per visit of a step: at a % of the SLA, before the due date or after it, and
+ * notifies the current approvers / requester / roles / emails - or escalates to roles, whose holders may then act
+ * on the step. The server runs them every 15 minutes; Preview shows what would fire now.
+ * Holidays: count against business hours / days when a company SLA rule excludes holidays.
+ * Email: in-app notices always; email per ticket type (or the global default) and the user's preference.
  */
 const AdminSLAEscalationManager = () => {
+  const { user } = useUser();
+  const userId = user?.uid || user?.id;
+  const { ToastContainer, success, error: showError } = useToast();
+  const { confirm, ConfirmationModal } = useConfirmation();
   const { data: companies } = useCompanies();
   const { data: ticketTypes } = useTicketTypes();
   const { data: roles } = useRoles();
-  const { success, error } = useToast();
-  const { confirm, ConfirmationModal } = useConfirmation();
-  const { showInfo, InformationModal } = useInformation();
 
-  // Component state
-  const [selectedTicketType, setSelectedTicketType] = useState('');
-  const [escalationRules, setEscalationRules] = useState([]);
-  const [editingRule, setEditingRule] = useState(null);
-  const [showRuleForm, setShowRuleForm] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [panel, setPanel] = useState('rules');
+  const [companyId, setCompanyId] = useState('');
+  const [ticketTypeId, setTicketTypeId] = useState('');
+  const { data: steps } = useWorkflowSteps(ticketTypeId || null, companyId || null);
+  const { data: rules, loading: rulesLoading, refetch: refetchRules } = useSLAEscalationRules(companyId || null, ticketTypeId || null);
+  const mutations = useSLAEscalationMutations(userId);
 
-  // Form state for new/editing rule
-  const [ruleForm, setRuleForm] = useState({
-    name: '',
-    trigger: ESCALATION_TRIGGERS.PERCENTAGE,
-    triggerValue: 75,
-    triggerUnit: 'hours',
-    action: ESCALATION_TYPES.NOTIFICATION,
-    targetRoles: [],
-    message: '',
-    priority: 'medium',
-    isActive: true
-  });
+  const [form, setForm] = useState(null);       // rule being edited ({ id? , ...values })
+  const [formErrors, setFormErrors] = useState([]);
+  const [preview, setPreview] = useState(null);
 
-  // Load escalation rules for selected ticket type
-  useEffect(() => {
-    if (selectedTicketType) {
-      loadEscalationRules(selectedTicketType);
+  const roleName = id => (roles || []).find(r => String(r.id) === String(id))?.name || id;
+  const stepName = id => (id ? ((steps || []).find(s => String(s.id) === String(id))?.name || id) : 'All steps');
+  const companyRoles = (roles || []).filter(r => !r.company_id || String(r.company_id) === String(companyId));
+
+  const openForm = rule => {
+    setFormErrors([]);
+    if (rule) {
+      setForm({ ...rule, notify_emails_text: listText(rule.notify_emails) });
+    } else {
+      const used = (rules || []).filter(r => !r.step_id).map(r => r.level);
+      const level = used.length ? Math.max(...used) + 1 : 1;
+      setForm({ ...emptyEscalationRule(level), notify_emails_text: '' });
     }
-  }, [selectedTicketType]);
-
-  const loadEscalationRules = async (ticketTypeId) => {
-    setLoading(true);
-    try {
-      // TODO: Replace with actual API call
-      // For now, simulate loading with default rules
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const mockRules = DEFAULT_ESCALATION_RULES.APPROVAL_24H.map(rule => ({
-        ...rule,
-        ticketTypeId,
-        id: `${ticketTypeId}_${rule.id}`
-      }));
-
-      setEscalationRules(mockRules);
-    } catch (err) {
-      error('Failed to load escalation rules');
-      setEscalationRules([]);
-    }
-    setLoading(false);
   };
 
-  const handleCreateRule = () => {
-    setEditingRule(null);
-    setRuleForm({
-      name: '',
-      trigger: ESCALATION_TRIGGERS.PERCENTAGE,
-      triggerValue: 75,
-      triggerUnit: 'hours',
-      action: ESCALATION_TYPES.NOTIFICATION,
-      targetRoles: [],
-      message: '',
-      priority: 'medium',
-      isActive: true
-    });
-    setShowRuleForm(true);
-  };
-
-  const handleEditRule = (rule) => {
-    setEditingRule(rule);
-    setRuleForm({
-      name: rule.name,
-      trigger: rule.trigger,
-      triggerValue: rule.triggerValue || 75,
-      triggerUnit: rule.triggerUnit || 'hours',
-      action: rule.action,
-      targetRoles: rule.targetRoles || [],
-      message: rule.message || '',
-      priority: rule.priority || 'medium',
-      isActive: rule.isActive
-    });
-    setShowRuleForm(true);
-  };
-
-  const handleSaveRule = async () => {
-    // Validate rule
-    const validation = SLAEscalationEngine.validateEscalationRule(ruleForm);
-    if (!validation.isValid) {
-      showInfo({
-        title: 'Validation Error',
-        message: `Please fix the following issues:\n${validation.errors.join('\n')}`,
-        type: 'error'
-      });
+  const saveForm = async () => {
+    const values = {
+      level: Number(form.level),
+      name: form.name,
+      step_id: form.step_id || '',
+      trigger: form.trigger,
+      trigger_value: Number(form.trigger_value),
+      trigger_unit: form.trigger_unit,
+      escalation_action: form.escalation_action,
+      notify_current_approvers: !!form.notify_current_approvers,
+      notify_requester: !!form.notify_requester,
+      notify_role_ids: form.notify_role_ids || [],
+      notify_emails: splitList(form.notify_emails_text),
+      message: form.message || ''
+    };
+    const check = validateEscalationRule(values);
+    if (!check.isValid) {
+      setFormErrors(check.errors);
       return;
     }
-
-    if (ruleForm.targetRoles.length === 0) {
-      showInfo({
-        title: 'Target Roles Required',
-        message: 'Please select at least one target role for this escalation rule.',
-        type: 'warning'
-      });
-      return;
-    }
-
-    setLoading(true);
     try {
-      const ruleData = {
-        ...ruleForm,
-        ticketTypeId: selectedTicketType,
-        id: editingRule ? editingRule.id : `${selectedTicketType}_${Date.now()}`
-      };
-
-      // TODO: Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      if (editingRule) {
-        // Update existing rule
-        setEscalationRules(prev =>
-          prev.map(rule => rule.id === editingRule.id ? ruleData : rule)
-        );
-        success('Escalation rule updated successfully');
+      if (form.id) {
+        await mutations.updateEscalationRule(form.id, values);
+        success('Escalation rule saved');
       } else {
-        // Add new rule
-        setEscalationRules(prev => [...prev, ruleData]);
-        success('Escalation rule created successfully');
+        await mutations.createEscalationRule({ ...values, company_id: companyId, ticket_type_id: ticketTypeId });
+        success('Escalation rule created');
       }
-
-      setShowRuleForm(false);
-      setEditingRule(null);
+      setForm(null);
+      refetchRules();
     } catch (err) {
-      error('Failed to save escalation rule');
+      setFormErrors([err.message]);
     }
-    setLoading(false);
   };
 
-  const handleDeleteRule = async (rule) => {
-    const confirmed = await confirm({
-      title: 'Delete Escalation Rule',
-      message: `Are you sure you want to delete the escalation rule "${rule.name}"? This action cannot be undone.`,
+  const removeRule = async rule => {
+    const ok = await confirm({
+      title: 'Remove escalation rule',
+      message: `Remove level ${rule.level} (${stepName(rule.step_id)})? Tickets already notified keep their notices.`,
       type: 'error',
-      confirmText: 'Delete',
+      confirmText: 'Remove',
       cancelText: 'Cancel'
     });
-
-    if (confirmed) {
-      setLoading(true);
-      try {
-        // TODO: Replace with actual API call
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        setEscalationRules(prev => prev.filter(r => r.id !== rule.id));
-        success('Escalation rule deleted successfully');
-      } catch (err) {
-        error('Failed to delete escalation rule');
-      }
-      setLoading(false);
+    if (!ok) return;
+    try {
+      await mutations.deleteEscalationRule(rule.id);
+      success('Escalation rule removed');
+      refetchRules();
+    } catch (err) {
+      showError(err.message);
     }
   };
 
-  const handleTestRule = (rule) => {
-    showInfo({
-      title: 'Test Escalation Rule',
-      message: `This will simulate the escalation rule "${rule.name}" for testing purposes. Test notifications will be sent to configured roles.\n\nRule Details:\n• Trigger: ${getTriggerDescription(rule)}\n• Action: ${getActionDescription(rule)}\n• Target Roles: ${rule.targetRoles.join(', ')}`,
-      type: 'info'
+  const runPreview = async () => {
+    try {
+      setPreview(await mutations.testEscalations());
+    } catch (err) {
+      showError(err.message);
+    }
+  };
+
+  const runNow = async () => {
+    const ok = await confirm({
+      title: 'Run escalations now',
+      message: 'Send the notices that are due now (the same as the 15-minute run)?',
+      type: 'warning',
+      confirmText: 'Run now',
+      cancelText: 'Cancel'
     });
-  };
-
-  const getTriggerDescription = (rule) => {
-    switch (rule.trigger) {
-      case ESCALATION_TRIGGERS.PERCENTAGE:
-        return `${rule.triggerValue}% of SLA time`;
-      case ESCALATION_TRIGGERS.HOURS_BEFORE:
-        return `${rule.triggerValue} hours before due`;
-      case ESCALATION_TRIGGERS.OVERDUE_BY:
-        return `${rule.triggerValue} ${rule.triggerUnit} overdue`;
-      case ESCALATION_TRIGGERS.DUE_TODAY:
-        return 'When ticket becomes due today';
-      case ESCALATION_TRIGGERS.IMMEDIATE:
-        return 'Immediate trigger';
-      default:
-        return 'Unknown trigger';
+    if (!ok) return;
+    try {
+      const result = await mutations.runEscalationsNow(false);
+      setPreview(result);
+      success(result?.skipped ? 'Another run is busy - try again shortly' : `${(result?.fired || []).length} ticket(s) escalated`);
+    } catch (err) {
+      showError(err.message);
     }
   };
 
-  const getActionDescription = (rule) => {
-    switch (rule.action) {
-      case ESCALATION_TYPES.NOTIFICATION:
-        return 'Send notification';
-      case ESCALATION_TYPES.REASSIGN:
-        return 'Reassign ticket';
-      case ESCALATION_TYPES.ESCALATE_STEP:
-        return 'Escalate to next step';
-      case ESCALATION_TYPES.AUTO_APPROVE:
-        return 'Auto-approve ticket';
-      case ESCALATION_TYPES.MANAGER_ALERT:
-        return 'Alert management';
-      default:
-        return 'Unknown action';
-    }
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'critical': return 'text-red-600 bg-red-50 border-red-200';
-      case 'high': return 'text-orange-600 bg-orange-50 border-orange-200';
-      case 'medium': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case 'low': return 'text-green-600 bg-green-50 border-green-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
-    }
+  const toggleRole = id => {
+    const current = form.notify_role_ids || [];
+    setForm({ ...form, notify_role_ids: current.includes(id) ? current.filter(r => r !== id) : [...current, id] });
   };
 
   return (
     <>
+      <ToastContainer />
       <ConfirmationModal />
-      <InformationModal />
-
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">SLA Escalation Rules</h2>
-            <p className="text-gray-600">Configure automated escalation rules for SLA management</p>
+            <h2 className="text-2xl font-bold text-gray-900">SLA Escalations</h2>
+            <p className="text-gray-600">Timed notices and escalation levels per company, ticket type and step. The server checks every 15 minutes.</p>
           </div>
-        </div>
-
-        {/* Ticket Type Selection */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Select Ticket Type</h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ticket Type
-              </label>
-              <select
-                value={selectedTicketType}
-                onChange={(e) => setSelectedTicketType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          <div className="flex space-x-2">
+            {['rules', 'holidays', 'email'].map(id => (
+              <button
+                key={id}
+                onClick={() => setPanel(id)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium ${panel === id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               >
-                <option value="">Select a ticket type...</option>
-                {ticketTypes?.map((type) => (
-                  <option key={type.id} value={type.id}>
-                    {type.name} ({type.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {selectedTicketType && (
-              <div className="flex items-end">
-                <button
-                  onClick={handleCreateRule}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2"
-                >
-                  <Icons.Create size={16} />
-                  <span>Add Escalation Rule</span>
-                </button>
-              </div>
-            )}
+                {id === 'rules' ? 'Rules' : id === 'holidays' ? 'Holidays' : 'Email'}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Escalation Rules List */}
-        {selectedTicketType && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-medium text-gray-900">
-                Escalation Rules ({escalationRules.length})
-              </h3>
+        {panel === 'rules' && (
+          <>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Company</label>
+                  <select value={companyId} onChange={e => { setCompanyId(e.target.value); setForm(null); }} className={inputClass}>
+                    <option value="">Select a company...</option>
+                    {(companies || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Ticket Type</label>
+                  <select value={ticketTypeId} onChange={e => { setTicketTypeId(e.target.value); setForm(null); }} className={inputClass}>
+                    <option value="">Select a ticket type...</option>
+                    {(ticketTypes || []).map(t => <option key={t.id} value={t.id}>{t.name} ({t.code})</option>)}
+                  </select>
+                </div>
+                <div className="flex items-end space-x-2">
+                  <button
+                    onClick={() => openForm(null)}
+                    disabled={!companyId || !ticketTypeId}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
+                  >
+                    <Icons.Create size={16} />
+                    <span>Add Level</span>
+                  </button>
+                  <button
+                    onClick={runPreview}
+                    disabled={mutations.loading}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                    title="What would fire now (nothing is sent)"
+                  >
+                    Preview
+                  </button>
+                  <button
+                    onClick={runNow}
+                    disabled={mutations.loading}
+                    className="px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 disabled:opacity-50"
+                  >
+                    Run now
+                  </button>
+                </div>
+              </div>
             </div>
 
-            {loading ? (
-              <div className="p-6 text-center">
-                <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mx-auto mb-4" />
-                <p className="text-gray-500">Loading escalation rules...</p>
-              </div>
-            ) : escalationRules.length > 0 ? (
-              <div className="divide-y divide-gray-200">
-                {escalationRules.map((rule) => (
-                  <div key={rule.id} className="p-6">
-                    <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-3 h-3 rounded-full ${rule.isActive ? 'bg-green-500' : 'bg-gray-400'}`} />
-                          <h4 className="text-lg font-medium text-gray-900">{rule.name}</h4>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(rule.priority)}`}>
-                            {rule.priority}
-                          </span>
-                        </div>
+            {form && (
+              <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-6 space-y-4">
+                <h3 className="text-lg font-medium text-gray-900">{form.id ? `Edit level ${form.level}` : 'New level'}</h3>
+                {formErrors.length > 0 && (
+                  <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{formErrors.map(e => <div key={e}>{e}</div>)}</div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Level</label>
+                    <input type="number" min="1" value={form.level} onChange={e => setForm({ ...form, level: e.target.value })} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Step</label>
+                    <select value={form.step_id || ''} onChange={e => setForm({ ...form, step_id: e.target.value })} className={inputClass}>
+                      <option value="">All steps</option>
+                      {(steps || []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <input value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} placeholder={`Level ${form.level}`} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">When</label>
+                    <select value={form.trigger} onChange={e => setForm({ ...form, trigger: e.target.value })} className={inputClass}>
+                      {Object.values(ESCALATION_TRIGGERS).map(t => <option key={t} value={t}>{TRIGGER_LABELS[t]}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{form.trigger === ESCALATION_TRIGGERS.PERCENT_ELAPSED ? 'Percent' : 'Value'}</label>
+                    <input type="number" min="1" value={form.trigger_value} onChange={e => setForm({ ...form, trigger_value: e.target.value })} className={inputClass} />
+                  </div>
+                  {form.trigger !== ESCALATION_TRIGGERS.PERCENT_ELAPSED && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                      <select value={form.trigger_unit} onChange={e => setForm({ ...form, trigger_unit: e.target.value })} className={inputClass}>
+                        {ESCALATION_UNITS.filter(u => form.trigger !== ESCALATION_TRIGGERS.BEFORE_DUE || !u.startsWith('business'))
+                          .map(u => <option key={u} value={u}>{UNIT_LABELS[u]}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Action</label>
+                    <select value={form.escalation_action} onChange={e => setForm({ ...form, escalation_action: e.target.value })} className={inputClass}>
+                      {Object.values(ESCALATION_ACTIONS).map(a => <option key={a} value={a}>{ACTION_LABELS[a]}</option>)}
+                    </select>
+                  </div>
+                </div>
 
-                        <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-                          <div>
-                            <span className="font-medium">Trigger:</span> {getTriggerDescription(rule)}
-                          </div>
-                          <div>
-                            <span className="font-medium">Action:</span> {getActionDescription(rule)}
-                          </div>
-                          <div>
-                            <span className="font-medium">Target Roles:</span> {rule.targetRoles.join(', ') || 'None'}
-                          </div>
-                          <div>
-                            <span className="font-medium">Status:</span> {rule.isActive ? 'Active' : 'Inactive'}
-                          </div>
-                        </div>
-
-                        {rule.message && (
-                          <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                            <span className="text-sm font-medium text-gray-700">Message:</span>
-                            <p className="text-sm text-gray-600 mt-1">{rule.message}</p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center space-x-2">
+                <div>
+                  <span className="block text-sm font-medium text-gray-700 mb-2">Recipients</span>
+                  <div className="flex flex-wrap gap-4 text-sm text-gray-700">
+                    <label className="flex items-center space-x-2">
+                      <input type="checkbox" checked={!!form.notify_current_approvers} onChange={e => setForm({ ...form, notify_current_approvers: e.target.checked })} />
+                      <span>Current approvers</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input type="checkbox" checked={!!form.notify_requester} onChange={e => setForm({ ...form, notify_requester: e.target.checked })} />
+                      <span>Requester</span>
+                    </label>
+                  </div>
+                  <div className="mt-3">
+                    <span className="block text-xs text-gray-500 mb-1">
+                      Roles {form.escalation_action === ESCALATION_ACTIONS.ESCALATE_ROLE ? '(their holders may act on the step after this level fires)' : ''}
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {companyRoles.map(r => (
                         <button
-                          onClick={() => handleTestRule(rule)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
-                          title="Test Rule"
+                          type="button"
+                          key={r.id}
+                          onClick={() => toggleRole(String(r.id))}
+                          className={`px-2 py-1 rounded-full text-xs border ${(form.notify_role_ids || []).includes(String(r.id))
+                            ? 'bg-blue-100 border-blue-300 text-blue-700' : 'bg-white border-gray-300 text-gray-600'}`}
                         >
-                          <Icons.Warning size={16} />
+                          {r.name}
                         </button>
-                        <button
-                          onClick={() => handleEditRule(rule)}
-                          className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors duration-200"
-                          title="Edit Rule"
-                        >
-                          <Icons.Edit size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteRule(rule)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
-                          title="Delete Rule"
-                        >
-                          <Icons.Close size={16} />
-                        </button>
-                      </div>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-6 text-center">
-                <Icons.Warning size={32} className="mx-auto text-gray-400 mb-4" />
-                <p className="text-gray-500 mb-4">No escalation rules configured</p>
-                <button
-                  onClick={handleCreateRule}
-                  className="px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
-                >
-                  Create First Escalation Rule
-                </button>
+                  <div className="mt-3">
+                    <label className="block text-xs text-gray-500 mb-1">Other emails (comma-separated, sent only when email is on)</label>
+                    <input value={form.notify_emails_text || ''} onChange={e => setForm({ ...form, notify_emails_text: e.target.value })} className={inputClass} />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Message (optional)</label>
+                  <input value={form.message || ''} onChange={e => setForm({ ...form, message: e.target.value })} className={inputClass} />
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <button onClick={() => setForm(null)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Cancel</button>
+                  <button onClick={saveForm} disabled={mutations.loading} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2">
+                    <Icons.Save size={16} />
+                    <span>Save</span>
+                  </button>
+                </div>
               </div>
             )}
-          </div>
-        )}
 
-        {/* Rule Form Modal */}
-        {showRuleForm && (
-          <div className="fixed inset-0 z-50 overflow-y-auto">
-            <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-              <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowRuleForm(false)}></div>
-
-              <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
-
-              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-                <div className="bg-white px-6 pt-6 pb-4">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-                    {editingRule ? 'Edit Escalation Rule' : 'Create Escalation Rule'}
-                  </h3>
-
-                  <div className="space-y-4">
-                    {/* Rule Name */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Rule Name
-                      </label>
-                      <input
-                        type="text"
-                        value={ruleForm.name}
-                        onChange={(e) => setRuleForm(prev => ({ ...prev, name: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="e.g., 75% SLA Warning"
-                      />
-                    </div>
-
-                    {/* Trigger Configuration */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Trigger Type
-                        </label>
-                        <select
-                          value={ruleForm.trigger}
-                          onChange={(e) => setRuleForm(prev => ({ ...prev, trigger: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                          <option value={ESCALATION_TRIGGERS.PERCENTAGE}>Percentage of SLA</option>
-                          <option value={ESCALATION_TRIGGERS.HOURS_BEFORE}>Hours Before Due</option>
-                          <option value={ESCALATION_TRIGGERS.OVERDUE_BY}>Hours/Days Overdue</option>
-                          <option value={ESCALATION_TRIGGERS.DUE_TODAY}>Due Today</option>
-                          <option value={ESCALATION_TRIGGERS.IMMEDIATE}>Immediate</option>
-                        </select>
-                      </div>
-
-                      {[ESCALATION_TRIGGERS.PERCENTAGE, ESCALATION_TRIGGERS.HOURS_BEFORE, ESCALATION_TRIGGERS.OVERDUE_BY].includes(ruleForm.trigger) && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            {ruleForm.trigger === ESCALATION_TRIGGERS.PERCENTAGE ? 'Percentage' : 'Value'}
-                          </label>
-                          <div className="flex space-x-2">
-                            <input
-                              type="number"
-                              min="1"
-                              max={ruleForm.trigger === ESCALATION_TRIGGERS.PERCENTAGE ? "100" : "999"}
-                              value={ruleForm.triggerValue}
-                              onChange={(e) => setRuleForm(prev => ({ ...prev, triggerValue: parseInt(e.target.value) }))}
-                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                            {ruleForm.trigger === ESCALATION_TRIGGERS.OVERDUE_BY && (
-                              <select
-                                value={ruleForm.triggerUnit}
-                                onChange={(e) => setRuleForm(prev => ({ ...prev, triggerUnit: e.target.value }))}
-                                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              >
-                                <option value="hours">Hours</option>
-                                <option value="days">Days</option>
-                              </select>
+            {companyId && ticketTypeId && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-medium text-gray-900">Levels ({(rules || []).length})</h3>
+                </div>
+                {rulesLoading ? (
+                  <div className="p-6 text-center text-gray-500">Loading escalation rules...</div>
+                ) : (rules || []).length ? (
+                  <div className="divide-y divide-gray-200">
+                    {rules.map(rule => (
+                      <div key={rule.id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Level {rule.level}</span>
+                            <span className="text-sm font-medium text-gray-900">{rule.name}</span>
+                            <span className="text-xs text-gray-500">{stepName(rule.step_id)}</span>
+                            {rule.escalation_action === ESCALATION_ACTIONS.ESCALATE_ROLE && (
+                              <span className="px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-700">escalates</span>
                             )}
                           </div>
+                          <p className="text-sm text-gray-600 mt-1">{describeRule(rule, roleName)}</p>
                         </div>
-                      )}
-                    </div>
-
-                    {/* Action Configuration */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Action Type
-                        </label>
-                        <select
-                          value={ruleForm.action}
-                          onChange={(e) => setRuleForm(prev => ({ ...prev, action: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                          <option value={ESCALATION_TYPES.NOTIFICATION}>Send Notification</option>
-                          <option value={ESCALATION_TYPES.MANAGER_ALERT}>Manager Alert</option>
-                          <option value={ESCALATION_TYPES.REASSIGN}>Reassign Ticket</option>
-                          <option value={ESCALATION_TYPES.ESCALATE_STEP}>Escalate Step</option>
-                          <option value={ESCALATION_TYPES.AUTO_APPROVE}>Auto Approve</option>
-                        </select>
+                        <div className="flex space-x-2">
+                          <button onClick={() => openForm(rule)} className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg" title="Edit"><Icons.Edit size={16} /></button>
+                          <button onClick={() => removeRule(rule)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Remove"><Icons.Delete size={16} /></button>
+                        </div>
                       </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Priority
-                        </label>
-                        <select
-                          value={ruleForm.priority}
-                          onChange={(e) => setRuleForm(prev => ({ ...prev, priority: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                          <option value="low">Low</option>
-                          <option value="medium">Medium</option>
-                          <option value="high">High</option>
-                          <option value="critical">Critical</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Target Roles */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Target Roles
-                      </label>
-                      <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-300 rounded-lg p-3">
-                        {roles?.map((role) => (
-                          <label key={role.id} className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              checked={ruleForm.targetRoles.includes(role.name)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setRuleForm(prev => ({
-                                    ...prev,
-                                    targetRoles: [...prev.targetRoles, role.name]
-                                  }));
-                                } else {
-                                  setRuleForm(prev => ({
-                                    ...prev,
-                                    targetRoles: prev.targetRoles.filter(r => r !== role.name)
-                                  }));
-                                }
-                              }}
-                              className="rounded text-blue-600 focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-700">{role.name}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Message */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Custom Message (Optional)
-                      </label>
-                      <textarea
-                        value={ruleForm.message}
-                        onChange={(e) => setRuleForm(prev => ({ ...prev, message: e.target.value }))}
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Custom message for this escalation..."
-                      />
-                    </div>
-
-                    {/* Active Status */}
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={ruleForm.isActive}
-                        onChange={(e) => setRuleForm(prev => ({ ...prev, isActive: e.target.checked }))}
-                        className="rounded text-blue-600 focus:ring-blue-500"
-                      />
-                      <label className="text-sm font-medium text-gray-700">
-                        Rule is active
-                      </label>
-                    </div>
+                    ))}
                   </div>
-                </div>
-
-                <div className="bg-gray-50 px-6 py-3 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowRuleForm(false)}
-                    className="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:w-auto sm:text-sm"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveRule}
-                    disabled={loading}
-                    className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 disabled:opacity-50 sm:w-auto sm:text-sm"
-                  >
-                    {loading ? 'Saving...' : editingRule ? 'Update Rule' : 'Create Rule'}
-                  </button>
-                </div>
+                ) : (
+                  <div className="p-6 text-center text-gray-500">No escalation levels for this company and ticket type yet.</div>
+                )}
               </div>
-            </div>
-          </div>
+            )}
+
+            {preview && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {preview.dry_run ? 'Preview - would fire now' : 'Run result'}
+                </h3>
+                {preview.skipped ? (
+                  <p className="text-sm text-gray-600">Skipped: another run or a write held the lock.</p>
+                ) : (preview.fired || []).length ? (
+                  <ul className="text-sm text-gray-700 space-y-1">
+                    {preview.fired.map(f => (
+                      <li key={`${f.ticket_id}-${f.levels.join('-')}`}>
+                        {f.ticket_number || f.ticket_id}: level {f.levels.join(', ')} ({f.type.replace('sla_', '')}) to {f.recipients.length} user(s)
+                        {f.granted_role_ids.length ? ` - escalated to ${f.granted_role_ids.map(roleName).join(', ')}` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-gray-600">Nothing is due ({preview.checked || 0} ticket(s) checked).</p>
+                )}
+                {preview.capped && <p className="text-xs text-gray-500 mt-2">More than 200 notices were due; the rest go out on the next run.</p>}
+              </div>
+            )}
+          </>
         )}
+
+        {panel === 'holidays' && <HolidaysPanel userId={userId} companies={companies} onError={showError} onSuccess={success} />}
+        {panel === 'email' && <EmailPanel userId={userId} onError={showError} onSuccess={success} />}
       </div>
     </>
+  );
+};
+
+/** Holidays: count against business time when a company SLA rule excludes holidays (AppScript v9.5). */
+const HolidaysPanel = ({ userId, companies, onError, onSuccess }) => {
+  const [companyId, setCompanyId] = useState('');
+  const [year, setYear] = useState(String(new Date().getFullYear()));
+  const { data: holidays, refetch } = useCompanyHolidays(companyId || null, year);
+  const [newHoliday, setNewHoliday] = useState({ date: '', name: '' });
+  const [phPreview, setPhPreview] = useState(null);
+  const companyName = id => (id ? ((companies || []).find(c => String(c.id) === String(id))?.name || id) : 'All companies');
+
+  const add = async () => {
+    try {
+      await API.SLA.createHoliday(userId, { ...newHoliday, company_id: companyId });
+      setNewHoliday({ date: '', name: '' });
+      onSuccess('Holiday added');
+      refetch();
+    } catch (err) {
+      onError(err.message);
+    }
+  };
+
+  const remove = async id => {
+    try {
+      await API.SLA.deleteHoliday(userId, id);
+      refetch();
+    } catch (err) {
+      onError(err.message);
+    }
+  };
+
+  const addPhilippine = async dryRun => {
+    try {
+      const result = await API.SLA.addPhilippineHolidays(userId, Number(year), companyId, dryRun);
+      setPhPreview(dryRun ? result : null);
+      if (!dryRun) {
+        onSuccess(`${result.added} holiday(s) added`);
+        refetch();
+      }
+    } catch (err) {
+      onError(err.message);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+          <select value={companyId} onChange={e => setCompanyId(e.target.value)} className={inputClass}>
+            <option value="">All companies</option>
+            {(companies || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+          <input type="number" value={year} onChange={e => setYear(e.target.value)} className={inputClass} />
+        </div>
+        <div className="flex items-end">
+          <button onClick={() => addPhilippine(true)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+            Philippine holidays for {year}...
+          </button>
+        </div>
+      </div>
+
+      {phPreview && (
+        <div className="p-4 bg-blue-50 rounded-lg text-sm">
+          <p className="text-blue-800 mb-2">
+            {phPreview.holidays.filter(h => !h.exists).length} to add for {companyName(phPreview.company_id)} (Eid holidays and Chinese New Year are proclaimed each year - add them by hand):
+          </p>
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-1 text-blue-900">
+            {phPreview.holidays.map(h => <li key={h.date} className={h.exists ? 'opacity-50' : ''}>{h.date} - {h.name}{h.exists ? ' (already there)' : ''}</li>)}
+          </ul>
+          <div className="mt-3 flex space-x-2">
+            <button onClick={() => addPhilippine(false)} className="px-3 py-1 bg-blue-600 text-white rounded-lg">Add them</button>
+            <button onClick={() => setPhPreview(null)} className="px-3 py-1 bg-white text-gray-700 rounded-lg border">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col md:flex-row gap-2">
+        <input type="date" value={newHoliday.date} onChange={e => setNewHoliday({ ...newHoliday, date: e.target.value })} className={inputClass} />
+        <input placeholder="Name" value={newHoliday.name} onChange={e => setNewHoliday({ ...newHoliday, name: e.target.value })} className={inputClass} />
+        <button onClick={add} disabled={!newHoliday.date || !newHoliday.name} className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50">Add</button>
+      </div>
+
+      <div className="divide-y divide-gray-100">
+        {(holidays || []).map(h => (
+          <div key={h.id} className="py-2 flex items-center justify-between text-sm">
+            <span>{h.date} - {h.name} <span className="text-gray-400">({companyName(h.company_id)})</span></span>
+            <button onClick={() => remove(h.id)} className="p-1 text-red-600 hover:bg-red-50 rounded" title="Remove"><Icons.Delete size={14} /></button>
+          </div>
+        ))}
+        {(holidays || []).length === 0 && <p className="text-sm text-gray-500 py-2">No holidays for {year}.</p>}
+      </div>
+    </div>
+  );
+};
+
+/** Email for SLA notices: global default + per ticket type; the user's own preference still applies (v9.5). */
+const EmailPanel = ({ userId, onError, onSuccess }) => {
+  const { data: settings, refetch } = useSLANotificationSettings();
+
+  const save = async changes => {
+    try {
+      await API.SLA.saveNotificationSettings(userId, changes);
+      onSuccess('Email settings saved');
+      refetch();
+    } catch (err) {
+      onError(err.message);
+    }
+  };
+
+  if (!settings) return <div className="p-6 text-gray-500">Loading email settings...</div>;
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
+      <p className="text-sm text-gray-600">
+        SLA notices always appear in the app (the bell). Email is sent as one digest per person per run when it is on for the
+        ticket type and the person hasn't turned email off in their profile. Mail quota left today: {settings.quota_remaining}.
+      </p>
+      <label className="flex items-center space-x-2 text-sm">
+        <input type="checkbox" checked={settings.email_default === 'on'} onChange={e => save({ email_default: e.target.checked ? 'on' : 'off' })} />
+        <span>Email by default (ticket types set to "default")</span>
+      </label>
+      <div className="divide-y divide-gray-100">
+        {settings.ticket_types.map(t => (
+          <div key={t.ticket_type_id} className="py-2 flex items-center justify-between text-sm">
+            <span>{t.name} <span className="text-gray-400">({t.email_on ? 'email on' : 'in-app only'})</span></span>
+            <select value={t.sla_email} onChange={e => save({ ticket_types: { [t.ticket_type_id]: e.target.value } })} className="px-2 py-1 border border-gray-300 rounded-lg">
+              {SLA_EMAIL_MODES.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 };
 

@@ -536,67 +536,24 @@ const CompanySLAManager = () => {
           {activeTab === 'escalations' && (
             <div className="bg-white border border-gray-200 rounded-lg p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Escalation Configuration</h3>
-              <div className="space-y-4">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="escalationEnabled"
-                    checked={formData.escalationEnabled}
-                    onChange={handleInputChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <label className="ml-2 block text-sm font-medium text-gray-900">
-                    Enable automatic escalation
-                  </label>
-                </div>
-
+              {/* AppScript v9.5: escalation has its own rules (several levels per step, roles, in-app + email). The
+                  escalation fields of this form are kept on the rule for rules made before v9.5; the editor function
+                  migrateCompanyEscalationsToRules() turns them into escalation levels. */}
+              <div className="p-4 bg-blue-50 rounded-lg text-sm text-blue-800 space-y-2">
+                <p>
+                  Escalation is set up in <strong>Admin → SLA Escalations</strong>: several timed levels per step (a % of the
+                  SLA, before or after the due date), notices to approvers, the requester, roles or email addresses, and
+                  escalation to a role that may then act on the step.
+                </p>
+                <p>
+                  This SLA rule still sets the due date (it wins over the step's own SLA) and its business hours, business
+                  days and holidays count for escalation times too.
+                </p>
                 {formData.escalationEnabled && (
-                  <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Escalation Delay
-                        </label>
-                        <input
-                          type="number"
-                          name="escalationDelay"
-                          value={formData.escalationDelay}
-                          onChange={handleInputChange}
-                          min="1"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Escalation Unit
-                        </label>
-                        <select
-                          name="escalationUnit"
-                          value={formData.escalationUnit}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                          <option value="minutes">Minutes</option>
-                          <option value="hours">Hours</option>
-                          <option value="days">Days</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Escalation Recipients (Email addresses, comma-separated)
-                      </label>
-                      <textarea
-                        name="escalationRecipients"
-                        value={formData.escalationRecipients}
-                        onChange={handleInputChange}
-                        placeholder="manager@company.com, supervisor@company.com"
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                  </>
+                  <p className="text-blue-700">
+                    This rule has a pre-v9.5 escalation ({formData.escalationDelay} {formData.escalationUnit}); an admin can
+                    convert it with migrateCompanyEscalationsToRules() in the Apps Script editor.
+                  </p>
                 )}
               </div>
             </div>

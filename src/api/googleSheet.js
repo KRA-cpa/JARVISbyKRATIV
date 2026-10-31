@@ -6,6 +6,7 @@
 
 import { ValidationUtils } from './models';
 import { apiConfig } from '../config/apiConfig';
+import { auth } from '../config/firebase';
 
 // API Configuration - Reduced retries to prevent resource exhaustion
 const CONFIG = {
@@ -14,6 +15,9 @@ const CONFIG = {
   MAX_RETRIES: 1, // Reduced retries to prevent flooding
   RETRY_DELAY: 2000, // Increased delay between retries
   CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
+  // Identical reads with a payload within this window share one response, so the dashboard's widgets don't each
+  // fetch getTickets (compliance F5). Short, so Refresh still gets fresh data
+  READ_BURST_TTL: 10 * 1000,
   ENABLE_MOCK_DATA: apiConfig.mockMode
 };
 
@@ -55,6 +59,25 @@ class APICache {
 }
 
 const cache = new APICache();
+
+// Reads in flight, by cache key: a second identical read waits for the first instead of sending again (F5)
+const inFlightReads = new Map();
+// Bumped by every write: a read that started before the write neither fills the cache nor is shared after it
+// (review CR2-02 - an approval followed by a refetch showed the pre-approval list)
+let cacheGeneration = 0;
+
+/**
+ * Firebase ID token of the signed-in user, for the proxy to verify (compliance F2). null when nobody is signed in
+ * (development with DISABLE_AUTH): the backend then treats the call as unverified (AUTH_MODE warn logs it).
+ */
+async function getIdToken() {
+  try {
+    return auth && auth.currentUser ? await auth.currentUser.getIdToken() : null;
+  } catch (error) {
+    console.warn('Could not get the Firebase ID token:', error.message);
+    return null;
+  }
+}
 
 // Simple circuit breaker to prevent resource exhaustion
 class CircuitBreaker {
@@ -235,12 +258,25 @@ class BaseAPI {
 
     const cacheKey = this.getCacheKey(action, payload);
 
-    // Check cache for GET requests
-    if (useCache && !payload && action.startsWith('get')) {
+    // Reads: a cached response, or the same read already in flight (F5). Before v9.4 only reads without a
+    // payload were looked up, so every widget's getTickets({}) went to the backend
+    if (useCache && action.startsWith('get')) {
       const cached = cache.get(cacheKey);
       if (cached) return cached;
+      if (inFlightReads.has(cacheKey)) return inFlightReads.get(cacheKey);
+      const pending = this.sendRequest(action, payload, useCache, cacheKey)
+        .finally(() => {
+          if (inFlightReads.get(cacheKey) === pending) inFlightReads.delete(cacheKey);
+        });
+      inFlightReads.set(cacheKey, pending);
+      return pending;
     }
+    return this.sendRequest(action, payload, useCache, cacheKey);
+  }
 
+  /** Send one request (makeRequest handles the cache and in-flight reads). */
+  async sendRequest(action, payload, useCache, cacheKey) {
+    const generation = cacheGeneration;
     try {
       // Handle both absolute URLs (production) and relative paths (development)
       let url;
@@ -270,7 +306,12 @@ class BaseAPI {
         'getStepConditions', 'getReportConfig', 'getReportData', 'getAdminActionLogs', 'getTicketActionLogs',
         // AppScript v9.3 reads
         'getDropdownCompanyAssignments', 'getCompanySLARules', 'getTags', 'getTicketTags', 'searchTicketsByTags',
-        'getTicketShares', 'getSharedTickets'
+        'getTicketShares', 'getSharedTickets',
+        // AppScript v9.4 reads
+        'getDashboard',
+        // AppScript v9.5 reads (SLA escalation, notifications, holidays)
+        'getSLAEscalationRules', 'getSLAEscalationEvents', 'testSLAEscalations', 'getNotifications',
+        'getCompanyHolidays', 'getSLANotificationSettings'
       ];
 
       const isGetRequest = readActions.includes(action);
@@ -303,10 +344,14 @@ class BaseAPI {
         }
       }
 
+      // F2: identity goes in the Authorization header; the proxy verifies it (a body user_id is never proof)
+      const idToken = await getIdToken();
+      const headers = { 'Content-Type': 'application/json', ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}) };
       const options = isGetRequest
-        ? { method: 'GET' }
+        ? { method: 'GET', headers }
         : {
             method: 'POST',
+            headers,
             body: JSON.stringify({ action, ...(payload || {}) })
           };
 
@@ -332,16 +377,19 @@ class BaseAPI {
         throw new Error(response.error || 'API request failed');
       }
 
-      // Cache successful GET requests
-      if (useCache && action.startsWith('get')) {
-        cache.set(cacheKey, response);
+      // Cache successful reads: 5 minutes without a payload (lists like getCompanies), a short burst window with
+      // one (getTickets({}), getTicket(id)) so Refresh stays fresh
+      if (useCache && action.startsWith('get') && generation === cacheGeneration) {
+        cache.set(cacheKey, response, payload ? CONFIG.READ_BURST_TTL : CONFIG.CACHE_DURATION);
       }
 
-      // Invalidate related cache entries on any write - not only create/update/delete names: assignUserRole,
-      // submitStepApproval, lockCompany... left stale cached reads behind (review R-02)
+      // Any write clears the whole cache - not only this entity's keys: an approval (tickets) also changes
+      // step_approvals, ticket history, the inbox... (review R-02, compliance F5)
       const isRead = isGetRequest || /^(get|can|check|validate)/.test(action);
       if (!isRead) {
-        cache.invalidate(this.entityName);
+        cacheGeneration++;
+        cache.clear();
+        inFlightReads.clear();
       }
 
       return response;
@@ -847,6 +895,13 @@ class TicketAPI extends BaseAPI {
   async getForApproval(userId) {
     const response = await this.makeRequest('getTicketsForApproval', { user_id: userId });
     return response.data || [];
+  }
+
+  // Dashboard data besides the ticket list, in one call (AppScript v9.4 getDashboard, compliance F5):
+  // { companies, ticket_types, approval_inbox, counts }
+  async getDashboard(userId) {
+    const response = await this.makeRequest('getDashboard', { user_id: userId });
+    return response.data || { companies: [], ticket_types: [], approval_inbox: [], counts: {} };
   }
 
   getMockData(action, params = {}) {
@@ -2389,6 +2444,84 @@ class SLAAPI extends BaseAPI {
     return response.data;
   }
 
+  // AppScript v9.5: escalation rules - levels per company + ticket type + step (blank step = every step).
+  // The rule's own field is escalation_action ('notify' | 'escalate_role'): a payload key `action` would replace
+  // the route name (compliance A13). user_id is for the admin check; under AUTH_MODE enforce the token decides.
+  async getEscalationRules(companyId, ticketTypeId = null, stepId = null) {
+    const response = await this.makeRequest('getSLAEscalationRules', {
+      company_id: companyId,
+      ticket_type_id: ticketTypeId,
+      step_id: stepId
+    });
+    return response.data || [];
+  }
+
+  async createEscalationRule(userId, rule) {
+    const response = await this.makeRequest('createSLAEscalationRule', { ...rule, user_id: userId });
+    return response.data;
+  }
+
+  async updateEscalationRule(userId, ruleId, rule) {
+    const response = await this.makeRequest('updateSLAEscalationRule', { ...rule, rule_id: ruleId, user_id: userId });
+    return response.data;
+  }
+
+  async deleteEscalationRule(userId, ruleId, reason = 'admin_request') {
+    const response = await this.makeRequest('deleteSLAEscalationRule', { rule_id: ruleId, reason, user_id: userId });
+    return response.data;
+  }
+
+  // What fired on a ticket (ticket timeline)
+  async getEscalationEvents(ticketId) {
+    const response = await this.makeRequest('getSLAEscalationEvents', { ticket_id: ticketId });
+    return response.data || [];
+  }
+
+  // Admin preview: what would fire now (read-only)
+  async testEscalations(userId) {
+    const response = await this.makeRequest('testSLAEscalations', { user_id: userId }, false);
+    return response.data;
+  }
+
+  // Admin: run the escalation pass now (dry run unless dryRun is false)
+  async runEscalationsNow(userId, dryRun = true) {
+    const response = await this.makeRequest('runSLAEscalationsNow', { user_id: userId, dry_run: dryRun });
+    return response.data;
+  }
+
+  // Holidays: a company's own plus the ones for every company (blank company_id)
+  async getHolidays(companyId = null, year = null) {
+    const response = await this.makeRequest('getCompanyHolidays', { company_id: companyId, year });
+    return response.data || [];
+  }
+
+  async createHoliday(userId, holiday) {
+    const response = await this.makeRequest('createCompanyHoliday', { ...holiday, user_id: userId });
+    return response.data;
+  }
+
+  async deleteHoliday(userId, holidayId) {
+    const response = await this.makeRequest('deleteCompanyHoliday', { id: holidayId, user_id: userId });
+    return response.data;
+  }
+
+  // Philippine holidays of a year; a dry run (preview) unless dryRun is false
+  async addPhilippineHolidays(userId, year, companyId = '', dryRun = true) {
+    const response = await this.makeRequest('addPhilippineHolidays', { user_id: userId, year, company_id: companyId, dry_run: dryRun });
+    return response.data;
+  }
+
+  // Email for SLA notices: global default (on / off) + per ticket type (default / on / off)
+  async getNotificationSettings() {
+    const response = await this.makeRequest('getSLANotificationSettings', {}, false);
+    return response.data;
+  }
+
+  async saveNotificationSettings(userId, settings) {
+    const response = await this.makeRequest('saveSLANotificationSettings', { ...settings, user_id: userId });
+    return response.data;
+  }
+
   getMockData(action, params = {}) {
     const mockSLARules = [
       {
@@ -2703,6 +2836,25 @@ class SharingAPI extends BaseAPI {
  * Reports (AppScript v9.2, spec 3.3 / 3.4): the report columns of a ticket type (company config wins over the
  * global one) and the report rows. Non-admins only get the tickets they requested, acted on or can approve.
  */
+// In-app notifications (AppScript v9.5): the caller's own; the server decides whose (actorId)
+class NotificationsAPI extends BaseAPI {
+  constructor() {
+    super('notifications');
+  }
+
+  async getAll(userId, { unreadOnly = false, limit = 50 } = {}) {
+    const response = await this.makeRequest('getNotifications', { user_id: userId, unread_only: unreadOnly, limit });
+    return response.data || { items: [], unread_count: 0, total: 0 };
+  }
+
+  // ids: the notifications to mark; null / undefined = all of them; [] = nothing (review CR2-06)
+  async markRead(userId, ids = null) {
+    if (Array.isArray(ids) && ids.length === 0) return { marked: 0 };
+    const response = await this.makeRequest('markNotificationsRead', Array.isArray(ids) ? { user_id: userId, ids } : { user_id: userId, all: true });
+    return response.data;
+  }
+}
+
 class ReportsAPI extends BaseAPI {
   constructor() {
     super('reports');
@@ -2789,6 +2941,7 @@ export const API = {
   SLA: new SLAAPI(),
   TicketLinks: new TicketLinksAPI(),
   Reports: new ReportsAPI(),
+  Notifications: new NotificationsAPI(),
   AuditLogs: new AuditLogAPI(),
   Tags: new TagsAPI(),
   Sharing: new SharingAPI(),

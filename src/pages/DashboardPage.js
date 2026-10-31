@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
-import { useTickets, useCompanies, useTicketTypes, useTicketsForApproval } from '../hooks/useAPI';
+import { useTickets, useDashboard } from '../hooks/useAPI';
 import { useToast } from '../components/shared/Toast';
 import { useInformation } from '../components/shared/ConfirmationModal';
 import Header from '../components/shared/Header';
@@ -15,12 +15,14 @@ import DEV_CONFIG from '../config/development';
 
 const DashboardPage = () => {
   const { user, userRoles, userCompanies, permissions, hasPermission } = useUser();
+  // The ticket list is shared with the SLA widgets (one getTickets per load - identical reads are deduplicated)
   const { data: tickets, loading: ticketsLoading, error: ticketsError, refetch: refetchTickets } = useTickets();
-  const { data: companies } = useCompanies();
-  const { data: ticketTypes } = useTicketTypes();
   const currentUserId = user?.uid || user?.id;
-  // Approver inbox from the backend's own eligibility (AppScript v9.1), not from role names
-  const { data: approvalInbox } = useTicketsForApproval(currentUserId);
+  // Companies, ticket types and the approver inbox (the backend's own eligibility) in one call (AppScript v9.4)
+  const { data: dashboard, refetch: refetchDashboard } = useDashboard(currentUserId);
+  const companies = dashboard?.companies;
+  const ticketTypes = dashboard?.ticket_types;
+  const approvalInbox = dashboard?.approval_inbox;
   const navigate = useNavigate();
   const { ToastContainer } = useToast();
 
@@ -32,24 +34,6 @@ const DashboardPage = () => {
   const [selectedPriority, setSelectedPriority] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const isRefreshing = refreshing || ticketsLoading;
-
-  // Mock notifications for demo
-  const mockNotifications = [
-    {
-      type: 'approval',
-      title: 'Ticket requires your approval',
-      message: 'Purchase Request #MAIN-PR-2025-00000001 needs approval',
-      timestamp: '2 minutes ago',
-      read: false
-    },
-    {
-      type: 'overdue',
-      title: 'SLA overdue warning',
-      message: 'Equipment Request #TECH-EQ-2025-00000003 is overdue',
-      timestamp: '15 minutes ago',
-      read: false
-    }
-  ];
 
   // Filter tickets based on current selections
   const filteredTickets = tickets?.filter(ticket => {
@@ -83,7 +67,7 @@ const DashboardPage = () => {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await Promise.all([refetchTickets(), new Promise(resolve => setTimeout(resolve, 600))]);
+      await Promise.all([refetchTickets(), refetchDashboard(), new Promise(resolve => setTimeout(resolve, 600))]);
     } finally {
       setRefreshing(false);
     }
@@ -191,7 +175,6 @@ const DashboardPage = () => {
         <Header
           user={user}
           userRole={userRoles?.[0]?.name?.toLowerCase() || 'user'}
-          notifications={mockNotifications}
         />
 
         {/* Main Content */}

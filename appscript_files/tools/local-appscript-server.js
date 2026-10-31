@@ -322,6 +322,44 @@ app.get('/exec', (req, res) => {
           .map(t => ({ ...t, current_step_name: (mockData.workflowSteps.find(s => s.id === t.current_step_id) || {}).name, approver_logic: 'any', eligible_role_ids: ['role_2'] }))));
         break;
 
+      // v9.5 reads: SLA escalation, notifications, holidays (empty in the mock - the escalation run is server-side)
+      case 'getNotifications':
+        res.json(createResponse(true, { items: [], unread_count: 0, total: 0 }));
+        break;
+
+      case 'getSLAEscalationRules':
+      case 'getSLAEscalationEvents':
+      case 'getCompanyHolidays':
+        res.json(createResponse(true, []));
+        break;
+
+      case 'testSLAEscalations':
+        res.json(createResponse(true, { dry_run: true, skipped: false, checked: mockData.tickets.length, fired: [], notifications: 0, capped: false }));
+        break;
+
+      case 'getSLANotificationSettings':
+        res.json(createResponse(true, { email_default: 'off', quota_remaining: 100,
+          ticket_types: mockData.ticketTypes.map(t => ({ ticket_type_id: String(t.id), name: t.name, sla_email: 'default', email_on: false })) }));
+        break;
+
+      // v9.4 read: what the dashboard needs besides the ticket list
+      case 'getDashboard': {
+        const open = mockData.tickets.filter(t => !TERMINAL.includes(t.status));
+        const inbox = open.filter(t => t.current_step_id)
+          .map(t => ({ ...t, current_step_name: (mockData.workflowSteps.find(s => s.id === t.current_step_id) || {}).name, approver_logic: 'any', eligible_role_ids: ['role_2'] }));
+        res.json(createResponse(true, {
+          companies: mockData.companies,
+          ticket_types: mockData.ticketTypes,
+          approval_inbox: inbox,
+          counts: {
+            total: mockData.tickets.length, open: open.length, closed: mockData.tickets.length - open.length,
+            mine: mockData.tickets.filter(t => String(t.requester_id) === String(req.query.user_id)).length,
+            overdue: 0, due_today: 0, for_my_approval: inbox.length
+          }
+        }));
+        break;
+      }
+
       // v9.2 reads
       case 'getStepConditions':
         res.json(createResponse(true, mockData.stepConditions[req.query.step_id] || { step_id: req.query.step_id, enabled: false, routes: [] }));
@@ -421,6 +459,10 @@ app.post('/exec', (req, res) => {
 
   try {
     switch (action) {
+      // v9.5: nothing to mark in the mock
+      case 'markNotificationsRead':
+        res.json(createResponse(true, { marked: 0 }));
+        break;
       case 'ping':
         res.json(createResponse(true, {
           status: 'API is running',

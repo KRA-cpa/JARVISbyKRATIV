@@ -125,6 +125,18 @@ This document tracks the implementation of Service Level Agreement (SLA) functio
 - **Error Resilience**: Comprehensive error handling with user-friendly messages
 - **Performance Analytics**: SLA compliance tracking and trend indicators
 
+### ✅ Phase 5.2: SLA Escalation — server-side (AppScript v9.5, 30 Oct 2026)
+
+> **Correction:** the escalation work marked "Phase 6 COMPLETED" before v9.5 was a browser-only mock - hard-coded rules (`DEFAULT_ESCALATION_RULES`), `setTimeout` "saves", an engine running in every open dashboard, nothing stored, and the +8 h shift applied again (`toPhilippineTime`). It is replaced as below. Plan: `docs/planning/PLAN_SLAEscalation_20261030.md` v1.1.
+
+- **Rules** (`sla_escalation_rules`): levels per company + ticket type + step (blank step = every step; a step rule wins at the same level). Trigger `percent_elapsed` / `before_due` / `after_due` with a value and unit (minutes, hours, days, business hours, business days). `escalation_action`: `notify` or `escalate_role`. Recipients: current approvers, requester, roles, email addresses.
+- **Run** (`runSLAEscalations`): a 15-minute Apps Script trigger. One read per tab, `tryLock` skip when busy, at most 200 notices per run. Each level fires **once per visit** of a step (`sla_escalation_events`, key ticket + step + visit + rule); a return or reopen starts a new visit. Several levels due at once → one notice per person for the highest.
+- **escalate_role**: holders of the role may approve / reject / return the step for that visit; their approval completes an `all` step (history `APPROVED` with `field_changes.escalated`); the ticket shows in their approval inbox.
+- **Notifications** (`notifications`): the header bell (`useNotifications`), the dashboard's SLA Monitoring card, ticket → History → SLA escalations. Email: per ticket type `sla_email` (default / on / off) + global `SLA_EMAIL_DEFAULT`, and the user's `email_notifications`; one digest per address per run; skipped below a quota reserve of 10.
+- **Due dates (decision D4)**: a live company SLA rule whose `step_name` matches the step wins over the step SLA (`stepDueDateFor`), with business hours, business days (0 = Sunday ... 6 = Saturday) and `company_holidays` when it excludes holidays. `calculateSLADueDate` now skips **Manila** weekends.
+- **Time (compliance A17)**: stored in real UTC; Manila only through `Utilities.formatDate(…, 'Asia/Manila', …)` and `phDay`. The frontend shows times with `Intl` (F3). `src/utils/slaCalculator.js` still uses `toPhilippineTime` for the SLA widgets - known gap (`scripts/code-rules-known-gaps.txt`, F3), to be fixed next.
+- **Admin**: Admin → SLA Escalations (Rules, Holidays incl. Philippine holidays per year, Email). Editor: `installSLAEscalationTrigger()`, `runSLAEscalationsDryRun()`, `migrateCompanyEscalationsToRules()` / `…Apply()`.
+
 ## Technical Specifications
 
 ### SLA Data Structure

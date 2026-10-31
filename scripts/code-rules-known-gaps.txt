@@ -1,0 +1,12 @@
+# Known code-rule violations - checked by scripts/check-code-rules.js
+# Format: <RULE> <function|file>. This list may only shrink: fix a violation, then remove its line
+# (node scripts/check-code-rules.js --update). Never add a line to silence a new violation.
+# Last updated against APPSCRIPT_v9.5_20261030_0650.txt
+
+A16 analyzeCurrentSchema
+A16 analyzeSheetColumns
+A16 cloneWorkflowSteps
+A16 importConfiguration
+A16 updateDropdownCompanyAssignments
+F3 src/utils/slaCalculator.js
+F4 src/hooks/useWorkflowRouter.js

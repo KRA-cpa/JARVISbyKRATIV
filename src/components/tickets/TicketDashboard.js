@@ -65,7 +65,12 @@ const TicketDashboard = () => {
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
-  const [openTicketId, setOpenTicketId] = useState(null);
+  // ?ticket=<id> opens that ticket (the notification bell links here, AppScript v9.5)
+  const [openTicketId, setOpenTicketId] = useState(() => searchParams.get('ticket'));
+  const linkedTicketId = searchParams.get('ticket');
+  useEffect(() => {
+    if (linkedTicketId) setOpenTicketId(linkedTicketId);
+  }, [linkedTicketId]);
   const [expandedIds, setExpandedIds] = useState(() => new Set());
 
   const approvalIds = new Set((approvalInbox || []).map(t => String(t.id)));

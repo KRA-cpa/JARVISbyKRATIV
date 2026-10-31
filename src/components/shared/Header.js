@@ -5,12 +5,29 @@ import { auth } from '../../config/firebase';
 import Icons from './Icons';
 import { HeaderClock } from './LiveClock';
 import DarkModeToggle from './DarkModeToggle';
+import { useNotifications } from '../../hooks/useAPI';
 
-const Header = ({ user, userRole, notifications = [] }) => {
+// Notification times in Manila (compliance F3: Intl with the time zone, no hour arithmetic)
+const manilaTime = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' });
+const formatNotificationTime = iso => {
+  const date = new Date(iso);
+  return isNaN(date.getTime()) ? '' : manilaTime.format(date);
+};
+
+// The bell shows the signed-in user's own notifications from the backend (AppScript v9.5 getNotifications) -
+// SLA warnings, overdue notices and escalations written by the server's escalation run
+const Header = ({ user, userRole }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const { notifications, unreadCount, markRead } = useNotifications(user?.uid || user?.id);
+
+  const openNotification = async (notification) => {
+    setShowNotifications(false);
+    if (!notification.is_read) await markRead([notification.id]);
+    if (notification.link) navigate(notification.link);
+  };
 
   const handleLogout = async () => {
     try {
@@ -31,7 +48,7 @@ const Header = ({ user, userRole, notifications = [] }) => {
       : 'text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700 border-transparent';
   };
 
-  const unreadNotifications = notifications.filter(n => !n.read).length;
+  const unreadNotifications = unreadCount;
 
   return (
     <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
@@ -120,26 +137,38 @@ const Header = ({ user, userRole, notifications = [] }) => {
               {/* Notifications Dropdown */}
               {showNotifications && (
                 <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                  <div className="p-4 border-b border-gray-200">
+                  <div className="p-4 border-b border-gray-200 flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-gray-900">
                       Notifications ({unreadNotifications} unread)
                     </h3>
+                    {unreadNotifications > 0 && (
+                      <button
+                        onClick={() => markRead()}
+                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        Mark all read
+                      </button>
+                    )}
                   </div>
 
                   <div className="max-h-96 overflow-y-auto">
                     {notifications.length > 0 ? (
-                      notifications.slice(0, 5).map((notification, index) => (
-                        <div
-                          key={index}
-                          className={`p-4 border-b border-gray-100 hover:bg-gray-50 ${
-                            !notification.read ? 'bg-blue-50' : ''
+                      notifications.slice(0, 8).map((notification) => (
+                        <button
+                          type="button"
+                          key={notification.id}
+                          onClick={() => openNotification(notification)}
+                          className={`w-full text-left p-4 border-b border-gray-100 hover:bg-gray-50 ${
+                            !notification.is_read ? 'bg-blue-50' : ''
                           }`}
                         >
                           <div className="flex items-start space-x-3">
                             <div className="flex-shrink-0">
-                              {notification.type === 'approval' && <Icons.Approval size={16} className="text-green-600 mt-0.5" />}
-                              {notification.type === 'overdue' && <Icons.Warning size={16} className="text-red-600 mt-0.5" />}
-                              {notification.type === 'info' && <Icons.Info size={16} className="text-blue-600 mt-0.5" />}
+                              {notification.type === 'sla_warning'
+                                ? <Icons.Warning size={16} className="text-amber-500 mt-0.5" />
+                                : (notification.type === 'sla_overdue' || notification.type === 'sla_escalated')
+                                  ? <Icons.Warning size={16} className="text-red-600 mt-0.5" />
+                                  : <Icons.Info size={16} className="text-blue-600 mt-0.5" />}
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm text-gray-900 truncate">
@@ -149,11 +178,11 @@ const Header = ({ user, userRole, notifications = [] }) => {
                                 {notification.message}
                               </p>
                               <p className="text-xs text-gray-400 mt-1">
-                                {notification.timestamp}
+                                {formatNotificationTime(notification.created_at)}
                               </p>
                             </div>
                           </div>
-                        </div>
+                        </button>
                       ))
                     ) : (
                       <div className="p-4 text-center text-gray-500 text-sm">
@@ -162,11 +191,9 @@ const Header = ({ user, userRole, notifications = [] }) => {
                     )}
                   </div>
 
-                  {notifications.length > 5 && (
-                    <div className="p-3 border-t border-gray-200 text-center">
-                      <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                        View all notifications
-                      </button>
+                  {notifications.length > 8 && (
+                    <div className="p-3 border-t border-gray-200 text-center text-xs text-gray-500">
+                      Showing the 8 newest of {notifications.length}
                     </div>
                   )}
                 </div>

@@ -1,428 +1,114 @@
 /**
- * SLA Escalation Engine
+ * SLA escalation - labels and form checks for the admin screen (AppScript v9.5)
  *
- * Handles SLA escalation rules, notifications, and automated actions
- * for the JarvisByERP Ticketing & Workflow Orchestration System
+ * The server runs the escalations (runSLAEscalations, every 15 minutes) and decides who is notified, by email or
+ * in the app; this file only describes and validates rules for the form (compliance F1 - until v9.5 an engine
+ * here ran in every open browser on hard-coded rules). validateEscalationRule mirrors slaEscalationRuleValues
+ * in the AppScript file; the server checks again.
  */
 
-import { addHours, addDays, isBefore, differenceInHours } from 'date-fns';
-// Note: Using simplified timezone handling without date-fns-tz dependency
-
-
-/**
- * SLA Escalation Rule Types
- */
-export const ESCALATION_TYPES = {
-  NOTIFICATION: 'notification',      // Send notification to specific roles
-  REASSIGN: 'reassign',             // Reassign ticket to different role/user
-  ESCALATE_STEP: 'escalate_step',   // Move ticket to escalation workflow step
-  AUTO_APPROVE: 'auto_approve',     // Automatically approve if overdue
-  MANAGER_ALERT: 'manager_alert'    // Alert management about SLA breach
-};
-
-/**
- * Escalation Trigger Conditions
- */
 export const ESCALATION_TRIGGERS = {
-  PERCENTAGE: 'percentage',         // Trigger at X% of SLA time
-  HOURS_BEFORE: 'hours_before',     // Trigger X hours before due
-  OVERDUE_BY: 'overdue_by',        // Trigger when X hours/days overdue
-  DUE_TODAY: 'due_today',          // Trigger when ticket becomes due today
-  IMMEDIATE: 'immediate'            // Trigger immediately when rule applies
+  PERCENT_ELAPSED: 'percent_elapsed', // at X% of the time between reaching the step and its due date
+  BEFORE_DUE: 'before_due',           // X minutes / hours / days before the due date
+  AFTER_DUE: 'after_due'              // X units after the due date (overdue)
 };
 
-/**
- * Default Escalation Rules Templates
- */
-export const DEFAULT_ESCALATION_RULES = {
-  // Standard 24-hour approval SLA
-  APPROVAL_24H: [
-    {
-      id: 'approval_24h_reminder',
-      name: '75% SLA Warning',
-      trigger: ESCALATION_TRIGGERS.PERCENTAGE,
-      triggerValue: 75,
-      action: ESCALATION_TYPES.NOTIFICATION,
-      targetRoles: ['approver', 'manager'],
-      message: 'Ticket approval required - SLA warning',
-      isActive: true,
-      priority: 'medium'
-    },
-    {
-      id: 'approval_24h_urgent',
-      name: '90% SLA Alert',
-      trigger: ESCALATION_TRIGGERS.PERCENTAGE,
-      triggerValue: 90,
-      action: ESCALATION_TYPES.MANAGER_ALERT,
-      targetRoles: ['manager', 'admin'],
-      message: 'Urgent: Ticket approval SLA critical',
-      isActive: true,
-      priority: 'high'
-    },
-    {
-      id: 'approval_24h_overdue',
-      name: 'Overdue Escalation',
-      trigger: ESCALATION_TRIGGERS.OVERDUE_BY,
-      triggerValue: 2, // 2 hours overdue
-      triggerUnit: 'hours',
-      action: ESCALATION_TYPES.ESCALATE_STEP,
-      targetRoles: ['senior_manager'],
-      message: 'SLA breached - escalating to senior management',
-      isActive: true,
-      priority: 'critical'
-    }
-  ],
-
-  // Standard 8-hour task SLA
-  TASK_8H: [
-    {
-      id: 'task_8h_reminder',
-      name: '2 Hours Before Due',
-      trigger: ESCALATION_TRIGGERS.HOURS_BEFORE,
-      triggerValue: 2,
-      action: ESCALATION_TYPES.NOTIFICATION,
-      targetRoles: ['assignee'],
-      message: 'Task due in 2 hours - please complete',
-      isActive: true,
-      priority: 'medium'
-    }
-  ]
+export const ESCALATION_ACTIONS = {
+  NOTIFY: 'notify',                   // notify the recipients
+  ESCALATE_ROLE: 'escalate_role'      // notify + let holders of the roles approve / reject / return this step
 };
 
+export const ESCALATION_UNITS = ['minutes', 'hours', 'days', 'business_hours', 'business_days'];
+
+export const TRIGGER_LABELS = {
+  percent_elapsed: '% of the SLA used',
+  before_due: 'Before the due date',
+  after_due: 'After the due date (overdue)'
+};
+
+export const ACTION_LABELS = {
+  notify: 'Notify',
+  escalate_role: 'Escalate to role (may act on the step)'
+};
+
+export const UNIT_LABELS = {
+  minutes: 'minutes',
+  hours: 'hours',
+  days: 'days',
+  business_hours: 'business hours',
+  business_days: 'business days'
+};
+
+// Email for SLA notices per ticket type: 'default' follows the global setting
+export const SLA_EMAIL_MODES = ['default', 'on', 'off'];
+
+const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+/** A new rule for the form. */
+export const emptyEscalationRule = (level = 1) => ({
+  level,
+  name: '',
+  step_id: '',
+  trigger: ESCALATION_TRIGGERS.PERCENT_ELAPSED,
+  trigger_value: 75,
+  trigger_unit: 'hours',
+  escalation_action: ESCALATION_ACTIONS.NOTIFY,
+  notify_current_approvers: true,
+  notify_requester: false,
+  notify_role_ids: [],
+  notify_emails: [],
+  message: ''
+});
+
 /**
- * Calculate when escalation rules should trigger
+ * Form check, the same rules as the server.
+ * @param {Object} rule - Form values
+ * @returns {{ isValid: boolean, errors: string[] }}
  */
-export class SLAEscalationCalculator {
-  /**
-   * Convert UTC time to Philippine time (UTC+8)
-   * @param {Date} date - Date to convert
-   * @returns {Date} Date adjusted to Philippine timezone
-   */
-  static toPhilippineTime(date) {
-    if (!date) return new Date();
-
-    const utcDate = new Date(date);
-    // Philippine time is UTC+8
-    const philippineTime = new Date(utcDate.getTime() + (8 * 60 * 60 * 1000));
-    return philippineTime;
+export function validateEscalationRule(rule) {
+  const errors = [];
+  const level = Number(rule.level);
+  if (!Number.isInteger(level) || level < 1) errors.push('Level must be a whole number from 1');
+  if (!Object.values(ESCALATION_TRIGGERS).includes(rule.trigger)) errors.push('Choose when the rule fires');
+  const value = Number(rule.trigger_value);
+  if (!Number.isFinite(value) || value <= 0) errors.push('The value must be greater than 0');
+  if (rule.trigger === ESCALATION_TRIGGERS.PERCENT_ELAPSED && value > 100) errors.push('A percentage can be at most 100');
+  if (rule.trigger !== ESCALATION_TRIGGERS.PERCENT_ELAPSED && !ESCALATION_UNITS.includes(rule.trigger_unit)) errors.push('Choose a unit');
+  if (rule.trigger === ESCALATION_TRIGGERS.BEFORE_DUE && String(rule.trigger_unit).startsWith('business')) {
+    errors.push('"Before the due date" counts back in minutes, hours or days');
   }
-
-  /**
-   * Calculate trigger time for escalation rule
-   */
-  static calculateTriggerTime(dueDate, escalationRule) {
-    if (!dueDate || !escalationRule) return null;
-
-    const dueDatePhilippine = this.toPhilippineTime(new Date(dueDate));
-    const now = this.toPhilippineTime(new Date());
-
-    switch (escalationRule.trigger) {
-      case ESCALATION_TRIGGERS.PERCENTAGE:
-        return this.calculatePercentageTrigger(dueDatePhilippine, escalationRule.triggerValue);
-
-      case ESCALATION_TRIGGERS.HOURS_BEFORE:
-        return addHours(dueDatePhilippine, -escalationRule.triggerValue);
-
-      case ESCALATION_TRIGGERS.OVERDUE_BY:
-        const unit = escalationRule.triggerUnit || 'hours';
-        const addFn = unit === 'days' ? addDays : addHours;
-        return addFn(dueDatePhilippine, escalationRule.triggerValue);
-
-      case ESCALATION_TRIGGERS.DUE_TODAY:
-        // Trigger at start of due date day
-        const startOfDay = new Date(dueDatePhilippine);
-        startOfDay.setHours(0, 0, 0, 0);
-        return startOfDay;
-
-      case ESCALATION_TRIGGERS.IMMEDIATE:
-        return now;
-
-      default:
-        return null;
-    }
+  if (!Object.values(ESCALATION_ACTIONS).includes(rule.escalation_action)) errors.push('Choose an action');
+  const roles = rule.notify_role_ids || [];
+  const emails = rule.notify_emails || [];
+  if (rule.escalation_action === ESCALATION_ACTIONS.ESCALATE_ROLE && roles.length === 0) errors.push('Escalate to role needs at least one role');
+  if (emails.some(email => !EMAIL.test(email))) errors.push('Check the email addresses');
+  if (!rule.notify_current_approvers && !rule.notify_requester && roles.length === 0 && emails.length === 0) {
+    errors.push('Choose at least one recipient');
   }
-
-  /**
-   * Calculate percentage-based trigger time
-   */
-  static calculatePercentageTrigger(dueDate, percentage) {
-    // This is a simplified calculation - in reality, we'd need the ticket creation time
-    // For now, assume 24-hour default SLA
-    const hoursBeforeDue = Math.floor((24 * (100 - percentage)) / 100);
-    return addHours(dueDate, -hoursBeforeDue);
-  }
-
-  /**
-   * Check if escalation rule should trigger now
-   */
-  static shouldTrigger(dueDate, escalationRule, lastTriggered = null) {
-    const triggerTime = this.calculateTriggerTime(dueDate, escalationRule);
-    if (!triggerTime) return false;
-
-    const now = this.toPhilippineTime(new Date());
-
-    // Check if trigger time has passed
-    const shouldTriggerNow = isBefore(triggerTime, now) ||
-                            Math.abs(differenceInHours(triggerTime, now)) < 1;
-
-    // Don't trigger again if already triggered recently
-    if (lastTriggered) {
-      const hoursSinceLastTrigger = differenceInHours(now, new Date(lastTriggered));
-      if (hoursSinceLastTrigger < 1) return false;
-    }
-
-    return shouldTriggerNow;
-  }
+  return { isValid: errors.length === 0, errors };
 }
 
 /**
- * SLA Notification Manager
+ * One-line description of a rule for the list.
+ * @param {Object} rule - Rule (from the server or the form)
+ * @param {Function} roleName - role id -> name (optional)
  */
-export class SLANotificationManager {
-  /**
-   * Generate notification content for escalation
-   */
-  static generateNotification(ticket, escalationRule, slaStatus) {
-    const notificationTypes = {
-      [ESCALATION_TYPES.NOTIFICATION]: this.generateStandardNotification,
-      [ESCALATION_TYPES.MANAGER_ALERT]: this.generateManagerAlert,
-      [ESCALATION_TYPES.REASSIGN]: this.generateReassignNotification,
-      [ESCALATION_TYPES.ESCALATE_STEP]: this.generateEscalationNotification,
-      [ESCALATION_TYPES.AUTO_APPROVE]: this.generateAutoApprovalNotification
-    };
-
-    const generator = notificationTypes[escalationRule.action];
-    return generator ? generator(ticket, escalationRule, slaStatus) : null;
-  }
-
-  /**
-   * Generate standard notification
-   */
-  static generateStandardNotification(ticket, rule, slaStatus) {
-    return {
-      type: 'sla_warning',
-      title: `SLA Alert: ${rule.name}`,
-      message: rule.message || `Ticket ${ticket.ticket_number} requires attention - ${slaStatus.label}`,
-      priority: rule.priority || 'medium',
-      ticketId: ticket.id,
-      ticketNumber: ticket.ticket_number,
-      dueDate: ticket.step_due_date,
-      slaStatus: slaStatus.type,
-      actionRequired: 'review_ticket',
-      targetRoles: rule.targetRoles || [],
-      timestamp: new Date().toISOString()
-    };
-  }
-
-  /**
-   * Generate manager alert
-   */
-  static generateManagerAlert(ticket, rule, slaStatus) {
-    return {
-      type: 'sla_breach_alert',
-      title: `SLA Breach Alert: ${ticket.ticket_number}`,
-      message: `Critical SLA issue requires management attention`,
-      priority: 'high',
-      ticketId: ticket.id,
-      ticketNumber: ticket.ticket_number,
-      slaStatus: slaStatus.type,
-      actionRequired: 'escalation_review',
-      targetRoles: ['manager', 'admin'],
-      escalationLevel: 'management',
-      breachDetails: {
-        originalDue: ticket.step_due_date,
-        currentStatus: slaStatus.label,
-        hoursOverdue: slaStatus.hoursOverdue || 0
-      },
-      timestamp: new Date().toISOString()
-    };
-  }
-
-  /**
-   * Generate reassignment notification
-   */
-  static generateReassignNotification(ticket, rule, slaStatus) {
-    return {
-      type: 'sla_reassignment',
-      title: `Ticket Reassigned: SLA Escalation`,
-      message: `Ticket ${ticket.ticket_number} has been reassigned due to SLA breach`,
-      priority: rule.priority || 'high',
-      ticketId: ticket.id,
-      actionRequired: 'reassignment_complete',
-      originalAssignee: ticket.current_assignee,
-      newAssignee: rule.targetRoles?.[0],
-      reassignmentReason: 'sla_escalation',
-      timestamp: new Date().toISOString()
-    };
-  }
-
-  /**
-   * Generate escalation notification
-   */
-  static generateEscalationNotification(ticket, rule, slaStatus) {
-    return {
-      type: 'sla_escalation',
-      title: `Workflow Escalated: ${ticket.ticket_number}`,
-      message: `Ticket has been escalated to higher approval level due to SLA breach`,
-      priority: 'critical',
-      ticketId: ticket.id,
-      actionRequired: 'escalated_approval',
-      escalationLevel: 'senior_management',
-      originalStep: ticket.current_step_id,
-      escalatedTo: rule.targetRoles,
-      timestamp: new Date().toISOString()
-    };
-  }
-
-  /**
-   * Generate auto-approval notification
-   */
-  static generateAutoApprovalNotification(ticket, rule, slaStatus) {
-    return {
-      type: 'sla_auto_approval',
-      title: `Auto-Approved: ${ticket.ticket_number}`,
-      message: `Ticket automatically approved due to SLA policy`,
-      priority: 'medium',
-      ticketId: ticket.id,
-      actionRequired: 'none',
-      approvalReason: 'sla_auto_approval',
-      originalDue: ticket.step_due_date,
-      timestamp: new Date().toISOString()
-    };
-  }
+export function describeRule(rule, roleName = id => id) {
+  const value = Number(rule.trigger_value);
+  const unit = UNIT_LABELS[rule.trigger_unit] || rule.trigger_unit;
+  const when = rule.trigger === ESCALATION_TRIGGERS.PERCENT_ELAPSED
+    ? `At ${value}% of the SLA`
+    : rule.trigger === ESCALATION_TRIGGERS.BEFORE_DUE
+      ? `${value} ${unit} before due`
+      : `${value} ${unit} overdue`;
+  const who = [
+    rule.notify_current_approvers ? 'current approvers' : null,
+    rule.notify_requester ? 'requester' : null,
+    ...(rule.notify_role_ids || []).map(roleName),
+    ...(rule.notify_emails || [])
+  ].filter(Boolean).join(', ');
+  const what = rule.escalation_action === ESCALATION_ACTIONS.ESCALATE_ROLE
+    ? `escalate to ${(rule.notify_role_ids || []).map(roleName).join(', ')}`
+    : 'notify';
+  return `${when}: ${what}${who ? ` (${who})` : ''}`;
 }
-
-/**
- * SLA Escalation Engine
- */
-export class SLAEscalationEngine {
-  constructor() {
-    this.activeRules = new Map();
-    this.notificationQueue = [];
-    this.lastProcessed = new Date();
-  }
-
-  /**
-   * Register escalation rules for a ticket type or step
-   */
-  registerEscalationRules(ticketTypeId, stepId, rules) {
-    const key = `${ticketTypeId}_${stepId}`;
-    this.activeRules.set(key, rules);
-  }
-
-  /**
-   * Process escalations for a single ticket
-   */
-  processTicketEscalations(ticket, currentSLA, escalationRules = []) {
-    const results = [];
-
-    for (const rule of escalationRules) {
-      if (!rule.isActive) continue;
-
-      const shouldTrigger = SLAEscalationCalculator.shouldTrigger(
-        ticket.step_due_date,
-        rule,
-        ticket.last_escalation_triggered
-      );
-
-      if (shouldTrigger) {
-        const notification = SLANotificationManager.generateNotification(
-          ticket,
-          rule,
-          currentSLA
-        );
-
-        if (notification) {
-          results.push({
-            ruleId: rule.id,
-            notification,
-            action: rule.action,
-            triggered: true,
-            timestamp: new Date().toISOString()
-          });
-        }
-      }
-    }
-
-    return results;
-  }
-
-  /**
-   * Process all escalations for tickets
-   */
-  async processAllEscalations(tickets, getEscalationRules) {
-    const results = [];
-
-    for (const ticket of tickets) {
-      if (!ticket.step_due_date || ['completed', 'closed', 'rejected'].includes(ticket.status)) {
-        continue;
-      }
-
-      // Get escalation rules for this ticket
-      const rules = await getEscalationRules(ticket.ticket_type_id, ticket.current_step_id);
-
-      if (rules && rules.length > 0) {
-        // Get current SLA status
-        const slaStatus = this.getCurrentSLAStatus(ticket);
-
-        // Process escalations
-        const ticketEscalations = this.processTicketEscalations(ticket, slaStatus, rules);
-
-        if (ticketEscalations.length > 0) {
-          results.push({
-            ticketId: ticket.id,
-            ticketNumber: ticket.ticket_number,
-            escalations: ticketEscalations
-          });
-        }
-      }
-    }
-
-    return results;
-  }
-
-  /**
-   * Get current SLA status for ticket
-   */
-  getCurrentSLAStatus(ticket) {
-    // Import getSLAStatus dynamically to avoid circular imports
-    const { getSLAStatus } = require('./slaCalculator');
-    return getSLAStatus(ticket.step_due_date);
-  }
-
-  /**
-   * Validate escalation rule configuration
-   */
-  static validateEscalationRule(rule) {
-    const errors = [];
-
-    if (!rule.name) errors.push('Rule name is required');
-    if (!rule.trigger) errors.push('Trigger type is required');
-    if (!rule.action) errors.push('Action type is required');
-
-    if (!Object.values(ESCALATION_TRIGGERS).includes(rule.trigger)) {
-      errors.push('Invalid trigger type');
-    }
-
-    if (!Object.values(ESCALATION_TYPES).includes(rule.action)) {
-      errors.push('Invalid action type');
-    }
-
-    if ([ESCALATION_TRIGGERS.PERCENTAGE, ESCALATION_TRIGGERS.HOURS_BEFORE, ESCALATION_TRIGGERS.OVERDUE_BY].includes(rule.trigger)) {
-      if (!rule.triggerValue || rule.triggerValue <= 0) {
-        errors.push('Trigger value must be greater than 0');
-      }
-    }
-
-    if (rule.trigger === ESCALATION_TRIGGERS.PERCENTAGE && rule.triggerValue > 100) {
-      errors.push('Percentage trigger value cannot exceed 100');
-    }
-
-    return {
-      isValid: errors.length === 0,
-      errors
-    };
-  }
-}
-
-export default SLAEscalationEngine;

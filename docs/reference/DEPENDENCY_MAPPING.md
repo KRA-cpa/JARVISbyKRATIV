@@ -1,6 +1,6 @@
 # JarvisByERP Dependency Mapping
 
-**Date**: September 28, 2025 - 🏷️ **TICKET TAGS & COLLABORATION SYSTEM UPDATE** (latest section: October 19, 2026 — Phase 2/3 roles & approvals, API contract)
+**Date**: September 28, 2025 - 🏷️ **TICKET TAGS & COLLABORATION SYSTEM UPDATE** (latest section: October 30, 2026 — proxy auth, dashboard call, SLA escalation)
 **Purpose**: Map all component dependencies, imports, and exports to prevent circular dependencies and ensure proper architecture with ticket tags and collaboration system integration
 
 ### **🔬 PROOF OF CONCEPT BACKEND ARCHITECTURE**
@@ -362,6 +362,26 @@ Until v9.1 nothing imported the ticket components or `AdminWorkflowBuilder`; `np
 | `src/api/googleSheet.js` | API | v9.2 + v9.3 reads in `readActions`; new **`API.Reports`**, **`API.AuditLogs`**, **`API.Tags`**, **`API.Sharing`**; `WorkflowSteps.getConditions` / `saveConditions`; `TicketTypes.setFeatures`; `System.runTest` = read-only health check | hooks |
 
 - **Still unmounted** (`scripts/api-contract-known-gaps.txt`, 9 + 2 icons): `BulkOperationsManager` + `BulkRoleAssignmentDialog` / `BulkWorkflowDialog`, `AdminSLAEscalationManager`, `RBACSettings`, superseded `AdminTicketTypeManager` / `AdminCustomFieldManager`, `ActionCommentModal`, `InfiniteLoopMonitor`.
+
+### **⏱️ PROXY AUTH, DASHBOARD CALL, SLA ESCALATION (October 30, 2026 — AppScript v9.4 + v9.5)**
+
+| File | Layer | Imports (new in bold) | Used by |
+|---|---|---|---|
+| `api/_lib/proxyCore.js` | Vercel helper (new, not a function: `_` folder) | **`jose`** (`createRemoteJWKSet`, `jwtVerify`); identity adapters (`firebase`) | `api/appscript-proxy.js`, `scripts/test-proxy-auth.js` |
+| `api/appscript-proxy.js` | Vercel function (rewritten) | `./_lib/proxyCore` (env: `APPS_SCRIPT_URL`, `PROXY_SECRET`, `AUTH_MODE`, `FIREBASE_PROJECT_ID`) | the frontend base URL (`apiConfig`) |
+| `src/api/googleSheet.js` | API | **`auth`** (`config/firebase`) for the ID token header; in-flight read dedupe + 10 s read cache, cache cleared on writes; v9.4 / v9.5 reads in `readActions`; **`API.Tickets.getDashboard`**, `API.SLA` escalation rules / events / test / run / holidays / settings, new **`API.Notifications`** | hooks |
+| `src/hooks/useAPI.js` | Hooks | new **`useDashboard`**, **`useSLAEscalationEvents`**, **`useNotifications`**, **`useCompanyHolidays`**, **`useSLANotificationSettings`**; `useSLAEscalationRules` / `useSLAEscalationMutations` call the API (were mocks); `useSLANotificationMonitor` removed (browser engine) | components below |
+| `src/utils/slaEscalation.js` | Util (rewritten) | - (constants, labels, `validateEscalationRule`, `describeRule`; the engine is removed - compliance F1) | `AdminSLAEscalationManager` |
+| `src/components/admin/AdminSLAEscalationManager.js` | Component (rewritten, **now mounted**) | `useUser`, `useCompanies`, `useTicketTypes`, `useRoles`, `useWorkflowSteps`, **SLA hooks above**, `API.SLA`, `slaEscalation` utils | `AdminPage` tab **SLA Escalations** |
+| `src/components/admin/CompanySLAManager.js` | Component | escalation tab now points to SLA Escalations | `AdminPage` tab **SLA Rules** |
+| `src/components/shared/Header.js` | Shared | **`useNotifications`** (the bell; the `notifications` prop is gone) | every page |
+| `src/components/shared/SLANotificationSystem.js` | Shared (rewritten) | `useTickets`, **`useNotifications`**, `getSLAStatus` (no engine) | `DashboardPage` |
+| `src/pages/DashboardPage.js` | Page | **`useDashboard`** replaces `useCompanies` / `useTicketTypes` / `useTicketsForApproval`; mock notifications removed | `App.js` |
+| `src/pages/AdminPage.js` | Page | **`AdminSLAEscalationManager`** tab; mock notifications removed | `App.js` |
+| `src/components/tickets/TicketDetail.js` | Component | **`useSLAEscalationEvents`** (History → SLA escalations) | `TicketDashboard`, `TicketReport` |
+| `src/components/tickets/TicketDashboard.js` | Component | `?ticket=<id>` opens that ticket (bell links) | `TicketsPage` |
+
+- **Unmounted now**: 8 components + 2 icons (`AdminSLAEscalationManager` mounted in v9.5).
 
 ### **📊 DEPENDENCY IMPACT ANALYSIS**
 

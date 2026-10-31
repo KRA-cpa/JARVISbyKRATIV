@@ -5,7 +5,7 @@ B. Consult `docs/planning/SUPERTHINK_TODO_ANALYSIS_2025-09-27.md` on current/com
 C. Log every session in `REF_SessionLog.md` (see 🗓️ SESSION LOG below).
 D. New docs go in the matching `docs/` folder (see 📁 REPO LAYOUT below) — never the repo root.
 
-**Version:** 3.9 **Date:** October 19, 2026 - 🧭 **WORKFLOW LOGIC, REPORTS, TAGS & SHARING** (AppScript v9.2 + v9.3: conditional routing, task steps, chained view, `/reports` + CSV, audit log, SLA widgets, dropdown company access, company SLA rules, config export / import / Drive backup, tags + sharing switched per ticket type; v3.8 = core ticket loop, v3.7 = API contract check, v3.6 = code review compliance, v3.5 = repo reorg into `docs/`)
+**Version:** 4.0 **Date:** October 30, 2026 - ⏱️ **RECO QUICK WINS, PROXY AUTH, SLA ESCALATION** (AppScript v9.4: per-request table cache, one dropdown read, ticket id sequence, `getDashboard`, Firebase token verified at the Vercel proxy + `AUTH_MODE`, real UTC timestamps; v9.5: SLA escalation rules / run / notifications / holidays, company SLA rule due dates; compliance v2.0 rules A14–A20 + F1–F6 + `npm run check:code-rules`; non-functional targets below. v3.9 = workflow logic, reports, tags & sharing, v3.8 = core ticket loop, v3.7 = API contract check, v3.6 = code review compliance, v3.5 = repo reorg into `docs/`)
 
 ### **📁 REPO LAYOUT**
 
@@ -67,14 +67,19 @@ Reorg record: `docs/planning/PLAN_RepoReorg_20261017.md` + `docs/planning/REORG_
    - Schema migration and update tracking
 
 7. **`APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt`** - ⚠️ **MANDATORY REFERENCE**
-   - **Latest File**: `./appscript_files/APPSCRIPT_v9.3_20261019_2015.txt` (v9.3 — dropdown company access (get / assign / global / remove / update; getDropdownLists filters by company), company SLA rules CRUD, exportConfiguration (read-only) / createConfigurationBackup (JSON in the owner's Drive - new Drive permission) / importConfiguration (company to company, dry run by default), tags + sharing with per-ticket-type switches `enable_tags` / `enable_sharing` (off by default, locked on once used), old unrouted Phase 11 code removed. Rebuild apply needed: 2 new tabs, ticket_types + 2 columns. Contains v9.0–v9.2 - deploy it directly. Deploy the frontend from the same commit)
+   - **Latest File**: `./appscript_files/APPSCRIPT_v9.5_20261030_0650.txt` (v9.5 — SLA escalation: `sla_escalation_rules` (levels per company + ticket type + step; `percent_elapsed` / `before_due` / `after_due`; `escalation_action` notify or escalate_role), `sla_escalation_events`, in-app `notifications` (header bell), `company_holidays` + `addPhilippineHolidays`; `runSLAEscalations` from a 15-minute trigger (`installSLAEscalationTrigger()` once in the editor - asks for mail + trigger permissions), email per ticket type / global default + the user's preference; a company SLA rule for the step's name now sets the due date (business hours / days, holidays). Rebuild apply needed: 4 new tabs, tickets + `step_started_at`, ticket_types + `sla_email`; then `migrateCompanyEscalationsToRules()` dry run / apply. Contains v9.4 - deploy it directly. Deploy the frontend from the same commit)
+   - **v9.4**: `APPSCRIPT_v9.4_20261030_0627.txt` (reco quick wins: per-request table cache (`CACHE_ENABLED` Script Property kill switch), `getDropdownLists` one options read, ticket id from the `ticket_id` sequence, links indexed once, `getDashboard`; S1 proxy auth - Script Properties `PROXY_SECRET` + `AUTH_MODE` (`off` / `warn` default / `enforce`), `actorId()` in permission checks; S2 real UTC timestamps (`TS_UTC_SINCE`); S3–S5 fixes. No schema change. Review: `docs/planning/REVIEW_AppScriptReco_20261030.md`)
+   - **v9.3**: `APPSCRIPT_v9.3_20261019_2015.txt` (v9.3 — dropdown company access (get / assign / global / remove / update; getDropdownLists filters by company), company SLA rules CRUD, exportConfiguration (read-only) / createConfigurationBackup (JSON in the owner's Drive - new Drive permission) / importConfiguration (company to company, dry run by default), tags + sharing with per-ticket-type switches `enable_tags` / `enable_sharing` (off by default, locked on once used), old unrouted Phase 11 code removed. Rebuild apply needed: 2 new tabs, ticket_types + 2 columns. Contains v9.0–v9.2 - deploy it directly. Deploy the frontend from the same commit)
    - **v9.2**: `APPSCRIPT_v9.2_20261019_1946.txt` (conditional routing per step, returns follow the path taken, task steps complete like an approval, chained links, reports config + data, admin audit log reads; no schema change)
    - **v9.1**: `APPSCRIPT_v9.1_20261019_1400.txt` (v9.1 — core ticket loop + workflow admin: ticket number peek/reserve, workflow step create/update/delete/copy/default with SLAs, custom field get/update/delete (in use → hidden), ticket links by number with cycle check, company code lock/unlock/status (locks on the first ticket; `repairCompanyLocks()` in the editor), comment requirements saved + enforced, getTicketHistory, getTicketsForApproval inbox; review fixes R-03–R-10. Rebuild apply needed: ticket_links + 3 columns. Deploy the frontend from the same commit)
    - **v9.0**: `APPSCRIPT_v9.0_20261019_0501.txt` (approval path routes, date-aware roles, approver_logic 'all', loud errors; the approve request sends `decision`)
    - ⚠️ **Never apply the rebuild with v8.2** (data-corruption bugs; see `docs/planning/TODO_CodeReview_20261017.md`). Redeploy before applying if the app may be in use.
-   - **Offline tests** (fake Sheets runtime in `appscript_files/tools/lib/fakeSheetsRuntime.js`), all on the latest file: `node appscript_files/tools/ROUTES_TEST_v9.3.js <file>` (10 tests), `ROUTES_TEST_v9.2.js` (14), `ROUTES_TEST_v9.1.js` (18), `ROUTES_AND_APPROVALS_TEST_v9.0.js` (21) and `CODE_REVIEW_FIXES_TEST_v8.3.js` (11)
+   - **Offline tests** (fake Sheets runtime in `appscript_files/tools/lib/fakeSheetsRuntime.js` - from v9.4 it fails any test that reads a cached tab after a write without `invalidateTable`, counts tab reads, and fakes Properties / MailApp / ScriptApp), all on the latest file: `node appscript_files/tools/ROUTES_TEST_v9.5.js <file>` (25 tests), `ROUTES_TEST_v9.4.js` (20), `ROUTES_TEST_v9.3.js` (10), `ROUTES_TEST_v9.2.js` (14), `ROUTES_TEST_v9.1.js` (18), `ROUTES_AND_APPROVALS_TEST_v9.0.js` (21) and `CODE_REVIEW_FIXES_TEST_v8.3.js` (11). Proxy: `node scripts/test-proxy-auth.js` (20)
    - **Test data**: `./appscript_files/SEED_TestData_v1.0_20261019_2023.txt` - a second script file (`seed.gs`) in the same Apps Script project: `seedTestData()` dry run / `seedTestDataApply()` (2 seed companies, workflows with a branch + task + chained ticket, roles, 4 seed users, 12 tickets through the real engine; `SEED_MY_USER_ID` gives your uid seed roles), `removeSeedData()` / `removeSeedDataApply()` deletes only seed rows. Editor-only. Test: `node appscript_files/tools/SEED_TEST.js <APPSCRIPT file> <SEED file>` (4). Deploy guide §8
-   - **Contract check**: `npm run check:api-contract` — every `makeRequest` action has a route in the newest file, every `API.Group.method()` call exists, every component is mounted from `src/index.js`, every `Icons.X` exists; `scripts/api-contract-known-gaps.txt` (0 actions since v9.3; 9 unmounted components + 2 icons left from the baseline) may only shrink
+   - **Contract check**: `npm run check:api-contract` — every `makeRequest` action has a route in the newest file, every `API.Group.method()` call exists, every component is mounted from `src/index.js`, every `Icons.X` exists; `scripts/api-contract-known-gaps.txt` (0 actions since v9.3; 8 unmounted components + 2 icons left from the baseline) may only shrink
+   - **Code rules check (v9.4)**: `npm run check:code-rules` — self-test, then static checks of compliance A14–A18 / A20 on the newest AppScript file and F3 / F4 on `src/`; `scripts/code-rules-known-gaps.txt` (91 on v9.3 → 7) may only shrink
+   - **Cache rule (v9.4, A14)**: read through `readTable` / `sheetValues` / `ss()`; every sheet write calls `invalidateTable(...)` in the same function
+   - **Identity rule (v9.4, A15)**: the acting user comes from `actorId(payload.user_id)`; payload keys that name a target user stay as sent. Deploy: set Script Properties `PROXY_SECRET` (same value as the Vercel env) and `AUTH_MODE=warn`, check the logs, then `enforce`
    - **Header rule (v8.3)**: write rows by header name (`rowFromRecord`), create tabs with `ensureTableSheet()`, and take `withScriptLock()` for writes. No positional rows, no hard-coded header lists.
    - **Naming Rule**: every AppScript update is a NEW file `APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt` (UTC+8); never overwrite older versions. The newest timestamp is the latest.
    - **Deploy description (from v8.4)**: the file header has a `Deploy description:` line (`v<ver> <YYYYMMDD_HHMM> - <summary>`) to paste into New version → Description on redeploy. From v9.0, `ping` also reports the file's `API_VERSION` (keep it equal to the header `Version:`; through v8.3 it always said `8.0.0`).
@@ -106,12 +111,16 @@ Reorg record: `docs/planning/PLAN_RepoReorg_20261017.md` + `docs/planning/REORG_
    - Required reading before any component, API, or schema work involving entities
    - Implementation guidelines and backward compatibility requirements
 
-11. **`docs/guides/GUIDE_CodeReview_Compliance.md`** - 🚨 **MANDATORY FOR ALL APPSCRIPT AND `scripts/` CHANGES**
+11. **`docs/guides/GUIDE_CodeReview_Compliance.md`** (v2.0) - 🚨 **MANDATORY FOR ALL APPSCRIPT, COUNTERPART (`src/`, `api/`) AND `scripts/` CHANGES**
    - **File Location**: `./docs/guides/GUIDE_CodeReview_Compliance.md`
-   - Rules from the 17 Oct 2026 code review (findings: `docs/planning/TODO_CodeReview_20261017.md`)
+   - Rules from the 17 + 19 Oct 2026 code reviews and the 30 Oct 2026 reco review (`docs/planning/REVIEW_AppScriptReco_20261030.md`)
+   - **§0 change recipe**: schema → handler → route → offline test → `googleSheet.js` method → hook → mounted component → proxy → checks → review
    - AppScript A1–A13: header-driven rows, `TABLE_SCHEMAS` only, `COLUMN_DEFAULTS`, no destructive routes, `withScriptLock`, `createHandlerResponse`, frontend key matching, offline test, **contract check (A12)**, **no payload key `action` (A13)**
+   - AppScript A14–A20 (v2.0): **cache invalidation (A14)**, **actor from `actorId()` (A15)**, **one read per tab per request (A16)**, **real UTC, Manila via `formatDate` (A17)**, ids from `generateId` / a sequence (A18), idempotent time-driven jobs (A19), one definition per function (A20)
+   - Counterpart F1–F6: server owns business rules, ID token in `Authorization`, `Intl` in Asia/Manila, no fake saves, call budget per screen, proxy verifies + strips identity fields
+   - Process P7–P10: review the **version diff** (`git diff --no-index <prev> <new>`), whole-file review every 3 versions, one review log per version, read-count gate on hot paths
    - Scripts S1–S9: `pipefail`, no secrets in argv, pathspec commits, recorded times not mtimes, exact-match scope, CRLF, sandbox tests
-   - §4 pre-commit checklist — tick it before every AppScript or script commit
+   - §4 pre-commit checklist — tick it before every AppScript, frontend, proxy or script commit
 
 **⚠️ CRITICAL DEVELOPMENT RULES:**
 - **NO COMPONENT CREATION** without consulting dependency mapping
@@ -126,7 +135,36 @@ Reorg record: `docs/planning/PLAN_RepoReorg_20261017.md` + `docs/planning/REORG_
 - **🚀 NEW: UNIVERSAL ENTITY RULES** - All entity types (tickets, users, roles) must use unified custom field patterns
 - **🚀 NEW: USER/ROLE INTEGRATION** - Follow `docs/reference/USER_MANAGEMENT_FEATURE_PLAN.md` for all user/role implementations
 - **🚨 MANDATORY: UNIVERSAL ENTITY ARCHITECTURE** - Must consult `docs/reference/UNIVERSAL_ENTITY_ARCHITECTURE.md` before any entity-related work
-- **⚖️ CODE REVIEW COMPLIANCE** - AppScript and `scripts/` changes follow `docs/guides/GUIDE_CodeReview_Compliance.md` (tick its §4 checklist); run `/code-review` **and** `npm run check:api-contract` before pushing a batch (the review only sees the diff) and log findings in `docs/planning/TODO_CodeReview_<YYYYMMDD>.md`
+- **⚖️ CODE REVIEW COMPLIANCE** - AppScript, counterpart and `scripts/` changes follow `docs/guides/GUIDE_CodeReview_Compliance.md` (tick its §4 checklist); run `/code-review` on the version diff, `npm run check:api-contract` **and** `npm run check:code-rules` before pushing a batch, and log findings in `docs/planning/TODO_CodeReview_<YYYYMMDD>.md`
+
+### **📏 NON-FUNCTIONAL REQUIREMENTS (mandatory)** *(from the 19 Oct 2026 reco §9.6; added v4.0)*
+
+These are the gates for the Vercel `/api/rpc` + Neon build (`docs/planning/PLAN_Migration_NeonVercel_20261030.md`). On Apps Script (v9.4+) the same intent is enforced by compliance A14–A17 and the read-count tests (P10).
+
+**Performance**
+- Server p95 per action, measured in `/api/rpc`: simple read ≤150 ms; list/dashboard ≤300 ms; ticket write ≤400 ms; admin write ≤500 ms; report ≤1.5 s at 10k tickets.
+- Query budget: simple read ≤3 queries; list ≤5; workflow write ≤10, in one transaction.
+- No queries inside loops (N+1). Use joins, `IN (...)` or `ANY($1)`. Flag any exception before writing it.
+- Paginate list actions (default 50, max 100). No unpaginated response over 1 MB.
+- Every new query on a table that can exceed 10k rows must use an index; show `EXPLAIN` for hot paths.
+
+**Correctness & security**
+- `user_id` comes from the server session only; ignore any `user_id` in the request body.
+- Check admin / approver / share / report permissions on the server for every action.
+- Every company-scoped query filters by `company_id`.
+- Store timestamps as `timestamptz` in UTC; convert to Asia/Manila only for display and SLA day logic. Never shift times by adding hours.
+- Ticket numbers are assigned inside the create transaction (row lock on `sequence_counters`).
+- Write actions are all-or-nothing (single transaction).
+- Soft delete only: deactivate, never `DELETE` configuration or transaction records.
+
+**API contract**
+- Keep the existing `{ action, ...payload }` request and `{ success, data, message }` / `{ success: false, status: 'error', error }` response shapes used by `src/api/googleSheet.js`.
+
+**Working rules**
+- Before implementing an action, state its expected query count and which indexes it uses.
+- After each phase, report: actions ported, measured p95 per action, query count per action, and anything that misses a target, with the reason and a fix.
+- At each phase checkpoint, answer: "What breaks first at 10× the data, and what would you change?"
+- Log per request: action, duration_ms, query_count, user_id, company_id, status.
 
 ### **🤖 CLAUDE CONVERSATION HISTORY BACKUP SYSTEM**
 

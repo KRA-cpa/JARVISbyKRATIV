@@ -102,8 +102,11 @@ test('removal: dry run deletes nothing; apply removes every seed row and keeps t
   same(leftovers, []);
   assert.ok(rows('tickets').some(t => String(t.id) === realTicketId), 'the real ticket is still there');
   assert.ok(rows('companies').some(c => c.id === 'co_real'));
-  // Everything but the audit log is back to how it was
-  const strip = json => JSON.stringify(JSON.parse(json).filter(([name]) => name !== 'admin_action_logs'));
+  // Everything but the audit log is back to how it was. v9.4: the shared 'ticket_id' sequence (A18) keeps counting -
+  // ids are never reused after a removal - so that one counter row is left out of the comparison
+  const strip = json => JSON.stringify(JSON.parse(json)
+    .filter(([name]) => name !== 'admin_action_logs')
+    .map(([name, rows]) => [name, name === 'sequence_counters' ? rows.filter(r => r[0] !== 'ticket_id') : rows]));
   assert.strictEqual(strip(snapshot()), strip(before));
 });
 

@@ -1815,7 +1815,7 @@ After deployment, you can test the API using these functions in the Apps Script 
 
 ## 📊 Available Endpoints
 
-> **Updated October 19, 2026 (AppScript v9.3).** The authoritative list is the `case` labels of `doGet` and
+> **Updated October 30, 2026 (AppScript v9.5).** The authoritative list is the `case` labels of `doGet` and
 > `routePostAction` in the newest `appscript_files/APPSCRIPT_v*.txt`; `npm run check:api-contract` compares them with
 > what `src/api/googleSheet.js` sends. Since v9.3 every action the frontend sends has a route.
 > `runCompleteAPITest` is editor-only (it creates and deletes real rows); the Admin health check uses getSystemHealth.
@@ -1828,6 +1828,35 @@ After deployment, you can test the API using these functions in the Apps Script 
 getDropdownOptions, getTicketTypes, getTickets, getUserPreferences, getSLAPerformanceByCompany, getSLAPerformanceByTicketType,
 getGlobalSLAPerformance, getUserProfileTypes / getRoleTypes (`include_inactive`), getUserProfiles, getCustomFields,
 **getWorkflowSteps** (v9.1: each step carries sla_duration / sla_unit / exclude_weekends), **getSystemHealth** (v9.0)
+
+**Identity (v9.4):** the Vercel proxy (`api/appscript-proxy.js`) verifies the Firebase ID token from
+`Authorization: Bearer …` and adds `_auth_uid` + `_proxy_secret` to the request; Apps Script removes both before
+routing. With Script Property `AUTH_MODE=enforce`, a request without the secret or a verified user is refused
+(`ping` excepted) and every acting-user key (`user_id` on approve / cancel / reopen / share / reports / audit log /
+config, `requester_id` on createTicket) is the verified uid, whatever the body says (compliance A15).
+
+**GET - new in v9.5 (SLA escalation):**
+
+| Action | Query | Returns (`data`) |
+|---|---|---|
+| getSLAEscalationRules | company_id, ticket_type_id?, step_id? | rules (levels; a step query includes "all steps" rows) |
+| getSLAEscalationEvents | ticket_id | what fired on the ticket, newest first |
+| testSLAEscalations | user_id (admin) | dry run of the escalation pass: `{ checked, fired: [...], notifications, capped }` |
+| getNotifications | user_id (the caller's own), unread_only?, limit? | `{ items, unread_count, total }` |
+| getCompanyHolidays | company_id?, year? | holidays of the company + the ones for every company |
+| getSLANotificationSettings | - | `{ email_default, ticket_types: [{ ticket_type_id, sla_email, email_on }], quota_remaining }` |
+
+**POST - new in v9.5:** createSLAEscalationRule / updateSLAEscalationRule (`rule_id`) / deleteSLAEscalationRule (soft) -
+fields level, step_id, name, trigger, trigger_value, trigger_unit, **escalation_action**, notify_current_approvers,
+notify_requester, notify_role_ids, notify_emails, message; runSLAEscalationsNow (`dry_run`, default true);
+markNotificationsRead (`ids` or `all: true`, own only); createCompanyHoliday / deleteCompanyHoliday;
+addPhilippineHolidays (`year`, `company_id`, `dry_run` default true); saveSLANotificationSettings (`email_default`,
+`ticket_types: { <id>: 'default' | 'on' | 'off' }`); setTicketTypeFeatures accepts `sla_email`. All admin-only except
+markNotificationsRead. Editor-only: installSLAEscalationTrigger / removeSLAEscalationTrigger, runSLAEscalationsDryRun,
+migrateCompanyEscalationsToRules(Apply).
+
+**GET - new in v9.4:** getDashboard (`user_id`) → `{ companies, ticket_types, approval_inbox, counts: { total, open,
+closed, mine, overdue, due_today, for_my_approval } }`.
 
 **GET - new in v9.3:**
 

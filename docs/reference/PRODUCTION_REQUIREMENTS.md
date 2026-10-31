@@ -40,9 +40,11 @@
 ```json
 {
   "firebase": "^11.9.0",
-  "@firebase/analytics": "^0.10.16"
+  "@firebase/analytics": "^0.10.16",
+  "jose": "^5.9.6"
 }
 ```
+- **`jose`** *(added 30 Oct 2026, AppScript v9.4)*: used only by the Vercel function `api/appscript-proxy.js` (never bundled into the React app) to verify the Firebase ID token against Google's securetoken JWKS before forwarding to Apps Script (compliance F6). v5 runs on Node 18+ (Vercel's Node runtime) in both ESM and CJS.
 
 ### **UI Framework & Styling**
 ```json
@@ -92,6 +94,8 @@ uses and jsdom (Jest 27) doesn't provide. Re-check both when react-router or rea
 ### **Contract and Offline Checks** *(added 19 Oct 2026)*
 ```bash
 npm run check:api-contract   # every makeRequest action has a doGet/doPost route in the newest AppScript file
+npm run check:code-rules     # (30 Oct 2026) self-test + compliance A14-A18/A20/F3/F4 static checks; known gaps may only shrink
+node scripts/test-proxy-auth.js   # (30 Oct 2026) proxy token verification x AUTH_MODE (compliance F6)
 node appscript_files/tools/ROUTES_AND_APPROVALS_TEST_v9.0.js appscript_files/APPSCRIPT_v<latest>.txt
 node appscript_files/tools/CODE_REVIEW_FIXES_TEST_v8.3.js appscript_files/APPSCRIPT_v<latest>.txt
 ```
@@ -157,6 +161,7 @@ npm run eject  # Eject from CRA (not recommended)
 - **Primary**: Vercel (static React deployment)
 - **CDN**: Vercel Edge Network
 - **Environment Variables**: Configured via Vercel dashboard
+- **Proxy env (from AppScript v9.4)**: `APPS_SCRIPT_URL` (the web app exec URL), `PROXY_SECRET` (same value as the Apps Script Script Property), `AUTH_MODE` (`off` | `warn` | `enforce`), `FIREBASE_PROJECT_ID`. Without `APPS_SCRIPT_URL` the proxy falls back to the deployment URL in the file
 
 ## Architecture Requirements
 
@@ -168,7 +173,7 @@ npm run eject  # Eject from CRA (not recommended)
 
 ### **Security Requirements**
 - **Authentication**: Firebase Auth (Google OAuth only)
-- **API Security**: Apps Script web app with authentication
+- **API Security**: the Vercel proxy verifies the Firebase ID token (`Authorization: Bearer`) and forwards the uid with a shared secret; Apps Script (v9.4+) checks the secret and takes the acting user from it (`AUTH_MODE` warn → enforce). Compliance A15 / F2 / F6
 - **Environment Variables**: Sensitive config via `.env` files
 - **CSP**: Content Security Policy via Vercel headers
 
