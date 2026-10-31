@@ -863,12 +863,17 @@ class TicketAPI extends BaseAPI {
   async getAll(filters = {}, { maxPages = 10 } = {}) {
     const all = [];
     let cursor = null;
+    let more = false;
     for (let page = 0; page < maxPages; page++) {
       const result = await this.getPage({ limit: 100, cursor, filters });
       all.push(...result.items);
-      if (!result.has_more || !result.next_cursor) break;
+      more = Boolean(result.has_more && result.next_cursor);
+      if (!more) break;
       cursor = result.next_cursor;
     }
+    // v10.0 review CR4-07: say so when the cap cut the list (callers can read all.truncated)
+    all.truncated = more;
+    if (more) console.warn(`Tickets.getAll stopped at ${all.length} tickets (${maxPages} pages) - narrow the filters`, filters);
     return all;
   }
 

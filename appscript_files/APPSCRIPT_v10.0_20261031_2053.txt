@@ -1091,7 +1091,8 @@ function doGet(e) {
           return createDataResponse(getSLAEscalationRules(params));
 
         case 'getSLAEscalationEvents':
-          return createDataResponse(getSLAEscalationEvents(params));
+          // v10.0 review CR4-01: one ticket's escalations - only for whoever may see the ticket
+          return createDataResponse(ticketReadGuard(params, params.ticket_id || params.ticketId, 'getSLAEscalationEvents') || getSLAEscalationEvents(params));
 
         case 'testSLAEscalations':
           return createDataResponse(testSLAEscalations(params));
@@ -1513,6 +1514,9 @@ function routePostAction(action, data) {
 
         case 'setCustomFieldValue':
           const customFieldValueData = data.payload || data;
+          // v10.0 review CR4-02: a ticket value is written only by someone who sees the ticket; a Restricted field only by its chain
+          const valueDenied = restrictedValueWriteDenied(customFieldValueData);
+          if (valueDenied) return createHandlerResponse(valueDenied);
           return createHandlerResponse(setCustomFieldValue(customFieldValueData.entity_id, customFieldValueData.field_id, customFieldValueData.value, customFieldValueData.entity_category || 'ticket'));
 
         // User Management Setup endpoints (v8.3 (CR-05): safe to repeat - never clears data, seeds test data once)
@@ -1528,7 +1532,9 @@ function routePostAction(action, data) {
           return createDataResponse(canUserApproveAction(data.payload || data));
 
         case 'submitStepApproval':
-          return createDataResponse(submitStepApproval(data.payload || data));
+          // v10.0 review CR4-02: writes on a ticket the caller can't see answer like a missing ticket
+          return createDataResponse(ticketWriteGuard(data.payload || data, (data.payload || data).ticket_id, 'submitStepApproval') ||
+            submitStepApproval(data.payload || data));
 
         // v9.5 writes: SLA escalation, notifications, holidays (admin checks inside, A15)
         case 'createSLAEscalationRule':
@@ -1588,10 +1594,13 @@ function routePostAction(action, data) {
 
         case 'updateTicket':
           const ticketUpdateData = data.payload || data;
+          const updateDenied = ticketWriteGuard(ticketUpdateData, ticketUpdateData.id || ticketUpdateData.ticket_id, 'updateTicket'); // CR4-02
+          if (updateDenied) return createDataResponse(updateDenied);
           return createDataResponse(updateTicketWithValidation(ticketUpdateData.id || ticketUpdateData.ticket_id, ticketUpdateData));
 
         case 'updateTicketStatus':
-          return createDataResponse(updateTicketStatusAction(data.payload || data));
+          return createDataResponse(ticketWriteGuard(data.payload || data, (data.payload || data).ticket_id || (data.payload || data).id, 'updateTicketStatus') ||
+            updateTicketStatusAction(data.payload || data)); // CR4-02
 
         case 'getUsers':
           const usersQuery = data.payload || data;
@@ -1736,10 +1745,10 @@ function routePostAction(action, data) {
           return createDataResponse(deleteTagAction(data.tag_id || data.id, data.user_id || null, data.reason));
 
         case 'assignTags':
-          return createDataResponse(assignTagsAction(data.payload || data));
+          return createDataResponse(ticketWriteGuard(data.payload || data, (data.payload || data).ticket_id, 'assignTags') || assignTagsAction(data.payload || data)); // CR4-02
 
         case 'removeTags':
-          return createDataResponse(removeTagsAction(data.payload || data));
+          return createDataResponse(ticketWriteGuard(data.payload || data, (data.payload || data).ticket_id, 'removeTags') || removeTagsAction(data.payload || data)); // CR4-02
 
         case 'shareTicket':
           return createDataResponse(shareTicketAction(data.payload || data));
@@ -1962,7 +1971,7 @@ function getTickets(params) {
   const present = list => {
     const order = {};
     list.forEach((t, i) => { order[String(t.id)] = i; });
-    return withTicketLinks(list.filter(t => views[String(t.id)] === 'full'))
+    return withTicketLinks(list.filter(t => views[String(t.id)] === 'full'), views)
       .concat(list.filter(t => views[String(t.id)] === 'stub').map(ticketStub))
       .sort((a, b) => order[String(a.id)] - order[String(b.id)]);
   };
@@ -1992,16 +2001,21 @@ function getTickets(params) {
 }
 
 const TICKET_PAGE_DEFAULT = 50;
+// getTickets sla filter -> ticketSLAStatus values (the ticket list's SLA widget links: ?sla=overdue ...)
+const TICKET_SLA_FILTERS = { overdue: ['Overdue'], due_today: ['Due Today'], on_time: ['On Track'], no_sla: ['No SLA', 'Closed'] };
 const TICKET_PAGE_MAX = 100;
 
 /**
  * Tickets + their active links. v9.4 (reco P7): links indexed once; v10.0 (reco P7 in the paged form): only for the
- * tickets passed in (the page).
+ * tickets passed in (the page). Review CR4-05: with `views` (id -> canViewTicket) a linked ticket the caller can't see
+ * ('none') is left out of children / parent, so its id isn't revealed.
  */
-function withTicketLinks(tickets) {
+function withTicketLinks(tickets, views = null) {
   const ids = {};
   tickets.forEach(t => { ids[String(t.id)] = true; });
-  const links = activeTicketLinks().filter(l => ids[String(l.parent_ticket_id)] || ids[String(l.child_ticket_id)]);
+  const seen = id => !views || (views[String(id)] && views[String(id)] !== 'none');
+  const links = activeTicketLinks().filter(l => (ids[String(l.parent_ticket_id)] || ids[String(l.child_ticket_id)]) &&
+    seen(l.parent_ticket_id) && seen(l.child_ticket_id));
   const childLinksOf = groupBy(links, l => String(l.parent_ticket_id));
   const parentLinksOf = groupBy(links, l => String(l.child_ticket_id));
   return tickets.map(ticket => {
@@ -2057,7 +2071,10 @@ function ticketFilterParams(params) {
     involved: boolFlag(pick('involved')),
     date_from: pick('date_from') || '',
     date_to: pick('date_to') || '',
-    q: String(pick('q') || '').trim().toLowerCase()
+    q: String(pick('q') || '').trim().toLowerCase(),
+    // review CR4-06: the ticket list's SLA / priority filters run on the server, over every page
+    sla: String(pick('sla') || '').toLowerCase(),
+    priority: String(pick('priority') || '')
   };
 }
 
@@ -2071,6 +2088,7 @@ function applyTicketFilters(tickets, f, scope, views = {}) {
   const from = f.date_from ? toDate(f.date_from) : null;
   const toEnd = f.date_to ? endOfTerm(f.date_to) : null;
   const words = f.q ? f.q.split(/\s+/).filter(Boolean) : [];
+  const slaNow = new Date();
   const involvedIds = {};
   if (f.involved && scope.actor) {
     ((readTable(SHEETS.TICKET_PARTICIPANTS) || {}).records || [])
@@ -2081,7 +2099,9 @@ function applyTicketFilters(tickets, f, scope, views = {}) {
   return tickets.filter(t => {
     if (!isActiveFlag(t.is_active)) return false;
     const stub = views[String(t.id)] === 'stub';
-    if (stub && (f.requester_id || f.mine || f.involved)) return false;
+    if (stub && (f.requester_id || f.mine || f.involved || f.sla || f.priority)) return false;
+    if (f.priority && String(t.priority || '') !== f.priority) return false;
+    if (f.sla && TICKET_SLA_FILTERS[f.sla] && !TICKET_SLA_FILTERS[f.sla].includes(ticketSLAStatus(t, slaNow))) return false;
     if (f.status.length) {
       const closed = TERMINAL_TICKET_STATUSES.includes(t.status) || Boolean(t.cancelled_at);
       const ok = f.status.some(s => (s === 'open' ? !closed : s === 'closed' ? closed : String(t.status) === s));
@@ -7366,7 +7386,7 @@ function updateTicketWithValidation(ticketId, payload) {
       return { status: 'error', message: 'Cannot update cancelled ticket' };
     }
 
-    const currentUser = payload.updated_by || payload.user_id || getCurrentUserId();
+    const currentUser = actorId(payload.updated_by || payload.user_id) || getCurrentUserId(); // v10.0 review CR4-02 (A15)
     const updates = pickDefined(payload, ['title', 'description', 'priority']);
     const changes = {};
     Object.keys(updates).forEach(field => {
@@ -13330,8 +13350,16 @@ function getTicketLinksAction(params = {}) {
   const view = link => {
     const parent = byId[String(link.parent_ticket_id)] || {};
     const child = byId[String(link.child_ticket_id)] || {};
+    // review CR4-05: a side the caller can't see has no id here, and the link's own text shows only when both sides
+    // are fully visible (a stub side keeps its number / status - what its stub shows anyway)
+    const parentSeen = !!byId[String(link.parent_ticket_id)];
+    const childSeen = !!byId[String(link.child_ticket_id)];
+    const bothFull = parentSeen && childSeen && !parent.confidential && !child.confidential;
     return {
       ...link,
+      parent_ticket_id: parentSeen ? link.parent_ticket_id : '',
+      child_ticket_id: childSeen ? link.child_ticket_id : '',
+      description: bothFull ? (link.description || '') : '',
       enforce_blocking_rules: boolFlag(link.enforce_blocking_rules),
       sync_status: boolFlag(link.sync_status),
       notify_on_update: boolFlag(link.notify_on_update),
@@ -14436,7 +14464,8 @@ function getReportData(params = {}) {
   const from = params.date_from ? toDate(params.date_from)
     : new Date((toEnd || new Date()).getTime() - REPORT_DEFAULT_DAYS * DAY_MS);
   if (params.date_from && !from) return { status: 'error', message: 'date_from is not a date' };
-  if (toEnd && from && toEnd.getTime() - from.getTime() > REPORT_MAX_DAYS * DAY_MS) {
+  // review CR4-03: without date_to the range runs to now - the 1-year cap applies too
+  if (from && (toEnd || new Date()).getTime() - from.getTime() > REPORT_MAX_DAYS * DAY_MS) {
     return { status: 'error', message: 'The report date range can be at most 1 year' };
   }
   const statusFilter = String(params.status || '').trim();
@@ -17433,14 +17462,41 @@ function buildActorScope(actor) {
   const key = actor ? String(actor) : '';
   if (ACTOR_SCOPES[key]) return ACTOR_SCOPES[key];
   const scope = { actor: actor ? String(actor) : null, unscoped: !actor, isAdmin: false, roleScopes: {}, approverScopes: {},
-    myCompanies: {}, participantTicketIds: {}, sharedTicketIds: {}, grantedTicketIds: {}, typeVisibility: {},
-    // v10.0 M4 (Restricted): admin access per type, the actor's participant reasons per ticket, the time spans of
-    // every role they held (in force or not), and the pool windows of those roles per ticket
-    typeAdminAccess: {}, participantReasons: {}, roleSpans: [], poolWindows: {} };
-  ((readTable(SHEETS.TICKET_TYPES) || {}).records || []).forEach(t => {
-    scope.typeVisibility[String(t.id)] = ticketTypeVisibility(t);
-    scope.typeAdminAccess[String(t.id)] = ticketAdminAccess(t);
-  });
+    myCompanies: {}, participantTicketIds: {}, grantedTicketIds: {},
+    // v10.0 M4 (Restricted): the actor's participant reasons per ticket, the time spans of every role they held (in force
+    // or not), and the pool windows of those roles per ticket
+    participantReasons: {}, roleSpans: [], poolWindows: {} };
+  // review CR4-09: ticket_types (visibility, admin access) and ticket_collaborations (shares) are read only when a check
+  // needs them - an approver's check is decided before either, which keeps the approval at the §5.4 read budget
+  let typeMaps = null;
+  const types = () => {
+    if (!typeMaps) {
+      typeMaps = { visibility: {}, adminAccess: {} };
+      ((readTable(SHEETS.TICKET_TYPES) || {}).records || []).forEach(t => {
+        typeMaps.visibility[String(t.id)] = ticketTypeVisibility(t);
+        typeMaps.adminAccess[String(t.id)] = ticketAdminAccess(t);
+      });
+    }
+    return typeMaps;
+  };
+  Object.defineProperty(scope, 'typeVisibility', { get: () => types().visibility, enumerable: true });
+  Object.defineProperty(scope, 'typeAdminAccess', { get: () => types().adminAccess, enumerable: true });
+  let shared = null;
+  Object.defineProperty(scope, 'sharedTicketIds', { enumerable: true, get: () => {
+    if (!shared) {
+      shared = {};
+      if (scope.actor) {
+        const at = new Date();
+        liveRecords(SHEETS.TICKET_COLLABORATIONS).forEach(c => {
+          if (!shareInForce(c, at)) return;
+          if (sameId(c.shared_with_user_id, scope.actor) || (c.shared_with_company_id && scope.myCompanies[String(c.shared_with_company_id)])) {
+            shared[String(c.ticket_id)] = true;
+          }
+        });
+      }
+    }
+    return shared;
+  } });
   if (!actor) {
     ACTOR_SCOPES[key] = scope;
     return scope;
@@ -17463,10 +17519,10 @@ function buildActorScope(actor) {
   const spanRoleIds = {};
   scope.roleSpans.forEach(s => { spanRoleIds[s.role_id] = true; });
   scope.isAdmin = assignments.some(a => String(roles[String(a.role_id)].name || '').toLowerCase().includes('admin'));
+  // review CR4-08 (spec 3.1): an assignment without a company is a global role - it counts for every company ('*')
   assignments.forEach(a => {
-    if (!a.company_id) return;
-    scope.myCompanies[String(a.company_id)] = true;
-    scope.roleScopes[`${a.company_id}|${a.ticket_type_id || '*'}`] = true;
+    if (a.company_id) scope.myCompanies[String(a.company_id)] = true;
+    scope.roleScopes[`${a.company_id || '*'}|${a.ticket_type_id || '*'}`] = true;
   });
 
   // Approver scopes: the step's approver roles x the actor's assignments (same matching as getTicketsForApproval)
@@ -17474,10 +17530,10 @@ function buildActorScope(actor) {
   ((readTable(SHEETS.WORKFLOW_STEPS) || {}).records || []).filter(s => isActiveFlag(s.is_active)).forEach(step => {
     const stepRoles = (rolesByStep[String(step.id)] || []).map(r => String(r.role_id));
     assignments.forEach(a => {
-      if (!stepRoles.includes(String(a.role_id)) || !a.company_id) return;
-      if (step.company_id && !sameId(step.company_id, a.company_id)) return;
+      if (!stepRoles.includes(String(a.role_id))) return;
+      if (a.company_id && step.company_id && !sameId(step.company_id, a.company_id)) return;
       if (a.ticket_type_id && !sameId(a.ticket_type_id, step.ticket_type_id)) return;
-      scope.approverScopes[`${a.company_id}|${step.ticket_type_id}`] = true;
+      scope.approverScopes[`${a.company_id || step.company_id || '*'}|${step.ticket_type_id}`] = true;
     });
   });
 
@@ -17496,16 +17552,10 @@ function buildActorScope(actor) {
     (scope.participantReasons[ticketKey] = scope.participantReasons[ticketKey] || {})[p.reason] = true;
     if (p.reason !== 'shared') scope.participantTicketIds[ticketKey] = true;
   });
-  liveRecords(SHEETS.TICKET_COLLABORATIONS).forEach(c => {
-    if (!shareInForce(c, now)) return;
-    if (sameId(c.shared_with_user_id, actor) || (c.shared_with_company_id && scope.myCompanies[String(c.shared_with_company_id)])) {
-      scope.sharedTicketIds[String(c.ticket_id)] = true;
-    }
-  });
   ((readTable(SHEETS.SLA_ESCALATION_EVENTS) || {}).records || []).forEach(e => {
     if (String(e.escalation_action) !== 'escalate_role') return;
     const granted = jsonList(e.granted_role_ids);
-    if (assignments.some(a => granted.includes(String(a.role_id)) && sameId(a.company_id, e.company_id))) scope.grantedTicketIds[String(e.ticket_id)] = true;
+    if (assignments.some(a => granted.includes(String(a.role_id)) && (!a.company_id || sameId(a.company_id, e.company_id)))) scope.grantedTicketIds[String(e.ticket_id)] = true;
   });
 
   ACTOR_SCOPES[key] = scope;
@@ -17549,17 +17599,20 @@ function ticketInScope(scope, ticket, withShares) {
   const id = String(ticket.id);
   if (sameId(ticket.requester_id, scope.actor) || (ticket.head_approver_id && sameId(ticket.head_approver_id, scope.actor))) return true;
   if (scope.participantTicketIds[id] || scope.grantedTicketIds[id]) return true;
-  if (withShares && scope.sharedTicketIds[id]) return true;
   const key = `${ticket.company_id}|${ticket.ticket_type_id}`;
-  if (scope.approverScopes[key]) return true;
-  return scope.typeVisibility[String(ticket.ticket_type_id)] === 'collaborative' &&
-    !!(scope.roleScopes[key] || scope.roleScopes[`${ticket.company_id}|*`]);
+  const anyCompany = `*|${ticket.ticket_type_id}`; // CR4-08: global roles (assignments without a company)
+  if (scope.approverScopes[key] || scope.approverScopes[anyCompany]) return true;
+  const roleOnType = !!(scope.roleScopes[key] || scope.roleScopes[`${ticket.company_id}|*`] || scope.roleScopes[anyCompany] || scope.roleScopes['*|*']);
+  if (roleOnType && scope.typeVisibility[String(ticket.ticket_type_id)] === 'collaborative') return true;
+  // shares last (CR4-09): ticket_collaborations is read only when nothing above decided
+  return !!(withShares && scope.sharedTicketIds[id]);
 }
 
 /** May the scope's actor create a ticket of this type in this company? (decision 1: a role on that type + company) */
 function canCreateTicket(scope, companyId, ticketTypeId) {
   if (scope.unscoped || scope.isAdmin) return true;
-  return !!(scope.roleScopes[`${companyId}|${ticketTypeId}`] || scope.roleScopes[`${companyId}|*`]);
+  return !!(scope.roleScopes[`${companyId}|${ticketTypeId}`] || scope.roleScopes[`${companyId}|*`] ||
+    scope.roleScopes[`*|${ticketTypeId}`] || scope.roleScopes['*|*']); // CR4-08: global roles
 }
 
 /**
@@ -17580,13 +17633,48 @@ function ticketReadGuard(request, ticketId, what) {
  * 'none' / missing -> "Ticket not found".
  */
 function ticketReadView(request, ticketId, what) {
-  const scope = requestScope(request && (request.user_id || request.userId), what);
   const found = ticketId ? findRecord(SHEETS.TICKETS, ticketId) : null;
+  // review CR4-09: the requester and the immediate head are always in the chain - answer them without building the whole
+  // actor scope (roles, steps, participants, shares, grants), so a detail screen's reads stay small for them
+  const actor = actorId(request && (request.user_id || request.userId));
+  if (found && actor && (sameId(found.record.requester_id, actor) ||
+    (found.record.head_approver_id && sameId(found.record.head_approver_id, actor)))) {
+    const own = { actor: String(actor), unscoped: false, isAdmin: false, participantReasons: {}, grantedTicketIds: {}, poolWindows: {},
+      roleSpans: [], typeAdminAccess: {} };
+    return { view: 'full', record: found.record, scope: own, error: null };
+  }
+  const scope = requestScope(request && (request.user_id || request.userId), what);
   const view = found ? canViewTicket(scope, found.record) : 'none';
   const error = view === 'full' ? null
     : view === 'stub' ? { status: 'error', code: 'RESTRICTED', message: RESTRICTED_TICKET_MESSAGE }
       : { status: 'error', message: 'Ticket not found' };
   return { view, record: found ? found.record : null, scope, error };
+}
+
+/**
+ * Route guard for writes on one ticket (v10.0 review CR4-02): only someone with the full view may change it; anyone else
+ * gets the same answer as for a missing ticket (or RESTRICTED for a stub), so a write can't probe which ids exist.
+ * @returns {Object|null} error result or null
+ */
+function ticketWriteGuard(request, ticketId, what) {
+  if (!ticketId) return null; // the handler reports the missing id itself
+  return ticketReadView(request, ticketId, what).error;
+}
+
+/**
+ * setCustomFieldValue on a ticket (CR4-02, design §4.10 "Writing"): the ticket must be visible, and a Restricted field may
+ * be set only by the ticket's chain (or no actor, D1). Other entity categories are unchanged.
+ * @returns {Object|null} error result or null
+ */
+function restrictedValueWriteDenied(data) {
+  if (String(data.entity_category || 'ticket') !== 'ticket' || !data.entity_id) return null;
+  const read = ticketReadView(data, data.entity_id, 'setCustomFieldValue');
+  if (read.error) return read.error;
+  const field = data.field_id ? findRecord(SHEETS.CUSTOM_FIELDS, data.field_id) : null;
+  if (field && boolFlag(field.record.is_confidential) && !canSeeRestrictedFields(read.scope, read.record)) {
+    return { status: 'error', message: `Only the ticket's approval chain can change a ${RESTRICTED_LABEL} field` };
+  }
+  return null;
 }
 
 /**
@@ -17814,7 +17902,7 @@ function isInChain(scope, ticket) {
   if (scope.grantedTicketIds[id]) return true;
   const now = new Date();
   return (scope.poolWindows[id] || []).some(w => scope.roleSpans.some(s => s.role_id === w.role_id &&
-    sameId(s.company_id, ticket.company_id) && (!s.ticket_type_id || sameId(s.ticket_type_id, ticket.ticket_type_id)) &&
+    (!s.company_id || sameId(s.company_id, ticket.company_id)) && (!s.ticket_type_id || sameId(s.ticket_type_id, ticket.ticket_type_id)) &&
     s.start <= (w.end || now) && (!s.end || s.end > w.start)));
 }
 
@@ -18152,7 +18240,8 @@ function spreadsheetSizeReport() {
 
 /** What archiveOldLogs moves: tab, the date column, the age in days, and an extra condition. */
 const ARCHIVE_RULES = [
-  { table: 'notifications', dateColumn: 'created_at', days: 90, when: r => boolFlag(r.is_read) || r.type === 'read_marker' },
+  // review CR4-04: a role notification (no user_id) is never "read" itself - it goes after 90 days with its read markers
+  { table: 'notifications', dateColumn: 'created_at', days: 90, when: r => boolFlag(r.is_read) || r.type === 'read_marker' || !r.user_id },
   { table: 'email_outbox', dateColumn: 'created_at', days: 90, when: r => ['sent', 'skipped', 'failed'].includes(String(r.status)) },
   { table: 'ticket_action_logs', dateColumn: 'timestamp', days: 365, when: () => true },
   { table: 'admin_action_logs', dateColumn: 'timestamp', days: 365, when: () => true }
@@ -18200,13 +18289,31 @@ function archiveOldLogs(options = {}) {
       const copy = old.filter(e => !archived[String(e.r.id)]).map(e => rowFromRecord(targetHeaders, e.r));
       if (copy.length) target.getRange(target.getLastRow() + 1, 1, copy.length, targetHeaders.length).setValues(copy);
       invalidateTable(cacheNameOf(target));
-      old.map(e => e.row).sort((a, b) => b - a).forEach(n => table.sheet.deleteRow(n));
+      deleteRowRuns(table.sheet, old.map(e => e.row)); // review CR4-10: one call per contiguous run, not per row
       invalidateTable(rule.table);
     });
     return { status: 'success', dryRun: dryRun, moved: moved, archive_spreadsheet: archiveId,
       message: `${dryRun ? 'Dry run: would move' : 'Moved'} ${Object.values(moved).reduce((a, b) => a + b, 0)} row(s)` };
   };
   return dryRun ? run() : withScriptLock(run);
+}
+
+/**
+ * Delete rows (1-based numbers) with one deleteRows call per contiguous run, bottom-up so the numbers stay valid
+ * (review CR4-10: a deleteRow per row ran into the 6-minute limit on big logs while holding the lock).
+ * @returns {number} rows deleted
+ */
+function deleteRowRuns(sheet, rowNumbers) {
+  const rows = Array.from(new Set(rowNumbers.map(Number))).sort((a, b) => b - a);
+  let i = 0;
+  while (i < rows.length) {
+    let j = i;
+    while (j + 1 < rows.length && rows[j + 1] === rows[j] - 1) j++;
+    sheet.deleteRows(rows[j], j - i + 1);
+    i = j + 1;
+  }
+  invalidateTable(cacheNameOf(sheet));
+  return rows.length;
 }
 
 /** Editor: archive dry run / apply. */

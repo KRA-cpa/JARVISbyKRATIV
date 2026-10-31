@@ -93,6 +93,8 @@ function makeRuntime(appscriptPath, options = {}) {
     }
     appendRow(row) { this.rows = this.trimmed(); this.rows.push(row.slice()); this.dirty = true; }
     deleteRow(r) { this.rows.splice(r - 1, 1); this.dirty = true; }
+    // v10.0: Sheet.deleteRows(start, howMany); calls are counted so tests can check runs instead of one call per row
+    deleteRows(start, n) { this.rows.splice(start - 1, n); this.dirty = true; this.deleteRowsCalls = (this.deleteRowsCalls || 0) + 1; }
     clearContents() { this.rows = []; this.dirty = true; }
     clear() { this.rows = []; this.dirty = true; }
     setFrozenRows() {}

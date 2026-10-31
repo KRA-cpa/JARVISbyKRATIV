@@ -815,7 +815,7 @@ export const useSLAOverdueTickets = () => {
     ['sla_overdue_tickets'],
     async () => {
       // Open tickets only, read page by page (AppScript v10.0)
-      const tickets = await API.Tickets.getAll({ status: 'open' });
+      const tickets = await API.Tickets.getAll({ sla: 'overdue' }); // v10.0 CR4-06/07: the server filters
       if (!tickets || tickets.length === 0) return [];
 
       // Filter for overdue tickets
@@ -846,7 +846,7 @@ export const useSLADueTodayTickets = () => {
     ['sla_due_today_tickets'],
     async () => {
       // Open tickets only, read page by page (AppScript v10.0)
-      const tickets = await API.Tickets.getAll({ status: 'open' });
+      const tickets = await API.Tickets.getAll({ sla: 'due_today' }); // v10.0 CR4-06/07: the server filters
       if (!tickets || tickets.length === 0) return [];
 
       // Filter for tickets due today

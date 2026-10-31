@@ -943,6 +943,98 @@ test('volume: archiveOldLogs moves old read notifications / logs (dry run first,
   assert.strictEqual(env.rt.ctx.readTable('archive_notifications').records.filter(n => n.id === 'n_old').length, 1);
 });
 
+// --- v10.0 review (docs/planning/TODO_CodeReview_20261101.md, CR4-01 .. CR4-10) ----------------------------------
+
+test('CR4-01/02: escalations and every ticket write answer like a missing ticket for someone who can\'t see it', () => {
+  const env = seedSecret();
+  const id = env.create(false, 'Private-ish');
+  env.rt.ctx.updateRecordFields('ticket_types', 'tt_sec', { visibility: 'private' });
+  const missing = '999999';
+  const same = (uid, body, get) => {
+    const call = ticketId => (get ? env.asGet(uid, { ...body, ticket_id: ticketId }) : env.as(uid, { ...body, ticket_id: ticketId, id: ticketId, entity_id: ticketId }));
+    const strip = res => JSON.stringify(res).split(id).join('<id>').split(missing).join('<id>');
+    assert.strictEqual(strip(call(id)), strip(call(missing)), JSON.stringify(body));
+  };
+  same('u_peer', { action: 'getSLAEscalationEvents' }, true);
+  same('u_peer', { action: 'updateTicket', title: 'hacked' });
+  same('u_peer', { action: 'assignTags', tag_ids: ['t1'] });
+  same('u_peer', { action: 'removeTags', tag_ids: ['t1'] });
+  same('u_peer', { action: 'updateTicketStatus', status: 'Cancelled', reason: 'x' });
+  same('u_peer', { action: 'submitStepApproval', decision: 'approve', comment: 'x' });
+  same('u_peer', { action: 'setCustomFieldValue', field_id: 'cf_note', value: 'x' });
+  assert.strictEqual(env.rows('tickets').find(t => String(t.id) === id).title, 'Private-ish', 'nothing changed');
+  // a Restricted field is written only by the chain, even by someone who can see the ticket
+  env.rt.ctx.updateRecordFields('ticket_types', 'tt_sec', { visibility: 'collaborative' });
+  assert.match(env.as('u_peer', { action: 'setCustomFieldValue', entity_id: id, field_id: 'cf_salary', value: 'x' }).error, /approval chain/);
+  env.ok(env.as('u_req', { action: 'setCustomFieldValue', entity_id: id, field_id: 'cf_salary', value: 'changed' }));
+});
+
+test('CR4-03: a report with only date_from is capped at 1 year too', () => {
+  const env = seed();
+  assert.match(env.asGet('u_admin', { action: 'getReportData', ticket_type_id: 'tt_priv', user_id: 'u_admin', date_from: '2015-01-01' }).error, /at most 1 year/);
+});
+
+test('CR4-04 + CR4-10: old role notifications are archived (not only their read markers); deletes run in ranges', () => {
+  const env = seed();
+  env.rt.props.ARCHIVE_SPREADSHEET_ID = 'archive_1';
+  const old = new Date(Date.now() - 200 * 24 * 3600e3).toISOString();
+  env.add('notifications', { id: 'n_role', user_id: '', recipient_role_id: 'r_mgr', company_id: 'co_1', type: 'awaiting_approval', is_read: false, is_active: true, created_at: old });
+  env.add('notifications', { id: 'n_mark', user_id: 'u_mgr', type: 'read_marker', link: 'n_role', is_read: true, is_active: true, created_at: old });
+  for (let i = 0; i < 5; i++) env.add('admin_action_logs', { id: `al_${i}`, admin_user_id: 'u_admin', action_type: 'X', timestamp: new Date(Date.now() - 400 * 24 * 3600e3).toISOString() });
+  env.rt.ctx.archiveOldLogs({ dryRun: false });
+  assert.ok(!env.rows('notifications').some(n => n.id === 'n_role'), 'the role notification went too');
+  assert.strictEqual(env.rows('admin_action_logs').filter(l => /^al_/.test(l.id)).length, 0);
+  assert.ok((env.rt.sheets.get('admin_action_logs').deleteRowsCalls || 0) <= 2, 'one call per contiguous run');
+});
+
+test('CR4-05: links and children / parent never carry the id or text of a ticket the caller can\'t see', () => {
+  const env = seed();
+  const mine = env.createTicket('tt_priv');
+  const hidden = env.createTicket('tt_priv', 'u_peer');
+  env.add('ticket_links', { id: 'lk_h', parent_ticket_id: mine, child_ticket_id: hidden, link_type: 'related', description: 'SECRET-LINK-NOTE', company_id: 'co_1', is_active: true });
+  const links = env.ok(env.asGet('u_req', { action: 'getTicketLinks' }));
+  assert.strictEqual(links[0].child_ticket_id, '');
+  assert.ok(!JSON.stringify(links).includes(hidden) || links.every(l => l.child_ticket_id !== hidden));
+  assert.ok(!JSON.stringify(links).includes('SECRET-LINK-NOTE'));
+  const page = env.ok(env.asGet('u_req', { action: 'getTickets', limit: 10 })).items.find(t => String(t.id) === mine);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(page.children)), [], 'the hidden child is not listed');
+  // the requester of the hidden ticket still sees the link to their own ticket's parent... they can't see `mine`
+  assert.strictEqual(env.ok(env.asGet('u_mgr', { action: 'getTicketLinks' }))[0].child_ticket_id, hidden, 'an approver sees both sides');
+});
+
+test('CR4-06: the SLA / priority filters run on the server over every page; stubs never match them', () => {
+  const env = seed();
+  const late = env.createTicket('tt_collab');
+  env.rt.ctx.updateRecordFields('tickets', late, { step_due_date: new Date(Date.now() - 3600e3).toISOString(), priority: 'high',
+    created_at: new Date(Date.now() - 10 * 24 * 3600e3).toISOString() });
+  for (let i = 0; i < 3; i++) env.createTicket('tt_collab');
+  const ids = filters => env.ok(env.asGet('u_mgr', { action: 'getTickets', limit: 2, filters: JSON.stringify(filters) })).items.map(t => String(t.id));
+  assert.deepStrictEqual(ids({ sla: 'overdue' }), [late], 'found although it is older than the first page');
+  assert.deepStrictEqual(ids({ priority: 'high' }), [late]);
+});
+
+test('CR4-08: an assignment without a company is a global role - it creates and sees in every company', () => {
+  const env = seed();
+  env.add('user_role_assignments', { id: 'ura_g', user_id: 'u_glob', role_id: 'r_mgr', company_id: '', ticket_type_id: '', is_active: true,
+    effective_start_date: new Date(Date.now() - 3600e3).toISOString(), created_at: new Date(Date.now() - 3600e3).toISOString() });
+  env.add('user_profiles', { user_id: 'u_glob', display_name: 'g', email: 'g@example.com', status: 'active', is_active: true });
+  env.rt.cache.clear();
+  const id = env.createTicket('tt_priv');
+  assert.deepStrictEqual(env.visibleIds('u_glob'), [id], 'approver of the type everywhere');
+  env.createTicket('tt_collab', 'u_glob');
+});
+
+test('CR4-09: the requester\'s own ticket read builds no actor scope (no participants / steps / shares read)', () => {
+  const env = seed();
+  const id = env.createTicket('tt_priv');
+  const read = () => env.asGet('u_req', { action: 'getTicketHistory', ticket_id: id });
+  read();
+  read();
+  const tabs = Object.keys(env.rt.reads());
+  ['ticket_participants', 'workflow_steps', 'step_approvers', 'ticket_collaborations', 'sla_escalation_events'].forEach(tab =>
+    assert.ok(!tabs.includes(tab), `${tab} read: ${tabs.join(', ')}`));
+});
+
 test('ping reports 10.0.0 = header Version; the file has one definition of each new helper (A20)', () => {
   const env = seed();
   assert.strictEqual(env.rt.get({ action: 'ping' }).version, '10.0.0');

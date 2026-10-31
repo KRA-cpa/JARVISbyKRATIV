@@ -138,7 +138,8 @@ test('approval path (any): eligibility per company, approve moves step by step t
 
   const denied = approve(id, 'u_other');
   assert.strictEqual(denied.success, false, 'Manager of another company must not approve');
-  assert.match(denied.error, /permission/);
+  // v10.0+: a user of another company can't even see the ticket, so the write answers like a missing ticket
+  assert.match(denied.error, /permission|Ticket not found/);
 
   const first = approve(id, 'u_mgr');
   assert.strictEqual(first.success, true, first.error);

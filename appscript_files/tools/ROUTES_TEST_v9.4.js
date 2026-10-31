@@ -101,7 +101,8 @@ test('cache: the approval that completes a step reads each tab at most twice and
   const uncached = measure({ CACHE_ENABLED: 'false' });
   // Budget (P10): v9.3 read 18 tabs for this approval; v9.4 reads 9, v9.5 11 (escalation grants, company SLA rule)
   Object.entries(cached).forEach(([tab, n]) => assert.ok(n <= 2, `${tab} read ${n} times`));
-  assert.ok(sum(cached) <= 12, `cached ${sum(cached)} reads (budget 12)`);
+  // v10.0: 13 - the visibility guard on the write (roles) and the participants; design PLAN_FeatureGaps_Volume §5.4 ≤ 13
+  assert.ok(sum(cached) <= 13, `cached ${sum(cached)} reads (budget 13)`);
   assert.ok(sum(cached) < sum(uncached), `cached ${sum(cached)} vs uncached ${sum(uncached)} reads`);
 });
 

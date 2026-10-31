@@ -68,10 +68,21 @@ const TicketDashboard = () => {
     const timer = setTimeout(() => setDebouncedSearch(filters.search.trim()), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [filters.search]);
+  // v10.0 review CR4-06: SLA, priority and date range go to the server too, so the SLA widget links (?sla=overdue)
+  // find every matching ticket, not only the ones in the loaded pages
+  const dateFrom = (() => {
+    const days = { today: 0, week: 7, month: 30 }[filters.dateRange];
+    if (days === undefined) return '';
+    const d = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+  })();
   const serverFilters = {
     q: debouncedSearch,
     company_id: filters.company,
     status: filters.status,
+    priority: filters.priority,
+    ...(filters.slaStatus !== 'all' ? { sla: filters.slaStatus } : {}),
+    ...(dateFrom ? { date_from: dateFrom } : {}),
     ...(filters.show === 'mine' ? { mine: true } : {})
   };
   const { data: listTickets, loading: listLoading, loadingMore, error, hasMore, loadMore, refetch } = useTicketList(serverFilters, 50);
