@@ -209,7 +209,7 @@ create table auth_identities (
 
 | Pros | Cons |
 |---|---|
-| **Data residency / Data Privacy Act:** client data never leaves their network or provider (often the deciding factor for enterprises) | **We can't test against the real database:** version, collation, permissions and network differences show up only at the client |
+| **Data residency / Data Privacy Act:** client data never leaves their network or provider (often the deciding factor for enterprises) | **No test access by default:** version, collation, permissions and network differences show up only at the client - **unless the client provides a dev / staging database** (§11.4) |
 | Integration with the client's ERP: reports or views can join TicketFlow tables with ERP tables | **Support burden:** every client database is one more environment to upgrade, migrate and debug - remotely, through their IT |
 | No cloud database cost for the client; LAN latency can be very low | **Networking:** Vercel functions can't reach a private database without a tunnel (Cloudflare Tunnel, VPN, or a public IP allow-list) - or the API must be hosted on-prem (shape C) |
 | The client owns backups, retention and disaster recovery | Backups, HA and security patches become **their** responsibility - and outages land on us anyway |
@@ -230,6 +230,7 @@ create table auth_identities (
 - **CI matrix:** run the handler suite (the `ROUTES_TEST_v9.x` scenarios ported to the API) against Docker images of each supported engine - `postgres:16`, and `mcr.microsoft.com/mssql/server:2022-latest` / `mysql:8` if shape B is offered. GitHub Actions `services:` start them per run.
 - **Install checklist for the client's IT:** engine + version, collation (`Latin1_General_100_CI_AS_SC_UTF8` or equivalent for UTF-8), a dedicated database user with DDL rights for migrations, network path (tunnel or on-prem API), backups.
 - **Health endpoint** (`getSystemHealth` equivalent) reporting engine, version, migration level and time zone, so the first remote check after an install shows mismatches at once.
+- **Client dev / staging database (preferred - make it a contract condition):** a copy of their production engine, same version and collation, reachable from our CI (tunnel / VPN / allow-listed IP) with a dedicated test user. Our CI then runs the handler suite and every migration against it before each release, and the release goes to their production only after it passes there. Refresh it from production (masked data) before major releases.
 - **A pilot client** before offering it widely.
 
 ### §11.5 Recommendation
