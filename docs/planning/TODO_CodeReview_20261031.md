@@ -36,5 +36,7 @@ REVISION HISTORY:
 
 ## Also found while testing (not review findings)
 
+- **Browser check 4 (31 Oct 2026):** a `NOT_INVITED` account was signed out and sent to `/login`, but the notice didn't show (not reproducible in Jest). Cause: the login page read the notice once and deleted it, so a second mount during the sign-out found nothing. Fix `55533fb`: the notice stays until the next sign-in (`clearSessionNotice`), `endSession` reloads `/login`, console line `[session] ended: <code>`; tests `src/contexts/signOutNotice*.test.js`. Re-checked live ✅. Lesson: one-time UI state must survive remounts (read, then clear on the user's next action).
+
 - `ROUTES_AND_APPROVALS_TEST_v9.0.js` "date-only end covers that day" fails on **v9.5 too** when the machine's time zone isn't Asia/Manila (the cloud container is UTC). Run the suites with `TZ=Asia/Manila`.
 - Jest (`react-scripts test`): 104 of 174 tests fail on `main3` before this batch as well (same tests, same outcomes) - pre-existing, not touched here.
