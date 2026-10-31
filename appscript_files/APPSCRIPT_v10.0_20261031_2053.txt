@@ -237,6 +237,8 @@ const SHEETS = {
 var TABLE_CACHE = {};
 // v10.0: buildActorScope() results per actor for the current request (dropped by every write)
 var ACTOR_SCOPES = {};
+// v10.0: sheet reads that reached the spreadsheet in this request (the [perf] log line)
+var TAB_READS = 0;
 // True inside doGet / doPost (withRequestScope). The cache is used only then; editor runs read uncached.
 let REQUEST_ACTIVE = false;
 let SS_HANDLE = null;
@@ -279,6 +281,36 @@ function resetRequestCache() {
   TABLE_CACHE = {};
   CACHE_FLAG = null;
   ACTOR_SCOPES = {};
+  TAB_READS = 0;
+}
+
+/**
+ * v10.0 (design §7, Claude.md working rule): one log line per request - action, duration_ms, tab_reads (sheet reads that
+ * reached the spreadsheet), user_id, company_id, status - for the Sheets read budgets (P10) and the migrate trigger (§5.5).
+ * Runs inside the request scope, so the verified user is known; the body isn't parsed beyond its first characters.
+ */
+function perfLogged(kind, e, fn) {
+  const started = Date.now();
+  let action = '';
+  let companyId = '';
+  try {
+    const data = kind === 'GET' ? ((e && e.parameter) || {}) : JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    action = String(data.action || 'ping');
+    companyId = String(data.company_id || (data.payload && data.payload.company_id) || '');
+  } catch (error) {
+    action = 'unparsed';
+  }
+  const out = fn();
+  let status = 'ok';
+  try {
+    const body = typeof out.getContent === 'function' ? out.getContent() : String(out.text || '');
+    if (body.slice(0, 40).indexOf('"success":false') !== -1) status = 'error';
+  } catch (error) {
+    status = 'unknown';
+  }
+  console.log('[perf] ' + JSON.stringify({ action, method: kind, duration_ms: Date.now() - started, tab_reads: TAB_READS,
+    user_id: REQUEST_AUTH.uid || '', company_id: companyId, status }));
+  return out;
 }
 
 /**
@@ -315,9 +347,15 @@ function cacheNameOf(target) {
  */
 function sheetValues(sheet) {
   if (!sheet) return [];
-  if (!cacheEnabled()) return sheet.getDataRange().getValues();
+  if (!cacheEnabled()) {
+    TAB_READS++;
+    return sheet.getDataRange().getValues();
+  }
   const name = sheet.getName();
-  if (!TABLE_CACHE[name]) TABLE_CACHE[name] = sheet.getDataRange().getValues();
+  if (!TABLE_CACHE[name]) {
+    TAB_READS++;
+    TABLE_CACHE[name] = sheet.getDataRange().getValues();
+  }
   return TABLE_CACHE[name].map(row => row.slice());
 }
 
@@ -920,7 +958,7 @@ function getGlobalSLAPerformance() {
  * @returns {ContentService.TextOutput} - A JSON response.
  */
 function doGet(e) {
-    if (!REQUEST_ACTIVE) return withRequestScope(() => doGet(e));
+    if (!REQUEST_ACTIVE) return withRequestScope(() => perfLogged('GET', e, () => doGet(e)));
     // Safe parameter access with fallback
     const params = e && e.parameter ? e.parameter : {};
     const action = params.action || 'ping'; // Default to 'ping' if no action
@@ -1140,7 +1178,7 @@ function doGet(e) {
  * @returns {ContentService.TextOutput} - A JSON response.
  */
 function doPost(e) {
-    if (!REQUEST_ACTIVE) return withRequestScope(() => doPost(e));
+    if (!REQUEST_ACTIVE) return withRequestScope(() => perfLogged('POST', e, () => doPost(e)));
     // Safe parameter access
     const postData = e && e.postData ? e.postData.contents : '{}';
 
@@ -18071,6 +18109,115 @@ function drainEmailOutbox(options = {}) {
 /** Editor: send what waits in the outbox now (the 15-minute trigger does this too). */
 function drainEmailOutboxNow() {
   const result = drainEmailOutbox({});
+  Logger.log(JSON.stringify(result));
+  return result;
+}
+
+/** Editor / JARVIS Admin: the outbox by status, with the oldest pending row's age. */
+function emailOutboxStatus() {
+  const rows = ((readTable(SHEETS.EMAIL_OUTBOX) || {}).records || []);
+  const byStatus = {};
+  rows.forEach(r => { byStatus[String(r.status || 'pending')] = (byStatus[String(r.status || 'pending')] || 0) + 1; });
+  const pending = rows.filter(r => String(r.status) === 'pending').map(r => toDate(r.created_at)).filter(Boolean);
+  const oldest = pending.length ? new Date(Math.min(...pending.map(d => d.getTime()))) : null;
+  return { total: rows.length, by_status: byStatus, oldest_pending: oldest ? isoOrBlank(oldest) : '',
+    oldest_pending_minutes: oldest ? Math.round((Date.now() - oldest.getTime()) / 60000) : 0,
+    sending_enabled: String(scriptProperty('EMAIL_OUTBOX_ENABLED', 'true')).toLowerCase() !== 'false' };
+}
+
+// --- Volume ops on Sheets (design §5.3, §5.5) ---------------------------------------------------------------------
+
+const SHEETS_CELL_LIMIT = 10000000;
+const MIGRATE_AT_CELLS = 5000000; // half the limit (design §5.5)
+const MIGRATE_AT_TAB_ROWS = 20000;
+
+/**
+ * Editor / JARVIS Admin: cells used per tab against the 10M-cell spreadsheet limit, with the design §5.5 migrate
+ * signals (a tab over 20k rows, the spreadsheet over 5M cells). Reads only sheet sizes, not the data.
+ * @returns {Object} { total_cells, limit, percent, tabs: [{ name, rows, columns, cells }], migrate: [reasons] }
+ */
+function spreadsheetSizeReport() {
+  const tabs = ss().getSheets().map(sheet => {
+    const rows = sheet.getLastRow();
+    const columns = sheet.getLastColumn();
+    return { name: sheet.getName(), rows: rows, columns: columns, cells: rows * columns };
+  }).sort((a, b) => b.cells - a.cells);
+  const total = tabs.reduce((sum, t) => sum + t.cells, 0);
+  const migrate = [];
+  if (total > MIGRATE_AT_CELLS) migrate.push(`${total} cells used - over half of the ${SHEETS_CELL_LIMIT} limit`);
+  tabs.filter(t => t.rows - 1 > MIGRATE_AT_TAB_ROWS).forEach(t => migrate.push(`${t.name} has ${t.rows - 1} rows (over ${MIGRATE_AT_TAB_ROWS})`));
+  return { total_cells: total, limit: SHEETS_CELL_LIMIT, percent: Math.round((total / SHEETS_CELL_LIMIT) * 1000) / 10, tabs: tabs,
+    migrate: migrate, message: migrate.length ? 'Start the Postgres migration (design §5.5)' : 'Within the Sheets budget' };
+}
+
+/** What archiveOldLogs moves: tab, the date column, the age in days, and an extra condition. */
+const ARCHIVE_RULES = [
+  { table: 'notifications', dateColumn: 'created_at', days: 90, when: r => boolFlag(r.is_read) || r.type === 'read_marker' },
+  { table: 'email_outbox', dateColumn: 'created_at', days: 90, when: r => ['sent', 'skipped', 'failed'].includes(String(r.status)) },
+  { table: 'ticket_action_logs', dateColumn: 'timestamp', days: 365, when: () => true },
+  { table: 'admin_action_logs', dateColumn: 'timestamp', days: 365, when: () => true }
+];
+
+/**
+ * Move old log rows to the archive spreadsheet (Script Property ARCHIVE_SPREADSHEET_ID; tabs "archive_<table>"):
+ * read notifications and finished outbox emails over 90 days, ticket / admin action logs over a year (design §5.3).
+ * Ticket history is never archived while on Sheets. Idempotent by id: a row already in the archive is not copied again,
+ * then it is removed from the live tab (the archive keeps it - nothing is lost). Dry run first (default).
+ * @param {Object} options - { dryRun (default true), now }
+ * @returns {Object} { dryRun, moved: { table: n }, archive_spreadsheet }
+ */
+function archiveOldLogs(options = {}) {
+  const dryRun = options.dryRun !== false;
+  const archiveId = scriptProperty('ARCHIVE_SPREADSHEET_ID', '');
+  if (!archiveId) return { status: 'error', message: 'Set the Script Property ARCHIVE_SPREADSHEET_ID to an empty spreadsheet first' };
+  const now = options.now ? new Date(options.now) : new Date();
+  const run = () => {
+    const archive = SpreadsheetApp.openById(archiveId);
+    const moved = {};
+    ARCHIVE_RULES.forEach(rule => {
+      // code-rules-allow A16 one read per rule, each a different tab (editor job, not a request)
+      const table = readTable(rule.table);
+      if (!table) return;
+      const cutoff = now.getTime() - rule.days * DAY_MS;
+      const old = table.records.map((r, i) => ({ r, row: table.rowNumbers[i] }))
+        .filter(e => { const at = toDate(e.r[rule.dateColumn]); return at && at.getTime() < cutoff && rule.when(e.r); });
+      moved[rule.table] = old.length;
+      if (dryRun || !old.length) return;
+      const name = `archive_${rule.table}`;
+      let target = archive.getSheetByName(name);
+      if (!target) {
+        target = archive.insertSheet(name);
+        target.getRange(1, 1, 1, table.headers.length).setValues([table.headers]);
+      }
+      // code-rules-allow A16 the archive tab of this rule (a different spreadsheet), read once per rule
+      const targetHeaders = target.getRange(1, 1, 1, Math.max(target.getLastColumn(), 1)).getValues()[0].map(String);
+      const idColumn = targetHeaders.indexOf('id');
+      const archived = {};
+      if (idColumn !== -1 && target.getLastRow() > 1) {
+        // code-rules-allow A16 the archive's id column, once per rule (idempotent copy)
+        target.getRange(2, idColumn + 1, target.getLastRow() - 1, 1).getValues().forEach(v => { archived[String(v[0])] = true; });
+      }
+      const copy = old.filter(e => !archived[String(e.r.id)]).map(e => rowFromRecord(targetHeaders, e.r));
+      if (copy.length) target.getRange(target.getLastRow() + 1, 1, copy.length, targetHeaders.length).setValues(copy);
+      invalidateTable(cacheNameOf(target));
+      old.map(e => e.row).sort((a, b) => b - a).forEach(n => table.sheet.deleteRow(n));
+      invalidateTable(rule.table);
+    });
+    return { status: 'success', dryRun: dryRun, moved: moved, archive_spreadsheet: archiveId,
+      message: `${dryRun ? 'Dry run: would move' : 'Moved'} ${Object.values(moved).reduce((a, b) => a + b, 0)} row(s)` };
+  };
+  return dryRun ? run() : withScriptLock(run);
+}
+
+/** Editor: archive dry run / apply. */
+function archiveOldLogsDryRun() {
+  const result = archiveOldLogs({ dryRun: true });
+  Logger.log(JSON.stringify(result));
+  return result;
+}
+
+function archiveOldLogsApply() {
+  const result = archiveOldLogs({ dryRun: false });
   Logger.log(JSON.stringify(result));
   return result;
 }

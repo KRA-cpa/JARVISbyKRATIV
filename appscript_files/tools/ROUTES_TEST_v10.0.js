@@ -889,6 +889,60 @@ test('M5 getNotifications: paged (limit + cursor); reads notifications + assignm
   assert.deepStrictEqual(Object.keys(reads).sort(), ['notifications', 'user_role_assignments']);
 });
 
+// --- v10.0 close: volume ops (design §5.3, §5.5, §7) --------------------------------------------------------------
+
+test('volume: one [perf] line per request with action, duration, tab reads, user, company and status', () => {
+  const env = seed();
+  env.createTicket('tt_collab');
+  env.asGet('u_req', { action: 'getTickets', limit: 10 });
+  env.as('u_far', { action: 'createTicket', title: 'x', ticket_type_id: 'tt_priv', requester_id: 'u_far', company_id: 'co_1' });
+  const perf = env.logs.filter(l => l.indexOf('[perf] ') === 0).map(l => JSON.parse(l.slice(7)));
+  const page = perf.find(p => p.action === 'getTickets');
+  assert.ok(page && page.method === 'GET' && page.user_id === 'u_req' && page.status === 'ok' && page.tab_reads > 0, JSON.stringify(page));
+  assert.ok(typeof page.duration_ms === 'number');
+  const refused = perf.filter(p => p.action === 'createTicket').pop();
+  assert.strictEqual(refused.status, 'error');
+  assert.strictEqual(refused.company_id, 'co_1');
+});
+
+test('volume: size report (cells per tab, migrate signals) and outbox status', () => {
+  const env = seed();
+  const report = env.rt.ctx.spreadsheetSizeReport();
+  assert.ok(report.total_cells > 0 && report.limit === 10000000);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(report.migrate)), []);
+  const big = env.rt.sheets.get('ticket_history');
+  for (let i = 0; i < 20001; i++) big.rows.push(['h' + i]);
+  big.dirty = true;
+  assert.ok(env.rt.ctx.spreadsheetSizeReport().migrate.some(m => /ticket_history has 20001 rows/.test(m)));
+  env.rt.ctx.updateRecordFields('companies', 'co_1', { email_enabled: 'on' });
+  env.createTicket('tt_collab');
+  const status = env.rt.ctx.emailOutboxStatus();
+  assert.strictEqual(status.by_status.pending, 1);
+  assert.strictEqual(status.sending_enabled, true);
+});
+
+test('volume: archiveOldLogs moves old read notifications / logs (dry run first, idempotent, needs the archive id)', () => {
+  const env = seed();
+  assert.match(env.rt.ctx.archiveOldLogs({ dryRun: true }).message, /ARCHIVE_SPREADSHEET_ID/);
+  env.rt.props.ARCHIVE_SPREADSHEET_ID = 'archive_1';
+  const old = new Date(Date.now() - 400 * 24 * 3600e3).toISOString();
+  env.add('notifications', { id: 'n_old', user_id: 'u_req', type: 'completed', is_read: true, is_active: true, created_at: old });
+  env.add('notifications', { id: 'n_unread', user_id: 'u_req', type: 'completed', is_read: false, is_active: true, created_at: old });
+  env.add('notifications', { id: 'n_new', user_id: 'u_req', type: 'completed', is_read: true, is_active: true, created_at: new Date().toISOString() });
+  env.add('admin_action_logs', { id: 'al_old', admin_user_id: 'u_admin', action_type: 'X', timestamp: old });
+  const dry = env.rt.ctx.archiveOldLogs({ dryRun: true });
+  assert.strictEqual(dry.moved.notifications, 1);
+  assert.strictEqual(dry.moved.admin_action_logs, 1);
+  assert.ok(env.rows('notifications').some(n => n.id === 'n_old'), 'dry run moved nothing');
+  env.rt.ctx.archiveOldLogs({ dryRun: false });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(env.rows('notifications').map(n => n.id).sort())), ['n_new', 'n_unread']);
+  assert.ok(env.rt.ctx.readTable('archive_notifications').records.some(n => n.id === 'n_old'), 'kept in the archive');
+  // the same row again (a run that died after copying) is not copied twice
+  env.add('notifications', { id: 'n_old', user_id: 'u_req', type: 'completed', is_read: true, is_active: true, created_at: old });
+  env.rt.ctx.archiveOldLogs({ dryRun: false });
+  assert.strictEqual(env.rt.ctx.readTable('archive_notifications').records.filter(n => n.id === 'n_old').length, 1);
+});
+
 test('ping reports 10.0.0 = header Version; the file has one definition of each new helper (A20)', () => {
   const env = seed();
   assert.strictEqual(env.rt.get({ action: 'ping' }).version, '10.0.0');
