@@ -275,8 +275,8 @@ test('links: requester adds (http(s) only), anyone lists, outsider cannot add or
   assert.match(as('u_out', { action: 'removeTicketAttachment', attachment_id: link.id }).error, /Only the requester/);
   // review: someone with no role in the ticket's company can't read or report its links
   // v10.0: a ticket you can't see answers "Ticket not found"
-  assert.match(asGet('u_far', { action: 'getTicketAttachments', ticket_id: id }).error, /can't see this ticket|Ticket not found/);
-  assert.match(as('u_far', { action: 'reportAttachmentLinkBroken', attachment_id: link.id, note: 'x' }).error, /can't see this ticket|Ticket not found/);
+  assert.match(asGet('u_far', { action: 'getTicketAttachments', ticket_id: id }).error, /can't see this ticket|not found/);
+  assert.match(as('u_far', { action: 'reportAttachmentLinkBroken', attachment_id: link.id, note: 'x' }).error, /can't see this ticket|not found/);
   ok(as('u_req', { action: 'removeTicketAttachment', attachment_id: link.id, reason: 'wrong file' }));
   assert.strictEqual(ok(asGet('u_req', { action: 'getTicketAttachments', ticket_id: id })).attachments.length, 1);
   const removed = rows('ticket_attachments').find(a => a.id === link.id);

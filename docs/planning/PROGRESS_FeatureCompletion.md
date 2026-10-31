@@ -106,7 +106,7 @@ Version line since 31 Oct 2026 (session ff4c803f): v10.0 → **v10.1** country c
 | 25 | Workflow event notifications + email outbox | 3 | 0 % | 100 % | v10.0 |
 | 26 | Restricted fields | 2 | 0 % | 100 % | v10.0 |
 | 27 | Restricted tickets | 3 | 0 % | 100 % | v10.0 |
-| 28 | Volume ops on Sheets (participants, archive, size check, perf log) | 2 | 30 % | 100 % | v10.0 (cache + read-count tests exist since v9.4) |
+| 28 | Volume ops on Sheets (participants, archive, size check, perf log) | 2 | 30 % | 100 % | v10.0 (cache + read-count tests exist since v9.4) - **M2 built** (participants + backfill; archive / size check / perf log at the v10.0 close) |
 | 29 | Immediate head approval | 2 | 0 % | 100 % | v10.3 (was v10.1) |
 | 30 | Delegation | 2 | 0 % | 100 % | v10.3 (was v10.1) |
 | 31 | Bulk approve / reject | 2 | 10 % | 100 % | v10.3 (unmounted `BulkOperationsManager`) |
@@ -145,6 +145,7 @@ Table C's effort-point totals aren't used for the headline: they gave the spec 9
 | 31 Oct 2026 | v9.6 deployed (ping 9.6.0) | 87.0 % | 66.5 % | session 017zmKf7: all v9.6 items built as planned (no scope change), so the planned v9.6 column holds; provisional until the §5d browser checks pass |
 | 31 Oct 2026 | scope +14 (calendars / zones, plans) | 87.0 % | 60.5 % | session ff4c803f: roadmap total 140 → 154 (66.5 % of 140 = 60.5 % of 154); v9.6 still provisional (browser check 7 open) |
 | 31 Oct 2026 | v10.0 M1 built, not live (`bc0d2dc`) | 87.0 % | 60.5 % | session ff4c803f: visibility per type + who can create (feature 23). Headline unchanged (not live). Built-only it would be 62.9 % (area "Visibility + who creates + Restricted": 3 of its 8 feature points ≈ 3.75 / 10 pts) |
+| 31 Oct 2026 | v10.0 M2 built, not live | 87.0 % | 60.5 % | session ff4c803f: ticket_participants written at every action + idempotent backfill (feature 28 ≈ 30 → 60 %). Built-only 63.4 % (+0.7 pt in "Pagination + search + volume ops") |
 
 ---
 

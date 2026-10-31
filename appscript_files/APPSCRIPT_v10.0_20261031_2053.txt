@@ -131,6 +131,11 @@
  *     getTicketTags, searchTicketsByTags, getTicketShares, getTicketAttachments); createTicket refuses a type the requester
  *     has no role on in that company; new read getCreatableTicketTypes. Reports default to the last 90 days (max 1 year,
  *     5,000 rows then truncated). AUTH_MODE warn with no actor at all: logged "AUTH warn: unscoped <action>", unfiltered (D1)
+ *   M2 (participants): ticket_participants written at the action - requester + immediate head at create (head / backup
+ *     snapshot on the ticket: tickets.head_approver_id / head_backup_id), acted on approve / return / reject / complete,
+ *     shared on a user share (ended on revoke; access still follows the share's expiry), pool windows per approver role
+ *     opened / closed as the ticket moves (start, approve, return, reject, cancel, reopen = a new window). Editor:
+ *     backfillTicketParticipantsDryRun() / backfillTicketParticipantsApply() (idempotent; run after the rebuild apply)
  *   - Rebuild apply needed: 2 new tabs (ticket_participants, email_outbox); ticket_types + 4, tickets + 3, custom_fields + 1,
  *     notifications + 1 columns
  *
@@ -1764,6 +1769,16 @@ function createTicket(payload, options = {}) {
     }
     console.log(`AUTH warn: createTicket by ${requesterId} without a role on ticket type ${ticketType.id} in company ${company.id}`);
   }
+  // v10.0 (design §4.5): snapshot the requester's immediate head + backup approver, so later profile changes don't
+  // move tickets in flight (the head step itself is routed from v10.3)
+  const requesterProfile = ((readTable(SHEETS.USER_PROFILES) || {}).records || [])
+    .find(p => sameId(p.user_id, requesterId) && isActiveFlag(p.is_active)) || {};
+  const headApproverId = requesterProfile.immediate_approver_id ? String(requesterProfile.immediate_approver_id) : '';
+  const headBackupId = requesterProfile.backup_approver_id ? String(requesterProfile.backup_approver_id) : '';
+  if (headApproverId || headBackupId) {
+    const outdated = requireColumns(SHEETS.TICKETS, ['head_approver_id', 'head_backup_id']); // C4: loud before the rebuild
+    if (outdated) throw new Error(outdated.message);
+  }
   const newTicketId = nextSequenceValue('ticket_id', highestTicketId);
 
   const ticketNumber = generateTicketNumber(company.code, ticketType.code);
@@ -1784,9 +1799,15 @@ function createTicket(payload, options = {}) {
     priority: payload.priority || 'medium',
     is_active: true,
     created_by: requesterId,
-    updated_by: requesterId
+    updated_by: requesterId,
+    head_approver_id: headApproverId,
+    head_backup_id: headBackupId
   }));
   invalidateTable(cacheNameOf(ticketsSheet));
+  // v10.0 (design §4.1): the requester and the immediate head are participants from the start (the backup gets a row
+  // only when they act)
+  recordParticipants({ id: newTicketId, company_id: payload.company_id, ticket_type_id: payload.ticket_type_id },
+    { users: [{ user_id: requesterId, reason: 'requester' }, { user_id: headApproverId, reason: 'head' }], now });
 
   // Spec 3.3: the company code locks on the first ticket, so existing ticket numbers stay valid
   const companyChanges = { ticket_count: (Number(company.ticket_count) || 0) + 1 };
@@ -7249,6 +7270,7 @@ function progressTicketWorkflow(ticketId, action, payload) {
             action_type: 'WORKFLOW_PARTIAL_APPROVAL',
             details: { step: ticket.current_step_id, approved_role_ids: approvedRoles, required_role_ids: requiredRoles }
           });
+          recordParticipants(ticket, { users: [{ user_id: userId, reason: 'acted' }] }); // v10.0 (design §4.1)
           return {
             status: 'success',
             data: {
@@ -7350,6 +7372,9 @@ function progressTicketWorkflow(ticketId, action, payload) {
         comment: payload.comment
       }
     });
+    // v10.0 (design §4.1): the actor acted; the step's pool window closes and the next step's opens
+    recordParticipants(ticket, { users: [{ user_id: userId, reason: 'acted' }], fromStepId: ticket.current_step_id,
+      toStepId: nextStep ? nextStep.id : null, now });
 
     const completion = stepCompleted ? processStepCompletion(ticketId, ticket.current_step_id, 'approve') : null;
     triggerWorkflowNotifications(ticketId, nextStep ? nextStep.id : null, decision);
@@ -7436,6 +7461,7 @@ function cancelTicketWithReason(ticketId, reason, userId) {
         previous_step: ticket.current_step_id
       }
     });
+    recordParticipants(ticket, { fromStepId: ticket.current_step_id || null, toStepId: null, now }); // v10.0: pool window closes
 
     return {
       status: 'success',
@@ -7538,6 +7564,8 @@ function reopenTicketToStep(ticketId, stepId, userId) {
         step_name: step.name
       }
     });
+    // v10.0: a reopen is a new visit (review R-06) - a new pool window, even back to the same step
+    recordParticipants(ticket, { fromStepId: ticket.current_step_id || null, toStepId: step.id, reopen: true, now });
 
     return {
       status: 'success',
@@ -12176,6 +12204,8 @@ function startTicketWorkflow(ticketId, userId) {
     from_step_id: null,
     to_step_id: firstStep.id
   });
+  // v10.0 (design §4.1): the first step's approver pool window opens
+  recordParticipants(ticket, { fromStepId: null, toStepId: firstStep.id, now });
 
   return {
     status: 'success',
@@ -15259,6 +15289,8 @@ function shareTicketAction(payload) {
   }
   createTicketActionLog({ ticket_id: checked.ticket.id, user_id: actor, action_type: 'TICKET_SHARED',
     details: { with_user: userTarget, with_company: companyTarget, permission: permission, expires: payload.expiration_date || '' } });
+  // v10.0 (design §4.1): a user share is a participant row (visibility itself follows the share and its expiry)
+  if (userTarget) recordParticipants(checked.ticket, { users: [{ user_id: userTarget, reason: 'shared' }], now });
   return { status: 'success', data: shareView(share, recordsById(SHEETS.USER_PROFILES, 'user_id'), recordsById(SHEETS.COMPANIES)), message: 'Ticket shared' };
 }
 
@@ -15290,6 +15322,11 @@ function revokeTicketShareAction(payload) {
     revocation_reason: payload.reason || 'revoked', updated_at: now, updated_by: actor });
   createTicketActionLog({ ticket_id: share.ticket_id, user_id: actor, action_type: 'TICKET_SHARE_REVOKED',
     details: { collaboration_id: share.id, reason: payload.reason || '' } });
+  // v10.0: the user's 'shared' participant row ends when no other share to them is in force (soft)
+  if (share.shared_with_user_id && !liveRecords(SHEETS.TICKET_COLLABORATIONS).some(c => sameId(c.ticket_id, share.ticket_id) &&
+    sameId(c.shared_with_user_id, share.shared_with_user_id) && shareInForce(c, now))) {
+    endParticipants(share.ticket_id, share.shared_with_user_id, 'shared');
+  }
   return { status: 'success', data: { id: String(share.id), revoked: true }, message: 'Share removed' };
 }
 
@@ -16703,7 +16740,7 @@ function requireColumns(sheetName, columns) {
   const table = readTable(sheetName);
   const missing = columns.filter(c => !(table ? table.headers : []).includes(c));
   return missing.length
-    ? { status: 'error', code: 'SCHEMA_OUTDATED', message: `The ${sheetName} tab has no ${missing.join(', ')} column(s) yet: run the v9.6 schema rebuild (JARVIS Admin -> 1. Schema -> Repair tables)` }
+    ? { status: 'error', code: 'SCHEMA_OUTDATED', message: `The ${sheetName} tab has no ${missing.join(', ')} column(s) yet: run the schema rebuild (JARVIS Admin -> 1. Schema -> Repair tables)` }
     : null;
 }
 
@@ -17083,8 +17120,11 @@ function buildActorScope(actor) {
     });
   });
 
+  // 'shared' rows don't grant access by themselves: a share counts only while it is in force (expiry), below
   ((readTable(SHEETS.TICKET_PARTICIPANTS) || {}).records || []).forEach(p => {
-    if (p.user_id && sameId(p.user_id, actor) && isActiveFlag(p.is_active)) scope.participantTicketIds[String(p.ticket_id)] = true;
+    if (p.user_id && sameId(p.user_id, actor) && isActiveFlag(p.is_active) && p.reason !== 'shared') {
+      scope.participantTicketIds[String(p.ticket_id)] = true;
+    }
   });
   liveRecords(SHEETS.TICKET_COLLABORATIONS).forEach(c => {
     if (!shareInForce(c, now)) return;
@@ -17174,4 +17214,159 @@ function getCreatableTicketTypes(params = {}) {
     return { ...type, id: String(type.id), visibility: ticketTypeVisibility(type), creatable_company_ids: companyIds };
   }).filter(t => t.creatable_company_ids.length > 0);
   return { status: 'success', data: data, message: `${data.length} ticket type(s) you can create` };
+}
+
+// --- Participants (design §4.1, build plan M2) --------------------------------------------------------------------
+// Who is involved in a ticket, written at the moment of the action, so no list call scans ticket_history (G9).
+// User rows: requester | head | acted | shared (| watcher from v10.4). Pool rows: one per approver role of a step per
+// visit (role_id + step_id + window_start / window_end, no user) - the Restricted chain (M4) reads them.
+
+/** History actions that make the user a participant ('acted'). */
+const PARTICIPANT_ACTED_ACTIONS = ['APPROVED', 'PARTIAL_APPROVAL', 'REJECTED', 'RETURNED', 'COMPLETED'];
+/** History actions that move a ticket between steps (a backfill replays them into pool windows). */
+const PARTICIPANT_MOVE_ACTIONS = ['WORKFLOW_STARTED', 'APPROVED', 'REJECTED', 'RETURNED', 'COMPLETED', 'CANCELLED', 'REOPENED'];
+
+/** The key that makes a user row unique: ticket + user + reason. */
+function participantKey(p) {
+  return `${p.ticket_id}|${p.user_id}|${p.reason}`;
+}
+
+/** A participant record for a ticket (user row; pool rows set role_id / step_id / window_start on top). */
+function participantRecord(ticket, userId, reason, at) {
+  return { id: generateId('tp'), ticket_id: String(ticket.id), user_id: userId ? String(userId) : '', role_id: '', step_id: '',
+    reason: reason, window_start: '', window_end: '', company_id: ticket.company_id || '', ticket_type_id: ticket.ticket_type_id || '',
+    created_at: at || new Date(), is_active: true };
+}
+
+/** Pool rows that open when a ticket reaches a step: one per approver role of the step. */
+function poolRecords(ticket, stepId, rolesByStep, at) {
+  return unique((rolesByStep[String(stepId)] || []).map(a => String(a.role_id)))
+    .map(roleId => ({ ...participantRecord(ticket, '', 'pool', at), role_id: roleId, step_id: String(stepId), window_start: at }));
+}
+
+/**
+ * Write one action's participant changes, batched (one write per tab, design §5.4): user rows that don't exist yet
+ * (active ticket + user + reason), and - when the ticket moves (fromStepId given and different from toStepId, or
+ * reopen) - the open pool windows of fromStepId closed and the toStepId pool opened.
+ * @param {Object} ticket - { id, company_id, ticket_type_id }
+ * @param {Object} change - { users: [{ user_id, reason }], fromStepId, toStepId, reopen, now }
+ * @returns {Object} { added, closed }
+ */
+function recordParticipants(ticket, change = {}) {
+  const now = change.now || new Date();
+  const mine = ((readTable(SHEETS.TICKET_PARTICIPANTS) || {}).records || [])
+    .filter(p => sameId(p.ticket_id, ticket.id) && isActiveFlag(p.is_active));
+  const existing = {};
+  mine.forEach(p => { if (p.reason !== 'pool') existing[participantKey(p)] = true; });
+  const added = [];
+  (change.users || []).forEach(u => {
+    if (!u.user_id) return;
+    const record = participantRecord(ticket, u.user_id, u.reason, now);
+    if (existing[participantKey(record)]) return;
+    existing[participantKey(record)] = true;
+    added.push(record);
+  });
+
+  const closes = {};
+  const moving = change.fromStepId !== undefined && (change.reopen || !sameId(change.fromStepId || '', change.toStepId || ''));
+  if (moving && change.fromStepId) {
+    mine.filter(p => p.reason === 'pool' && sameId(p.step_id, change.fromStepId) && !p.window_end)
+      .forEach(p => { closes[String(p.id)] = { window_end: now }; });
+  }
+  if (moving && change.toStepId) {
+    const rolesByStep = groupBy(((readTable(SHEETS.STEP_APPROVERS) || {}).records || []), a => String(a.step_id));
+    poolRecords(ticket, change.toStepId, rolesByStep, now).forEach(r => added.push(r));
+  }
+  if (Object.keys(closes).length) writeRecordsById(SHEETS.TICKET_PARTICIPANTS, closes);
+  if (added.length) appendRecords(SHEETS.TICKET_PARTICIPANTS, added);
+  return { added: added.length, closed: Object.keys(closes).length };
+}
+
+/** End (soft) a user's active rows of one reason on a ticket. @returns {number} rows ended */
+function endParticipants(ticketId, userId, reason) {
+  const changes = {};
+  ((readTable(SHEETS.TICKET_PARTICIPANTS) || {}).records || [])
+    .filter(p => sameId(p.ticket_id, ticketId) && sameId(p.user_id, userId) && p.reason === reason && isActiveFlag(p.is_active))
+    .forEach(p => { changes[String(p.id)] = { is_active: false }; });
+  return writeRecordsById(SHEETS.TICKET_PARTICIPANTS, changes);
+}
+
+/**
+ * One-off backfill of ticket_participants from tickets (requester, head snapshot), ticket_history (acted; pool windows
+ * replayed from the step moves) and the user shares in force (design §4.1; JARVIS Admin). Idempotent: user rows that
+ * exist are skipped (ticket + user + reason), and pool windows are replayed only for tickets that have none yet (the
+ * live writers track them from then on). Run it after the rebuild apply and before the redeploy.
+ * @param {Object} options - { dryRun (default true), now }
+ * @returns {Object} { dryRun, tickets, planned: { requester, head, acted, shared, pool }, written }
+ */
+function backfillTicketParticipants(options = {}) {
+  const dryRun = options.dryRun !== false;
+  const run = () => {
+    const now = options.now || new Date();
+    const tickets = ((readTable(SHEETS.TICKETS) || {}).records || []).filter(t => isActiveFlag(t.is_active));
+    const historyByTicket = groupBy(((readTable(SHEETS.TICKET_HISTORY) || {}).records || []), h => String(h.ticket_id));
+    const rolesByStep = groupBy(((readTable(SHEETS.STEP_APPROVERS) || {}).records || []), a => String(a.step_id));
+    const current = ((readTable(SHEETS.TICKET_PARTICIPANTS) || {}).records || []).filter(p => isActiveFlag(p.is_active));
+    const existing = {};
+    const hasPool = {};
+    current.forEach(p => {
+      if (p.reason === 'pool') hasPool[String(p.ticket_id)] = true;
+      else existing[participantKey(p)] = true;
+    });
+    const sharesByTicket = groupBy(liveRecords(SHEETS.TICKET_COLLABORATIONS).filter(c => c.shared_with_user_id && shareInForce(c, now)),
+      c => String(c.ticket_id));
+
+    const planned = [];
+    const counts = { requester: 0, head: 0, acted: 0, shared: 0, pool: 0 };
+    const addUser = (ticket, userId, reason, at) => {
+      if (!userId) return;
+      const record = participantRecord(ticket, userId, reason, at);
+      if (existing[participantKey(record)]) return;
+      existing[participantKey(record)] = true;
+      planned.push(record);
+      counts[reason]++;
+    };
+
+    tickets.forEach(ticket => {
+      const id = String(ticket.id);
+      const created = toDate(ticket.created_at) || now;
+      addUser(ticket, ticket.requester_id, 'requester', created);
+      addUser(ticket, ticket.head_approver_id, 'head', created);
+      const rows = historyByTicket[id] || [];
+      rows.forEach(h => { if (PARTICIPANT_ACTED_ACTIONS.includes(String(h.action))) addUser(ticket, h.user_id, 'acted', toDate(h.timestamp) || now); });
+      (sharesByTicket[id] || []).forEach(c => addUser(ticket, c.shared_with_user_id, 'shared', toDate(c.created_at) || now));
+
+      if (hasPool[id]) return;
+      let atStep = null;
+      let open = [];
+      rows.filter(h => PARTICIPANT_MOVE_ACTIONS.includes(String(h.action))).forEach(h => {
+        const to = h.to_step_id ? String(h.to_step_id) : null;
+        if (to === atStep && String(h.action) !== 'REOPENED') return;
+        const at = toDate(h.timestamp) || now;
+        open.forEach(r => { r.window_end = at; });
+        open = to ? poolRecords(ticket, to, rolesByStep, at) : [];
+        open.forEach(r => { planned.push(r); counts.pool++; });
+        atStep = to;
+      });
+    });
+
+    if (!dryRun && planned.length) appendRecords(SHEETS.TICKET_PARTICIPANTS, planned);
+    return { dryRun, tickets: tickets.length, planned: counts, written: dryRun ? 0 : planned.length,
+      message: `${dryRun ? 'Dry run: would add' : 'Added'} ${planned.length} participant row(s) for ${tickets.length} ticket(s)` };
+  };
+  return dryRun ? run() : withScriptLock(run);
+}
+
+/** Editor: dry run of the participants backfill (writes nothing). */
+function backfillTicketParticipantsDryRun() {
+  const result = backfillTicketParticipants({ dryRun: true });
+  Logger.log(JSON.stringify(result));
+  return result;
+}
+
+/** Editor: write the participants backfill (idempotent - a second run adds nothing). */
+function backfillTicketParticipantsApply() {
+  const result = backfillTicketParticipants({ dryRun: false });
+  Logger.log(JSON.stringify(result));
+  return result;
 }

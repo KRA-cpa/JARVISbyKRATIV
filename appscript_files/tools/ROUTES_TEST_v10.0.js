@@ -283,6 +283,144 @@ test('A16: getTickets and getDashboard read each tab at most once (scope include
   });
 });
 
+// --- M2: participants ---------------------------------------------------------------------------------------------
+
+/** seed() + a second step on tt_priv (ws_1b, Finance: u_fin) and u_boss as u_req's immediate head (opt-in). */
+function seedFlow(options = {}) {
+  const env = seed(options);
+  env.add('roles', { id: 'r_fin', name: 'Finance', is_active: true });
+  env.add('workflow_steps', { id: 'ws_1b', ticket_type_id: 'tt_priv', company_id: 'co_1', name: 'Finance', status_on_reach: 'Pending Finance',
+    step_type: 'approval', approver_logic: 'any', sort_order: 2, is_active: true });
+  env.add('step_approvers', { step_id: 'ws_1b', role_id: 'r_fin' });
+  env.rt.ctx.createUserRoleAssignment({ user_id: 'u_fin', role_id: 'r_fin', company_id: 'co_1' });
+  env.add('user_profiles', { user_id: 'u_fin', display_name: 'u_fin', email: 'u_fin@example.com', status: 'active', is_active: true });
+  env.add('user_profiles', { user_id: 'u_boss', display_name: 'u_boss', email: 'u_boss@example.com', status: 'active', is_active: true });
+  if (options.head) env.rt.ctx.updateRecordFields('user_profiles', 'u_req', { immediate_approver_id: 'u_boss', backup_approver_id: 'u_fin' }, 'user_id');
+  env.rt.cache.clear();
+  // JSON round trip: arrays made inside the runtime belong to its VM realm (deepStrictEqual compares prototypes)
+  const plain = value => JSON.parse(JSON.stringify(value));
+  const live = () => env.rows('ticket_participants').filter(p => String(p.is_active).toUpperCase() !== 'FALSE' && p.is_active !== false);
+  const users = id => plain(live().filter(p => String(p.ticket_id) === id && p.reason !== 'pool').map(p => `${p.user_id}:${p.reason}`).sort());
+  const pools = id => plain(live().filter(p => String(p.ticket_id) === id && p.reason === 'pool')
+    .map(p => `${p.role_id}@${p.step_id}:${p.window_end ? 'closed' : 'open'}`));
+  const decide = (uid, id, decision) => env.ok(env.as(uid, { action: 'submitStepApproval', ticket_id: id, user_id: uid, decision, comment: 'ok' }));
+  return { ...env, live, users, pools, decide };
+}
+
+/** Participant rows as comparable keys (no ids or exact times). */
+function participantKeys(rows) {
+  return JSON.parse(JSON.stringify(participantKeyList(rows)));
+}
+
+function participantKeyList(rows) {
+  return rows.filter(p => String(p.is_active).toUpperCase() !== 'FALSE' && p.is_active !== false)
+    .map(p => (p.reason === 'pool' ? `${p.ticket_id}|pool|${p.role_id}|${p.step_id}|${p.window_end ? 'closed' : 'open'}` : `${p.ticket_id}|${p.user_id}|${p.reason}`))
+    .sort();
+}
+
+test('M2 participants: create writes requester + head + the first pool; approve / return / reject move the windows', () => {
+  const env = seedFlow({ head: true });
+  const id = env.createTicket('tt_priv');
+  const ticket = env.rows('tickets').find(t => String(t.id) === id);
+  assert.strictEqual(ticket.head_approver_id, 'u_boss', 'head snapshot');
+  assert.strictEqual(ticket.head_backup_id, 'u_fin', 'backup snapshot');
+  assert.deepStrictEqual(env.users(id), ['u_boss:head', 'u_req:requester'], 'the backup gets no row until they act');
+  assert.deepStrictEqual(env.pools(id), ['r_mgr@ws_1:open']);
+  assert.deepStrictEqual(env.visibleIds('u_boss'), [id], 'the immediate head sees the ticket');
+
+  env.decide('u_mgr', id, 'approve');
+  assert.deepStrictEqual(env.users(id), ['u_boss:head', 'u_mgr:acted', 'u_req:requester']);
+  assert.deepStrictEqual(env.pools(id), ['r_mgr@ws_1:closed', 'r_fin@ws_1b:open']);
+  env.decide('u_fin', id, 'return');
+  assert.deepStrictEqual(env.pools(id), ['r_mgr@ws_1:closed', 'r_fin@ws_1b:closed', 'r_mgr@ws_1:open'], 'a return opens a new window');
+  env.decide('u_mgr', id, 'approve'); // the same user again: no second acted row
+  env.decide('u_fin', id, 'reject');
+  assert.deepStrictEqual(env.users(id), ['u_boss:head', 'u_fin:acted', 'u_mgr:acted', 'u_req:requester']);
+  assert.ok(env.pools(id).every(p => p.endsWith('closed')), 'rejected: every window closed');
+});
+
+test('M2 participants: cancel closes the window; a reopen to the same step opens a new one (R-06)', () => {
+  const env = seedFlow();
+  const id = env.createTicket('tt_priv');
+  env.ok(env.as('u_req', { action: 'updateTicketStatus', ticket_id: id, status: 'Cancelled', reason: 'no longer needed', user_id: 'u_req' }));
+  assert.deepStrictEqual(env.pools(id), ['r_mgr@ws_1:closed']);
+  env.ok(env.as('u_admin', { action: 'updateTicketStatus', ticket_id: id, status: 'Reopened', step_id: 'ws_1', user_id: 'u_admin' }));
+  assert.deepStrictEqual(env.pools(id), ['r_mgr@ws_1:closed', 'r_mgr@ws_1:open']);
+});
+
+test('M2 participants: a user share adds a shared row, revoke ends it; the row alone never grants access (expiry wins)', () => {
+  const env = seedFlow();
+  const id = env.createTicket('tt_priv');
+  const share = env.ok(env.as('u_req', { action: 'shareTicket', ticket_id: id, shared_with_user_id: 'u_far', permission_level: 'view' }));
+  assert.ok(env.users(id).includes('u_far:shared'));
+  env.ok(env.as('u_req', { action: 'revokeTicketShare', collaboration_id: share.id }));
+  assert.ok(!env.users(id).includes('u_far:shared'), 'revoked: the row is ended (soft)');
+
+  const again = env.ok(env.as('u_req', { action: 'shareTicket', ticket_id: id, shared_with_user_id: 'u_far', permission_level: 'view',
+    expiration_date: '2999-01-01' }));
+  assert.deepStrictEqual(env.visibleIds('u_far'), [id]);
+  env.rt.ctx.updateRecordFields('ticket_collaborations', again.id, { expiration_date: '2020-01-01' });
+  assert.ok(env.users(id).includes('u_far:shared'), 'the row is still there');
+  assert.deepStrictEqual(env.visibleIds('u_far'), [], 'but an expired share gives no access');
+});
+
+test('M2 head snapshot: a head set before the v10.0 rebuild is refused loudly (C4), not dropped', () => {
+  const env = seedFlow({ head: true });
+  const sheet = env.rt.sheets.get('tickets');
+  const S = env.rt.ctx.__TABLE_SCHEMAS.tickets;
+  const keep = S.map((c, i) => (['head_approver_id', 'head_backup_id', 'is_confidential'].includes(c) ? -1 : i)).filter(i => i >= 0);
+  sheet.rows = sheet.rows.map(r => keep.map(i => r[i]));
+  sheet.dirty = true;
+  const res = env.as('u_req', { action: 'createTicket', title: 'x', ticket_type_id: 'tt_priv', requester_id: 'u_req', company_id: 'co_1' });
+  assert.strictEqual(res.success, false);
+  assert.match(res.error, /no head_approver_id, head_backup_id column/);
+});
+
+test('M2 backfill: dry run writes nothing; apply rebuilds what the live writers wrote; a second apply adds nothing', () => {
+  const env = seedFlow({ head: true });
+  const a = env.createTicket('tt_priv');
+  env.decide('u_mgr', a, 'approve');
+  env.decide('u_fin', a, 'return');
+  const b = env.createTicket('tt_collab', 'u_peer');
+  env.ok(env.as('u_req', { action: 'shareTicket', ticket_id: a, shared_with_user_id: 'u_far', permission_level: 'view' }));
+  const liveKeys = participantKeys(env.rows('ticket_participants'));
+
+  const sheet = env.rt.sheets.get('ticket_participants');
+  sheet.rows = sheet.rows.slice(0, 1); // header only: as before v10.0
+  sheet.dirty = true;
+  const dry = env.rt.ctx.backfillTicketParticipants({ dryRun: true });
+  assert.strictEqual(dry.written, 0);
+  assert.strictEqual(env.rows('ticket_participants').length, 0, 'dry run wrote nothing');
+  assert.ok(dry.planned.pool > 0 && dry.planned.acted === 2 && dry.planned.shared === 1, JSON.stringify(dry.planned));
+  const applied = env.rt.ctx.backfillTicketParticipants({ dryRun: false });
+  assert.strictEqual(applied.written, dry.planned.requester + dry.planned.head + dry.planned.acted + dry.planned.shared + dry.planned.pool);
+  assert.deepStrictEqual(participantKeys(env.rows('ticket_participants')), liveKeys, 'backfill = live writers');
+  assert.ok(String(b).length > 0);
+  const second = env.rt.ctx.backfillTicketParticipants({ dryRun: false });
+  assert.strictEqual(second.written, 0, 'idempotent');
+});
+
+test('M2 backfill on the SEED data matches a history replay of the live writers', () => {
+  const dir = require('path').dirname(FILE);
+  const seeds = fs.readdirSync(dir).filter(n => /^SEED_TestData_v\d+\.\d+_\d{8}_\d{4}\.txt$/.test(n)).sort((x, y) => x.slice(-17).localeCompare(y.slice(-17)));
+  if (!seeds.length) { console.log('      (no SEED_TestData file next to the AppScript file - skipped)'); return; }
+  const combined = require('path').join(require('os').tmpdir(), `v10_seed_${process.pid}.js`);
+  fs.writeFileSync(combined, fs.readFileSync(FILE, 'utf8') + '\n;\n' + fs.readFileSync(require('path').join(dir, seeds[seeds.length - 1]), 'utf8'));
+  const rt = lib.makeRuntime(combined);
+  rt.ctx.rebuildAllTablesApply();
+  rt.ctx.seedTestDataApply('');
+  const rows = () => rt.ctx.readTable('ticket_participants').records;
+  const liveKeys = participantKeys(rows());
+  assert.ok(liveKeys.length > 20, `the seed drives tickets through the engine (${liveKeys.length} rows)`);
+  const sheet = rt.sheets.get('ticket_participants');
+  sheet.rows = sheet.rows.slice(0, 1);
+  sheet.dirty = true;
+  rt.ctx.backfillTicketParticipants({ dryRun: false });
+  assert.deepStrictEqual(participantKeys(rows()), liveKeys);
+  rt.ctx.removeSeedDataApply();
+  assert.strictEqual(rows().length, 0, 'seed removal takes its participants too (SEED v1.1)');
+});
+
 test('ping reports 10.0.0 = header Version; the file has one definition of each new helper (A20)', () => {
   const env = seed();
   assert.strictEqual(env.rt.get({ action: 'ping' }).version, '10.0.0');
