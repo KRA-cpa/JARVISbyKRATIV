@@ -140,6 +140,16 @@
  *     has_more } (cursor "<created ms>~<id>", no total); filters (object / JSON text / top-level keys): status (list,
  *     open / closed), company_id, ticket_type_id, requester_id, mine, involved, date_from, date_to, q (ticket number
  *     prefix or title words); links only for the page. Without `limit`: the old array, logged DEPRECATED, for v10.0 only
+ *   M4 (Restricted, design §4.10-§4.11): ticket_types.confidential_mode (off | optional | always - 'always' also restricts
+ *     the existing tickets) + confidential_admin_access (reveal_with_reason | always | never); tickets.is_confidential set
+ *     at create by the server; custom_fields.is_confidential (ticket fields; off with values = logged). The chain
+ *     (isInChain): requester, acted, immediate head, the step pool from when the ticket reached the step (role held during
+ *     the window), escalate_role grants. Outsiders in scope get the stub (canViewTicket 'stub': number, status, company,
+ *     type, created) on getTicket / lists / reports / links; history, approvals, tags, shares, attachments, system log
+ *     answer RESTRICTED; q matches a stub's number only; no sharing (setTicketRestricted on revokes every share, off doesn't
+ *     restore); Restricted field values masked (•••••• Restricted) in reports and the system log outside the chain; titles
+ *     kept out of chained-child titles and SLA notices. New: setTicketRestricted (admin), revealConfidential (admin, logged).
+ *     Fix: createCustomField reads the frontend's entityTypeId / entityCategory (fields had no ticket type)
  *   - Rebuild apply needed: 2 new tabs (ticket_participants, email_outbox); ticket_types + 4, tickets + 3, custom_fields + 1,
  *     notifications + 1 columns
  *
@@ -1349,7 +1359,7 @@ function routePostAction(action, data) {
         case 'createTicket':
           // v9.1: keep description / priority / customData (the old list dropped them)
           const ticketData = data.payload || pickDefined(data, ['title', 'description', 'priority', 'ticket_type_id',
-            'requester_id', 'company_id', 'customData', 'custom_fields']);
+            'requester_id', 'company_id', 'customData', 'custom_fields', 'is_confidential']); // v10.0 M4: the Restricted tick
           return createJsonResponse({
             success: true,
             data: createTicket(ticketData)
@@ -1447,7 +1457,12 @@ function routePostAction(action, data) {
 
         case 'createCustomField':
           const customFieldData = data.payload || data;
-          return createHandlerResponse(createCustomField(customFieldData.entity_type_id, customFieldData, customFieldData.entity_category || 'ticket'));
+          // v10.0: the frontend sends entityTypeId / entityCategory (+ ticket_type_id) - only the snake_case keys were
+          // read, so fields made in the builder had no ticket type and every category became 'ticket' (as R-07 for reads)
+          return createHandlerResponse(createCustomField(
+            customFieldData.entity_type_id || customFieldData.entityTypeId || customFieldData.ticket_type_id,
+            customFieldData,
+            customFieldData.entity_category || customFieldData.entityCategory || 'ticket'));
 
         case 'setCustomFieldValue':
           const customFieldValueData = data.payload || data;
@@ -1516,9 +1531,13 @@ function routePostAction(action, data) {
         case 'getTicket':
           const ticketQuery = data.payload || data;
           const ticketQueryId = ticketQuery.ticketId || ticketQuery.ticket_id || ticketQuery.id;
-          // v10.0: a ticket the caller can't see answers "Ticket not found" (canViewTicket via ticketReadGuard)
-          return createDataResponse(ticketReadGuard({ user_id: ticketQuery.user_id || data.user_id }, ticketQueryId, 'getTicket') ||
-            getTicketById(ticketQueryId));
+          // v10.0: a ticket the caller can't see answers "Ticket not found"; a Restricted one outside its chain answers
+          // its stub (number, status, company, type, created - confidential: true), so the screen can say so
+          const ticketRead = ticketReadView({ user_id: ticketQuery.user_id || data.user_id }, ticketQueryId, 'getTicket');
+          if (ticketRead.view === 'stub') {
+            return createDataResponse({ status: 'success', data: ticketStub(ticketRead.record), message: RESTRICTED_TICKET_MESSAGE });
+          }
+          return createDataResponse(ticketRead.error || getTicketById(ticketQueryId));
 
         case 'updateTicket':
           const ticketUpdateData = data.payload || data;
@@ -1653,6 +1672,13 @@ function routePostAction(action, data) {
         case 'setTicketTypeFeatures':
           return createDataResponse(setTicketTypeFeatures(data.payload || data));
 
+        // v10.0 M4: Restricted tickets - one ticket's flag (admin-only), and an admin's logged reveal (per type rule)
+        case 'setTicketRestricted':
+          return createDataResponse(setTicketRestricted(data.payload || data));
+
+        case 'revealConfidential':
+          return createDataResponse(revealConfidential(data.payload || data));
+
         case 'createTag':
           return createDataResponse(createTagAction(data.payload || data));
 
@@ -1783,6 +1809,16 @@ function createTicket(payload, options = {}) {
     const outdated = requireColumns(SHEETS.TICKETS, ['head_approver_id', 'head_backup_id']); // C4: loud before the rebuild
     if (outdated) throw new Error(outdated.message);
   }
+  // v10.0 M4 (design §4.11): the server decides Restricted - off refuses it, optional takes the requester's tick,
+  // always forces it. A chained ticket follows its own type (it doesn't inherit the parent's flag).
+  const confidentialMode = ticketConfidentialMode(ticketType);
+  const asked = boolFlag(payload.is_confidential);
+  if (asked && confidentialMode === 'off') throw new Error(`This ticket type doesn't allow ${RESTRICTED_LABEL} tickets`);
+  const isConfidential = confidentialMode === 'always' || (confidentialMode === 'optional' && asked);
+  if (isConfidential) {
+    const outdated = requireColumns(SHEETS.TICKETS, ['is_confidential']);
+    if (outdated) throw new Error(outdated.message);
+  }
   const newTicketId = nextSequenceValue('ticket_id', highestTicketId);
 
   const ticketNumber = generateTicketNumber(company.code, ticketType.code);
@@ -1805,7 +1841,8 @@ function createTicket(payload, options = {}) {
     created_by: requesterId,
     updated_by: requesterId,
     head_approver_id: headApproverId,
-    head_backup_id: headBackupId
+    head_backup_id: headBackupId,
+    is_confidential: isConfidential
   }));
   invalidateTable(cacheNameOf(ticketsSheet));
   // v10.0 (design §4.1): the requester and the immediate head are participants from the start (the backup gets a row
@@ -1867,19 +1904,31 @@ function getTickets(params) {
   params = params || {};
   const ss = openSpreadsheet();
   const scope = requestScope(params.user_id || params.userId, 'getTickets');
-  let tickets = getSheetDataAsJSON(ss.getSheetByName(SHEETS.TICKETS)).filter(t => canViewTicket(scope, t) !== 'none');
+  // v10.0 M4: a Restricted ticket outside its chain comes back as its stub (design §4.11)
+  const views = {};
+  let tickets = getSheetDataAsJSON(ss.getSheetByName(SHEETS.TICKETS)).filter(t => {
+    views[String(t.id)] = canViewTicket(scope, t);
+    return views[String(t.id)] !== 'none';
+  });
+  const present = list => {
+    const order = {};
+    list.forEach((t, i) => { order[String(t.id)] = i; });
+    return withTicketLinks(list.filter(t => views[String(t.id)] === 'full'))
+      .concat(list.filter(t => views[String(t.id)] === 'stub').map(ticketStub))
+      .sort((a, b) => order[String(a.id)] - order[String(b.id)]);
+  };
   const paged = params.limit !== undefined && params.limit !== null && params.limit !== '';
 
   if (!paged) {
     console.log('DEPRECATED getTickets without limit: use the paged form (the array answer is removed in v10.1)');
     if (params.status) tickets = tickets.filter(t => t.status === params.status);
-    return withTicketLinks(tickets);
+    return present(tickets);
   }
 
   const limit = Math.min(Math.max(Math.floor(Number(params.limit)) || TICKET_PAGE_DEFAULT, 1), TICKET_PAGE_MAX);
   const filters = ticketFilterParams(params);
   const after = decodeTicketCursor(params.cursor);
-  const matching = applyTicketFilters(tickets, filters, scope)
+  const matching = applyTicketFilters(tickets, filters, scope, views)
     .map(t => ({ ticket: t, at: (toDate(t.created_at) || new Date(0)).getTime() }))
     .sort((a, b) => (b.at - a.at) || compareTicketIds(b.ticket.id, a.ticket.id))
     .filter(e => !after || e.at < after.at || (e.at === after.at && compareTicketIds(e.ticket.id, after.id) < 0));
@@ -1887,7 +1936,7 @@ function getTickets(params) {
   const hasMore = matching.length > limit;
   const last = page[page.length - 1];
   return {
-    items: withTicketLinks(page.map(e => e.ticket)),
+    items: present(page.map(e => e.ticket)),
     next_cursor: hasMore && last ? encodeTicketCursor(last.at, last.ticket.id) : null,
     has_more: hasMore
   };
@@ -1966,8 +2015,10 @@ function ticketFilterParams(params) {
 /**
  * Apply getTickets filters (design §4.3). q: the ticket number starts with it, or every word of it is in the title.
  * 'mine' = requested by the caller; 'involved' = the caller's participant rows (any reason) or an active share to them.
+ * v10.0 M4: for a stub (views[id] === 'stub') q matches the ticket number only and a requester filter never matches,
+ * so a filter can't tell anything the stub doesn't show.
  */
-function applyTicketFilters(tickets, f, scope) {
+function applyTicketFilters(tickets, f, scope, views = {}) {
   const from = f.date_from ? toDate(f.date_from) : null;
   const toEnd = f.date_to ? endOfTerm(f.date_to) : null;
   const words = f.q ? f.q.split(/\s+/).filter(Boolean) : [];
@@ -1980,6 +2031,8 @@ function applyTicketFilters(tickets, f, scope) {
   }
   return tickets.filter(t => {
     if (!isActiveFlag(t.is_active)) return false;
+    const stub = views[String(t.id)] === 'stub';
+    if (stub && (f.requester_id || f.mine || f.involved)) return false;
     if (f.status.length) {
       const closed = TERMINAL_TICKET_STATUSES.includes(t.status) || Boolean(t.cancelled_at);
       const ok = f.status.some(s => (s === 'open' ? !closed : s === 'closed' ? closed : String(t.status) === s));
@@ -1996,7 +2049,7 @@ function applyTicketFilters(tickets, f, scope) {
     if (words.length) {
       const number = String(t.ticket_number || '').toLowerCase();
       const title = String(t.title || '').toLowerCase();
-      if (!number.startsWith(f.q) && !words.every(w => title.includes(w))) return false;
+      if (!number.startsWith(f.q) && (stub || !words.every(w => title.includes(w)))) return false;
     }
     return true;
   });
@@ -5214,12 +5267,27 @@ function updateCustomField(fieldId, payload) {
     }
 
     const changes = pickDefined(payload, ['name', 'label', 'type', 'is_required', 'is_hidden', 'sort_order',
-      'dropdown_list_id', 'depends_on_field_id']);
+      'dropdown_list_id', 'depends_on_field_id', 'is_confidential']);
     if (Object.keys(changes).length === 0) {
       return { status: 'error', message: 'No update data provided' };
     }
 
     const userId = payload.user_id || getCurrentUserId();
+    // v10.0 M4 (design §4.10): Restricted is for ticket fields; turning it off reveals past values, so when the field
+    // already has values it is logged on its own (the route is admin-only - ADMIN_ONLY_ACTIONS)
+    if (changes.is_confidential !== undefined) {
+      changes.is_confidential = boolFlag(changes.is_confidential);
+      if (changes.is_confidential && String(found.record.entity_category || 'ticket') !== 'ticket') {
+        return { status: 'error', message: `Only ticket fields can be ${RESTRICTED_LABEL}` };
+      }
+      const outdated = requireColumns(SHEETS.CUSTOM_FIELDS, ['is_confidential']);
+      if (outdated) return outdated;
+      if (!changes.is_confidential && boolFlag(found.record.is_confidential)) {
+        const inUse = ((readTable(SHEETS.CUSTOM_FIELD_VALUES) || {}).records || [])
+          .some(v => sameId(v.custom_field_id, fieldId) && isActiveFlag(v.is_active));
+        if (inUse) logAdminAction(actorId(payload.user_id) || userId, 'RESTRICTED_FIELD_OFF', 'custom_field', fieldId, { reveals_past_values: true });
+      }
+    }
     const result = updateRecordFields(SHEETS.CUSTOM_FIELDS, fieldId, {
       ...changes,
       updated_at: new Date().toISOString(),
@@ -8143,7 +8211,8 @@ function processStepCompletion(ticketId, stepId, action) {
       const currentTicket = getTicketById(ticketId);
       if (currentTicket.status === 'success') {
         const chainedTicketPayload = {
-          title: `Chained from: ${currentTicket.data.title}`,
+          // v10.0 M4: a Restricted parent's title is not copied into a child that may have other viewers
+          title: isRestrictedTicket(currentTicket.data) ? `Chained from: ${currentTicket.data.ticket_number}` : `Chained from: ${currentTicket.data.title}`,
           ticket_type_id: step.next_ticket_type_id,
           requester_id: currentTicket.data.requester_id,
           company_id: currentTicket.data.company_id,
@@ -10036,6 +10105,8 @@ function createCustomField(entityTypeId, fieldData, entityCategory = 'ticket') {
       sort_order: fieldData.sort_order || 1,
       dropdown_list_id: fieldData.dropdown_list_id || null,
       depends_on_field_id: fieldData.depends_on_field_id || null,
+      // v10.0 M4: Restricted field (ticket fields only) - its value is shown only to the ticket's chain
+      is_confidential: entityCategory === 'ticket' && boolFlag(fieldData.is_confidential),
       is_active: true,
       created_at: timestamp,
       created_by: currentUser,
@@ -13218,7 +13289,13 @@ function getTicketLinksAction(params = {}) {
   const ticketTable = readTable(SHEETS.TICKETS);
   // v10.0: a link shows only when the caller may see one of its tickets; the other side shows no details unless visible
   const scope = requestScope(params.user_id || params.userId, 'getTicketLinks');
-  const tickets = (ticketTable ? ticketTable.records : []).filter(t => canViewTicket(scope, t) !== 'none');
+  // v10.0 M4: a Restricted side outside its chain shows its stub only (number, status, company - no title)
+  const tickets = [];
+  (ticketTable ? ticketTable.records : []).forEach(t => {
+    const seen = canViewTicket(scope, t);
+    if (seen === 'full') tickets.push(t);
+    else if (seen === 'stub') tickets.push({ ...ticketStub(t), title: '' });
+  });
   const byId = {};
   tickets.forEach(t => { byId[String(t.id)] = t; });
 
@@ -14352,15 +14429,21 @@ function getReportData(params = {}) {
   // v9.4 (A15): who is asking decides the scope; v10.0: the same rule as every other ticket read
   const viewerScope = requestScope(params.user_id, 'getReportData');
   const admin = viewerScope.isAdmin;
-  tickets = tickets.filter(t => canViewTicket(viewerScope, t) !== 'none')
-    .sort((a, b) => (toDate(b.created_at) || 0) - (toDate(a.created_at) || 0));
+  const reportViews = {};
+  tickets = tickets.filter(t => {
+    reportViews[String(t.id)] = canViewTicket(viewerScope, t);
+    return reportViews[String(t.id)] !== 'none';
+  }).sort((a, b) => (toDate(b.created_at) || 0) - (toDate(a.created_at) || 0));
   const truncated = tickets.length > REPORT_MAX_ROWS;
   if (truncated) tickets = tickets.slice(0, REPORT_MAX_ROWS);
 
   const steps = recordsById(SHEETS.WORKFLOW_STEPS);
   const companies = recordsById(SHEETS.COMPANIES);
   const profiles = recordsById(SHEETS.USER_PROFILES, 'user_id');
-  const customValues = customFieldDisplayValues(tickets.map(t => t.id));
+  // v10.0 M4: stub rows carry no custom values at all; Restricted fields are masked outside the chain (design §4.10)
+  const customValues = customFieldDisplayValues(tickets.filter(t => reportViews[String(t.id)] === 'full').map(t => t.id));
+  const restrictedFields = restrictedFieldIdsByType();
+  const STUB_COLUMNS = ['ticket_number', 'status', 'company_id', 'created_at'];
   const now = new Date();
 
   const standardValue = (ticket, name) => {
@@ -14382,7 +14465,20 @@ function getReportData(params = {}) {
   const rows = tickets
     .map(ticket => {
       const row = { ticket_id: String(ticket.id) };
+      if (reportViews[String(ticket.id)] === 'stub') {
+        row.restricted = true;
+        columns.forEach(column => {
+          row[column.field_name] = column.field_type !== 'custom' && STUB_COLUMNS.includes(column.field_name)
+            ? standardValue(ticket, column.field_name) : RESTRICTED_MASK;
+        });
+        return row;
+      }
+      const masked = canSeeRestrictedFields(viewerScope, ticket) ? {} : (restrictedFields[String(ticket.ticket_type_id)] || {});
       columns.forEach(column => {
+        if (column.field_type === 'custom' && masked[String(column.field_name)]) {
+          row[column.field_name] = RESTRICTED_MASK;
+          return;
+        }
         row[column.field_name] = column.field_type === 'custom'
           ? ((customValues[String(ticket.id)] || {})[column.field_name] || '')
           : standardValue(ticket, column.field_name);
@@ -14467,13 +14563,25 @@ function getTicketActionLogs(params = {}) {
   if (!isAdminUser(actorId(params.user_id))) return { status: 'error', message: 'Only admins can read the system log' };
   const ticketId = params.ticket_id || params.id;
   if (!ticketId) return { status: 'error', message: 'ticket_id is required' };
+  // v10.0 M4: a Restricted ticket's log needs the chain (or admin access 'always' / revealConfidential); outside the
+  // chain the Restricted field values in the details (the create payload) are masked
+  const read = ticketReadView(params, ticketId, 'getTicketActionLogs');
+  if (read.view === 'stub') return read.error;
+  const maskIds = read.record && !canSeeRestrictedFields(read.scope, read.record)
+    ? (restrictedFieldIdsByType()[String(read.record.ticket_type_id)] || null) : null;
+  const maskDetails = details => {
+    if (!maskIds || !details || typeof details !== 'object' || !details.newTicketData) return details;
+    const data = { ...details.newTicketData };
+    ['customData', 'custom_fields', 'custom_field_values'].forEach(key => { if (data[key]) data[key] = maskFieldMap(data[key], maskIds); });
+    return { ...details, newTicketData: data };
+  };
 
   const table = readTable(SHEETS.TICKET_ACTION_LOGS);
   const logs = (table ? table.records : [])
     .map((row, index) => ({ row, index }))
     .filter(({ row }) => sameId(row.ticket_id, ticketId))
     .sort((a, b) => ((toDate(b.row.timestamp) || 0) - (toDate(a.row.timestamp) || 0)) || (b.index - a.index))
-    .map(({ row }) => ({ ...row, timestamp: isoOrBlank(row.timestamp), details: parseLogDetails(row.details) }));
+    .map(({ row }) => ({ ...row, timestamp: isoOrBlank(row.timestamp), details: maskDetails(parseLogDetails(row.details)) }));
   return { status: 'success', data: logs, message: `${logs.length} log entries` };
 }
 
@@ -15096,7 +15204,9 @@ function ticketTypeFeatures(ticketType) {
     tags_locked: boolFlag(ticketType.enable_tags) && use.tags,
     sharing_locked: boolFlag(ticketType.enable_sharing) && use.sharing,
     sla_email: SLA_EMAIL_MODES.includes(String(ticketType.sla_email)) ? String(ticketType.sla_email) : 'default',
-    visibility: ticketTypeVisibility(ticketType) // v10.0 (decision 2): no lock - it can change any time
+    visibility: ticketTypeVisibility(ticketType), // v10.0 (decision 2): no lock - it can change any time
+    confidential_mode: ticketConfidentialMode(ticketType), // v10.0 M4: off | optional | always
+    confidential_admin_access: ticketAdminAccess(ticketType) // reveal_with_reason | always | never
   };
 }
 
@@ -15135,10 +15245,36 @@ function setTicketTypeFeatures(payload) {
     if (outdated) return outdated;
     changes.visibility = visibility;
   }
+  // v10.0 M4 (design §4.11): Restricted mode + how admins reach Restricted content of this type
+  if (payload.confidential_mode !== undefined) {
+    const mode = String(payload.confidential_mode).toLowerCase();
+    if (!CONFIDENTIAL_MODES.includes(mode)) return { status: 'error', message: `confidential_mode must be one of ${CONFIDENTIAL_MODES.join(', ')}` };
+    changes.confidential_mode = mode;
+  }
+  if (payload.confidential_admin_access !== undefined) {
+    const access = String(payload.confidential_admin_access).toLowerCase();
+    if (!CONFIDENTIAL_ADMIN_ACCESS.includes(access)) {
+      return { status: 'error', message: `confidential_admin_access must be one of ${CONFIDENTIAL_ADMIN_ACCESS.join(', ')}` };
+    }
+    changes.confidential_admin_access = access;
+  }
+  if (changes.confidential_mode !== undefined || changes.confidential_admin_access !== undefined) {
+    const outdated = requireColumns(SHEETS.TICKET_TYPES, ['confidential_mode', 'confidential_admin_access']) ||
+      (changes.confidential_mode === 'always' ? requireColumns(SHEETS.TICKETS, ['is_confidential']) : null);
+    if (outdated) return outdated;
+  }
   const actor = actorId(payload.user_id) || getCurrentUserId();
   const updated = updateRecordFields(SHEETS.TICKET_TYPES, found.record.id, { ...changes, updated_at: new Date() });
-  logAdminAction(actor, 'SET_TICKET_TYPE_FEATURES', 'ticket_type', found.record.id, changes);
-  return { status: 'success', data: { ticket_type_id: String(found.record.id), ...ticketTypeFeatures(updated.after) }, message: 'Ticket type features saved' };
+  // 'always' makes every existing ticket of the type Restricted too (shares revoked, not restored if turned off later)
+  let restricted = null;
+  if (changes.confidential_mode === 'always' && current.confidential_mode !== 'always') {
+    const ids = ((readTable(SHEETS.TICKETS) || {}).records || [])
+      .filter(t => sameId(t.ticket_type_id, found.record.id) && !isRestrictedTicket(t)).map(t => t.id);
+    restricted = ids.length ? restrictTickets(ids, actor) : { tickets: 0, shares_revoked: 0, participants_ended: 0 };
+  }
+  logAdminAction(actor, 'SET_TICKET_TYPE_FEATURES', 'ticket_type', found.record.id, { ...changes, ...(restricted ? { restricted } : {}) });
+  return { status: 'success', data: { ticket_type_id: String(found.record.id), ...ticketTypeFeatures(updated.after),
+    ...(restricted ? { restricted_existing: restricted } : {}) }, message: 'Ticket type features saved' };
 }
 
 /**
@@ -15320,9 +15456,10 @@ function searchTicketsByTagsAction(params = {}) {
   liveRecords(SHEETS.TICKET_TAG_ASSIGNMENTS).forEach(a => {
     (tagsByTicket[String(a.ticket_id)] = tagsByTicket[String(a.ticket_id)] || []).push(String(a.tag_id));
   });
-  const scope = requestScope(params.user_id || params.userId, 'searchTicketsByTags'); // v10.0: visible tickets only
+  // v10.0: visible tickets only; M4: not a Restricted one outside its chain (its tags would say too much)
+  const scope = requestScope(params.user_id || params.userId, 'searchTicketsByTags');
   const ids = liveRecords(SHEETS.TICKETS)
-    .filter(t => (!params.company_id || sameId(t.company_id, params.company_id)) && canViewTicket(scope, t) !== 'none')
+    .filter(t => (!params.company_id || sameId(t.company_id, params.company_id)) && canViewTicket(scope, t) === 'full')
     .map(t => String(t.id))
     .filter(id => {
       const tags = tagsByTicket[id] || [];
@@ -15377,6 +15514,8 @@ function shareTicketAction(payload) {
   if (!sameId(checked.ticket.requester_id, actor) && !isAdminUser(actor)) {
     return { status: 'error', message: 'Only the requester or an admin can share this ticket' };
   }
+  // v10.0 M4 (design §4.11): no sharing of Restricted tickets
+  if (isRestrictedTicket(checked.ticket)) return { status: 'error', message: `${RESTRICTED_LABEL} tickets can't be shared` };
   const userTarget = payload.shared_with_user_id || '';
   const companyTarget = payload.shared_with_company_id || '';
   if (Boolean(userTarget) === Boolean(companyTarget)) return { status: 'error', message: 'Share with one user or one company' };
@@ -15469,7 +15608,8 @@ function getSharedTicketsAction(userId) {
       (c.shared_with_company_id && myCompanies.includes(String(c.shared_with_company_id)))))
     .forEach(c => {
       const ticket = tickets[String(c.ticket_id)];
-      if (!ticket || !isActiveFlag(ticket.is_active) || seen[String(c.ticket_id)]) return;
+      // v10.0 M4: a Restricted ticket is never reached through a share (design §4.11)
+      if (!ticket || !isActiveFlag(ticket.is_active) || seen[String(c.ticket_id)] || isRestrictedTicket(ticket)) return;
       seen[String(c.ticket_id)] = true;
       data.push({ ...ticket, share: { id: String(c.id), permission_level: c.permission_level, can_comment: boolFlag(c.can_comment),
         shared_by_user_id: c.shared_by_user_id, expiration_date: c.expiration_date ? isoOrBlank(c.expiration_date) : '',
@@ -16287,7 +16427,9 @@ function slaEscalationPass(now, dryRun) {
     const label = ticket.ticket_number || `#${ticket.id}`;
     const title = type === 'sla_escalated' ? `Escalated: ${label}` : (overdue ? `Overdue: ${label}` : `SLA warning: ${label}`);
     const dueText = Utilities.formatDate(due, MANILA_TZ, 'yyyy-MM-dd HH:mm');
-    const message = (top.message ? `${top.message} - ` : '') + `"${ticket.title || ''}" at step ${step.name || ticket.current_step_id}, due ${dueText} (Manila)` +
+    // v10.0 M4: a Restricted ticket's title never goes into a notice or email (design §4.11)
+    const message = (top.message ? `${top.message} - ` : '') + (isRestrictedTicket(ticket) ? `${RESTRICTED_LABEL} ticket` : `"${ticket.title || ''}"`) +
+      ` at step ${step.name || ticket.current_step_id}, due ${dueText} (Manila)` +
       (grantedNow.length ? '. You can now act on this step.' : '');
     // v9.6: the company's email_enabled (on / off) overrides the ticket type's sla_email
     const emailOn = companyEmailEnabled(companies[String(ticket.company_id)], ticketTypes[String(ticket.ticket_type_id)]);
@@ -16471,6 +16613,8 @@ const ADMIN_ONLY_ACTIONS = ['createCompany', 'updateCompany', 'deleteCompany', '
   'assignDropdownToCompany', 'assignDropdownGlobally', 'removeDropdownCompanyAssignment', 'updateDropdownCompanyAssignments',
   'createCompanySLARule', 'updateCompanySLARule', 'deleteCompanySLARule',
   'createConfigurationBackup', 'setTicketTypeFeatures', 'createTicketLink', 'deleteTicketLink',
+  // v10.0 M4 (revealConfidential is per ticket type, so its handler checks admin itself - build plan C3)
+  'setTicketRestricted',
   // v9.6 routes
   'createUserInvite', 'resendUserInvite', 'revokeUserInvite', 'saveCompanyEmailSettings', 'sendCompanyTestEmail'];
 
@@ -17007,7 +17151,8 @@ function canManageTicketLinks(userId, ticket) {
  * @returns {boolean}
  */
 function mayReadTicket(userId, ticket) {
-  return !!userId && !!ticket && canViewTicket(buildActorScope(userId), ticket) !== 'none';
+  // v10.0 M4: 'full' only - outsiders of a Restricted ticket see no links (design §4.13)
+  return !!userId && !!ticket && canViewTicket(buildActorScope(userId), ticket) === 'full';
 }
 
 /** A ticket record by id, or null. */
@@ -17209,8 +17354,14 @@ function buildActorScope(actor) {
   const key = actor ? String(actor) : '';
   if (ACTOR_SCOPES[key]) return ACTOR_SCOPES[key];
   const scope = { actor: actor ? String(actor) : null, unscoped: !actor, isAdmin: false, roleScopes: {}, approverScopes: {},
-    myCompanies: {}, participantTicketIds: {}, sharedTicketIds: {}, grantedTicketIds: {}, typeVisibility: {} };
-  ((readTable(SHEETS.TICKET_TYPES) || {}).records || []).forEach(t => { scope.typeVisibility[String(t.id)] = ticketTypeVisibility(t); });
+    myCompanies: {}, participantTicketIds: {}, sharedTicketIds: {}, grantedTicketIds: {}, typeVisibility: {},
+    // v10.0 M4 (Restricted): admin access per type, the actor's participant reasons per ticket, the time spans of
+    // every role they held (in force or not), and the pool windows of those roles per ticket
+    typeAdminAccess: {}, participantReasons: {}, roleSpans: [], poolWindows: {} };
+  ((readTable(SHEETS.TICKET_TYPES) || {}).records || []).forEach(t => {
+    scope.typeVisibility[String(t.id)] = ticketTypeVisibility(t);
+    scope.typeAdminAccess[String(t.id)] = ticketAdminAccess(t);
+  });
   if (!actor) {
     ACTOR_SCOPES[key] = scope;
     return scope;
@@ -17218,8 +17369,20 @@ function buildActorScope(actor) {
 
   const now = new Date();
   const roles = recordsById(SHEETS.ROLES);
-  const assignments = ((readTable(SHEETS.USER_ROLE_ASSIGNMENTS) || {}).records || [])
-    .filter(a => sameId(a.user_id, actor) && isAssignmentActive(a, now) && roles[String(a.role_id)] && isActiveFlag(roles[String(a.role_id)].is_active));
+  const myAssignments = ((readTable(SHEETS.USER_ROLE_ASSIGNMENTS) || {}).records || []).filter(a => sameId(a.user_id, actor));
+  const assignments = myAssignments
+    .filter(a => isAssignmentActive(a, now) && roles[String(a.role_id)] && isActiveFlag(roles[String(a.role_id)].is_active));
+  // M4: when each assignment was in force (a removed one ends at its removal), for the Restricted pool rule
+  myAssignments.forEach(a => {
+    if (!roles[String(a.role_id)]) return;
+    const start = toDate(a.effective_start_date) || toDate(a.created_at) || new Date(0);
+    const ends = [assignmentExpiry(a), toDate(a.deleted_at), toDate(a.deactivated_at)].filter(Boolean);
+    if (!isActiveFlag(a.is_active) && !ends.length) ends.push(toDate(a.updated_at) || start);
+    scope.roleSpans.push({ role_id: String(a.role_id), company_id: String(a.company_id || ''), ticket_type_id: String(a.ticket_type_id || ''),
+      start: start, end: ends.length ? new Date(Math.min(...ends.map(d => d.getTime()))) : null });
+  });
+  const spanRoleIds = {};
+  scope.roleSpans.forEach(s => { spanRoleIds[s.role_id] = true; });
   scope.isAdmin = assignments.some(a => String(roles[String(a.role_id)].name || '').toLowerCase().includes('admin'));
   assignments.forEach(a => {
     if (!a.company_id) return;
@@ -17241,9 +17404,18 @@ function buildActorScope(actor) {
 
   // 'shared' rows don't grant access by themselves: a share counts only while it is in force (expiry), below
   ((readTable(SHEETS.TICKET_PARTICIPANTS) || {}).records || []).forEach(p => {
-    if (p.user_id && sameId(p.user_id, actor) && isActiveFlag(p.is_active) && p.reason !== 'shared') {
-      scope.participantTicketIds[String(p.ticket_id)] = true;
+    if (!isActiveFlag(p.is_active)) return;
+    const ticketKey = String(p.ticket_id);
+    if (p.reason === 'pool') {
+      if (spanRoleIds[String(p.role_id)]) {
+        (scope.poolWindows[ticketKey] = scope.poolWindows[ticketKey] || [])
+          .push({ role_id: String(p.role_id), start: toDate(p.window_start) || new Date(0), end: toDate(p.window_end) });
+      }
+      return;
     }
+    if (!p.user_id || !sameId(p.user_id, actor)) return;
+    (scope.participantReasons[ticketKey] = scope.participantReasons[ticketKey] || {})[p.reason] = true;
+    if (p.reason !== 'shared') scope.participantTicketIds[ticketKey] = true;
   });
   liveRecords(SHEETS.TICKET_COLLABORATIONS).forEach(c => {
     if (!shareInForce(c, now)) return;
@@ -17273,25 +17445,36 @@ function requestScope(claimed, what) {
 }
 
 /**
- * May the scope's actor see the ticket? (design §4.2) 'full' or 'none' (M4 adds 'stub' for Restricted tickets).
- * Admin; requester; immediate head (snapshot); participant (acted / shared / watching); a share in force; an
+ * May the scope's actor see the ticket? (design §4.2, §4.11)
+ * Normal tickets: admin; requester; immediate head (snapshot); participant (acted / head); a share in force; an
  * escalate_role grant; on a 'collaborative' type any role on its company + type; on a 'private' type the approver roles
- * of that company + type.
+ * of that company + type -> 'full', else 'none'.
+ * Restricted tickets (is_confidential): only the chain (isInChain) gets 'full'; admins get 'full' only when the type's
+ * confidential_admin_access is 'always'; anyone else who could see the ticket if it weren't Restricted gets the 'stub'
+ * (shares never count), the rest 'none'. No actor at all (D1, warn / off) = 'full'.
  * @param {Object} scope - buildActorScope()
  * @param {Object} ticket - ticket record
- * @returns {string} 'full' | 'none'
+ * @returns {string} 'full' | 'stub' | 'none'
  */
 function canViewTicket(scope, ticket) {
   if (!ticket) return 'none';
-  if (scope.unscoped || scope.isAdmin) return 'full';
+  if (scope.unscoped) return 'full';
+  if (!isRestrictedTicket(ticket)) return scope.isAdmin || ticketInScope(scope, ticket, true) ? 'full' : 'none';
+  if (isInChain(scope, ticket)) return 'full';
+  if (scope.isAdmin) return scope.typeAdminAccess[String(ticket.ticket_type_id)] === 'always' ? 'full' : 'stub';
+  return ticketInScope(scope, ticket, false) ? 'stub' : 'none';
+}
+
+/** The normal visibility rules (without admin and the Restricted chain); shares count only when withShares. */
+function ticketInScope(scope, ticket, withShares) {
   const id = String(ticket.id);
-  if (sameId(ticket.requester_id, scope.actor) || (ticket.head_approver_id && sameId(ticket.head_approver_id, scope.actor))) return 'full';
-  if (scope.participantTicketIds[id] || scope.sharedTicketIds[id] || scope.grantedTicketIds[id]) return 'full';
+  if (sameId(ticket.requester_id, scope.actor) || (ticket.head_approver_id && sameId(ticket.head_approver_id, scope.actor))) return true;
+  if (scope.participantTicketIds[id] || scope.grantedTicketIds[id]) return true;
+  if (withShares && scope.sharedTicketIds[id]) return true;
   const key = `${ticket.company_id}|${ticket.ticket_type_id}`;
-  if (scope.approverScopes[key]) return 'full';
-  if (scope.typeVisibility[String(ticket.ticket_type_id)] === 'collaborative' &&
-    (scope.roleScopes[key] || scope.roleScopes[`${ticket.company_id}|*`])) return 'full';
-  return 'none';
+  if (scope.approverScopes[key]) return true;
+  return scope.typeVisibility[String(ticket.ticket_type_id)] === 'collaborative' &&
+    !!(scope.roleScopes[key] || scope.roleScopes[`${ticket.company_id}|*`]);
 }
 
 /** May the scope's actor create a ticket of this type in this company? (decision 1: a role on that type + company) */
@@ -17309,10 +17492,22 @@ function canCreateTicket(scope, companyId, ticketTypeId) {
  * @returns {Object|null} error result or null
  */
 function ticketReadGuard(request, ticketId, what) {
+  return ticketReadView(request, ticketId, what).error;
+}
+
+/**
+ * What the caller may read of one ticket: { view, record, scope, error }. 'full' -> error null; 'stub' (a Restricted
+ * ticket outside its chain) -> error code RESTRICTED (the ticket's details, history, links, ... stay hidden);
+ * 'none' / missing -> "Ticket not found".
+ */
+function ticketReadView(request, ticketId, what) {
   const scope = requestScope(request && (request.user_id || request.userId), what);
   const found = ticketId ? findRecord(SHEETS.TICKETS, ticketId) : null;
-  if (found && canViewTicket(scope, found.record) !== 'none') return null;
-  return { status: 'error', message: 'Ticket not found' };
+  const view = found ? canViewTicket(scope, found.record) : 'none';
+  const error = view === 'full' ? null
+    : view === 'stub' ? { status: 'error', code: 'RESTRICTED', message: RESTRICTED_TICKET_MESSAGE }
+      : { status: 'error', message: 'Ticket not found' };
+  return { view, record: found ? found.record : null, scope, error };
 }
 
 /**
@@ -17488,4 +17683,174 @@ function backfillTicketParticipantsApply() {
   const result = backfillTicketParticipants({ dryRun: false });
   Logger.log(JSON.stringify(result));
   return result;
+}
+
+// --- Restricted tickets + fields (design §4.10, §4.11, build plan M4) ---------------------------------------------
+// Internal names stay is_confidential / confidential_*; everything users read says "Restricted" (design §2.7).
+
+const RESTRICTED_LABEL = 'Restricted';
+const RESTRICTED_MASK = '•••••• Restricted';
+const RESTRICTED_TICKET_MESSAGE = '🔒 This ticket is restricted to the people in its approval chain';
+const CONFIDENTIAL_MODES = ['off', 'optional', 'always'];
+const CONFIDENTIAL_ADMIN_ACCESS = ['reveal_with_reason', 'always', 'never'];
+
+/** A ticket type's Restricted mode: off (default) | optional (the requester ticks it) | always. */
+function ticketConfidentialMode(ticketType) {
+  const mode = String((ticketType || {}).confidential_mode || '').toLowerCase();
+  return CONFIDENTIAL_MODES.includes(mode) ? mode : 'off';
+}
+
+/** How admins reach a type's Restricted content: reveal_with_reason (default) | always | never. */
+function ticketAdminAccess(ticketType) {
+  const access = String((ticketType || {}).confidential_admin_access || '').toLowerCase();
+  return CONFIDENTIAL_ADMIN_ACCESS.includes(access) ? access : 'reveal_with_reason';
+}
+
+/** Is the ticket Restricted? */
+function isRestrictedTicket(ticket) {
+  return !!ticket && boolFlag(ticket.is_confidential);
+}
+
+/** What an outsider sees of a Restricted ticket (design §4.11) - exactly these keys. */
+function ticketStub(ticket) {
+  return { id: String(ticket.id), ticket_number: ticket.ticket_number || '', status: ticket.status || '',
+    company_id: ticket.company_id ? String(ticket.company_id) : '', ticket_type_id: ticket.ticket_type_id ? String(ticket.ticket_type_id) : '',
+    created_at: isoOrBlank(ticket.created_at), confidential: true };
+}
+
+/**
+ * Is the actor in the ticket's chain (design §4.10 table)? The requester; anyone who acted (participant 'acted'); the
+ * immediate head (snapshot); the step pool from the moment the ticket reached their step - one of their assignments
+ * for a pool role of that company + type overlapped the step's window (so losing the role later keeps access, getting
+ * it after the step passed doesn't); a v9.5 escalate_role grant. The backup approver and delegates join by acting
+ * (their live rules come with the head step / delegation, v10.3). Shares, watchers and collaborative viewers never.
+ */
+function isInChain(scope, ticket) {
+  if (!scope.actor || !ticket) return false;
+  const id = String(ticket.id);
+  if (sameId(ticket.requester_id, scope.actor)) return true;
+  if (ticket.head_approver_id && sameId(ticket.head_approver_id, scope.actor)) return true;
+  const reasons = scope.participantReasons[id] || {};
+  if (reasons.requester || reasons.head || reasons.acted) return true;
+  if (scope.grantedTicketIds[id]) return true;
+  const now = new Date();
+  return (scope.poolWindows[id] || []).some(w => scope.roleSpans.some(s => s.role_id === w.role_id &&
+    sameId(s.company_id, ticket.company_id) && (!s.ticket_type_id || sameId(s.ticket_type_id, ticket.ticket_type_id)) &&
+    s.start <= (w.end || now) && (!s.end || s.end > w.start)));
+}
+
+/** May the actor see the ticket's Restricted field values? The chain, admins with access 'always', or no actor (D1). */
+function canSeeRestrictedFields(scope, ticket) {
+  if (scope.unscoped) return true;
+  if (isInChain(scope, ticket)) return true;
+  return scope.isAdmin && scope.typeAdminAccess[String(ticket.ticket_type_id)] === 'always';
+}
+
+/** Restricted ticket fields per ticket type: { [ticket_type_id]: { [field_id]: true } } (custom_fields read once). */
+function restrictedFieldIdsByType() {
+  const out = {};
+  ((readTable(SHEETS.CUSTOM_FIELDS) || {}).records || []).forEach(f => {
+    if (!boolFlag(f.is_confidential) || !isActiveFlag(f.is_active) || String(f.entity_category || 'ticket') !== 'ticket') return;
+    (out[String(f.ticket_type_id)] = out[String(f.ticket_type_id)] || {})[String(f.id)] = true;
+  });
+  return out;
+}
+
+/** Replace the values of Restricted fields in a { fieldId: value } map (or JSON text) by the mask. */
+function maskFieldMap(values, restrictedIds) {
+  if (!values || !restrictedIds) return values;
+  let map = values;
+  if (typeof map === 'string') {
+    try {
+      map = JSON.parse(map);
+    } catch (error) {
+      return values;
+    }
+  }
+  if (typeof map !== 'object' || Array.isArray(map)) return values;
+  const out = { ...map };
+  Object.keys(out).forEach(key => { if (restrictedIds[key]) out[key] = RESTRICTED_MASK; });
+  return out;
+}
+
+/**
+ * Make tickets Restricted in one batched write per tab: the flag, every share revoked (soft, revocation_reason
+ * 'restricted' - turning Restricted off later doesn't restore them), the shared / watcher participant rows ended.
+ * Nobody is notified (it would draw attention to the ticket). @returns {Object} { tickets, shares_revoked, participants_ended }
+ */
+function restrictTickets(ticketIds, actor) {
+  const ids = {};
+  ticketIds.forEach(id => { ids[String(id)] = true; });
+  const now = new Date();
+  const ticketChanges = {};
+  Object.keys(ids).forEach(id => { ticketChanges[id] = { is_confidential: true, updated_at: now, updated_by: actor }; });
+  const shareChanges = {};
+  liveRecords(SHEETS.TICKET_COLLABORATIONS).filter(c => ids[String(c.ticket_id)]).forEach(c => {
+    shareChanges[String(c.id)] = { is_active: false, revoked_at: now, revoked_by: actor, revocation_reason: 'restricted', updated_at: now, updated_by: actor };
+  });
+  const participantChanges = {};
+  ((readTable(SHEETS.TICKET_PARTICIPANTS) || {}).records || [])
+    .filter(p => ids[String(p.ticket_id)] && (p.reason === 'shared' || p.reason === 'watcher') && isActiveFlag(p.is_active))
+    .forEach(p => { participantChanges[String(p.id)] = { is_active: false }; });
+  const written = writeRecordsById(SHEETS.TICKETS, ticketChanges);
+  const revoked = writeRecordsById(SHEETS.TICKET_COLLABORATIONS, shareChanges);
+  const ended = writeRecordsById(SHEETS.TICKET_PARTICIPANTS, participantChanges);
+  return { tickets: written, shares_revoked: revoked, participants_ended: ended };
+}
+
+/**
+ * setTicketRestricted (POST, admin-only): turn one ticket's Restricted flag on or off. On: shares revoked (restrictTickets).
+ * Off: refused when the type is 'always'; shares are not restored. Logged with the reason.
+ * @param {Object} payload - { ticket_id, is_confidential, reason }
+ */
+function setTicketRestricted(payload = {}) {
+  const actor = actorId(payload.user_id);
+  const denied = requireAdmin(actor, 'change whether a ticket is Restricted');
+  if (denied) return denied;
+  const found = payload.ticket_id ? findRecord(SHEETS.TICKETS, payload.ticket_id) : null;
+  if (!found || !isActiveFlag(found.record.is_active)) return { status: 'error', message: `Ticket ${payload.ticket_id} not found` };
+  const outdated = requireColumns(SHEETS.TICKETS, ['is_confidential']);
+  if (outdated) return outdated;
+  const on = boolFlag(payload.is_confidential);
+  const reason = String(payload.reason || '').trim();
+  if (!reason) return { status: 'error', message: 'A reason is required' };
+  const type = findRecord(SHEETS.TICKET_TYPES, found.record.ticket_type_id);
+  let result = { tickets: 0, shares_revoked: 0, participants_ended: 0 };
+  if (on) {
+    result = restrictTickets([found.record.id], actor);
+  } else {
+    if (type && ticketConfidentialMode(type.record) === 'always') {
+      return { status: 'error', message: 'Every ticket of this type is Restricted (mode "always") - change the ticket type first' };
+    }
+    updateRecordFields(SHEETS.TICKETS, found.record.id, { is_confidential: false, updated_at: new Date(), updated_by: actor });
+  }
+  logAdminAction(actor, on ? 'RESTRICT_TICKET' : 'UNRESTRICT_TICKET', 'ticket', String(found.record.id),
+    { reason: reason, shares_revoked: result.shares_revoked });
+  return { status: 'success', data: { ticket_id: String(found.record.id), is_confidential: on, shares_revoked: result.shares_revoked },
+    message: on ? `Ticket is now ${RESTRICTED_LABEL}` : `Ticket is no longer ${RESTRICTED_LABEL} (shares are not restored)` };
+}
+
+/**
+ * revealConfidential (POST): an admin reads a Restricted ticket / Restricted field values they are outside the chain
+ * of, when the type allows it (confidential_admin_access 'reveal_with_reason' needs a reason; 'never' refuses). Every
+ * reveal is written to admin_action_logs (REVEAL_RESTRICTED) with the reason.
+ * @param {Object} payload - { ticket_id, reason }
+ * @returns {Object} { ticket, field_values: { field_id: display text }, history }
+ */
+function revealConfidential(payload = {}) {
+  const actor = actorId(payload.user_id);
+  const denied = requireAdmin(actor, 'reveal Restricted content');
+  if (denied) return denied;
+  const found = payload.ticket_id ? findRecord(SHEETS.TICKETS, payload.ticket_id) : null;
+  if (!found || !isActiveFlag(found.record.is_active)) return { status: 'error', message: `Ticket ${payload.ticket_id} not found` };
+  const type = findRecord(SHEETS.TICKET_TYPES, found.record.ticket_type_id);
+  const access = ticketAdminAccess(type ? type.record : null);
+  if (access === 'never') return { status: 'error', message: `Admins can't open ${RESTRICTED_LABEL} content of this ticket type` };
+  const reason = String(payload.reason || '').trim();
+  if (access === 'reveal_with_reason' && reason.length < 5) return { status: 'error', message: 'Give a reason (5 characters or more) to reveal it' };
+  const id = String(found.record.id);
+  logAdminAction(actor, 'REVEAL_RESTRICTED', 'ticket', id, { reason: reason, access: access });
+  const history = getTicketHistory(id);
+  return { status: 'success', data: { ticket: withTicketLinks([found.record])[0], field_values: customFieldDisplayValues([id])[id] || {},
+    history: history.status === 'success' ? history.data : [] }, message: 'Revealed - this was logged' };
 }

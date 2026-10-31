@@ -7,6 +7,7 @@ import { useInformation } from '../components/shared/ConfirmationModal';
 import Header from '../components/shared/Header';
 import Footer from '../components/shared/Footer';
 import Icons from '../components/shared/Icons';
+import { RESTRICTED_LABEL, isRestrictedStub } from '../config/labels';
 import { DetailedClock } from '../components/shared/LiveClock';
 // SLA widgets (spec 3.4: SLA status clearly visible) - a click opens /tickets filtered to that SLA status
 import { SLASummaryWidgets } from '../components/shared/SLAWidgets';
@@ -109,7 +110,7 @@ const DashboardPage = () => {
                   {ticket.ticket_number || `TICKET-${ticket.id}`}
                 </h3>
                 <p className="text-sm text-gray-500 truncate">
-                  {ticket.title || 'No title provided'}
+                  {isRestrictedStub(ticket) ? `🔒 ${RESTRICTED_LABEL}` : (ticket.title || 'No title provided')}
                 </p>
                 <div className="flex flex-wrap items-center gap-2 mt-1">
                   {company && (

@@ -6,6 +6,7 @@ import { API } from '../../api/googleSheet';
 import { useToast } from '../shared/Toast';
 import { useConfirmation } from '../shared/ConfirmationModal';
 import Icons from '../shared/Icons';
+import { RESTRICTED_LABEL, isRestrictedStub } from '../../config/labels';
 import TicketForm from './TicketForm';
 import TicketDetail from './TicketDetail';
 import TagSearchFilter from '../shared/TagSearchFilter';
@@ -415,7 +416,7 @@ const TicketDashboard = () => {
                   {ticket.ticket_number || `TICKET-${ticket.id}`}
                 </button>
                 <p className="text-sm text-gray-600 mt-1">
-                  {ticket.title || 'No title provided'}
+                  {isRestrictedStub(ticket) ? `🔒 ${RESTRICTED_LABEL}` : (ticket.title || 'No title provided')}
                 </p>
 
                 <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-gray-500">

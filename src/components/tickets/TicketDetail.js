@@ -8,6 +8,8 @@ import TicketTagManager from './TicketTagManager';
 import TicketCollaborationManager from './TicketCollaborationManager';
 import TicketLinksManager from './TicketLinksManager';
 import Icons from '../shared/Icons';
+import { API } from '../../api/googleSheet';
+import { RESTRICTED_LABEL, RESTRICTED_TICKET_MESSAGE, isRestrictedStub } from '../../config/labels';
 
 // Ticket statuses that end the workflow (AppScript TERMINAL_TICKET_STATUSES)
 const TERMINAL_STATUSES = ['Completed', 'Rejected', 'Cancelled'];
@@ -62,8 +64,103 @@ const TicketDetail = ({ ticket, onClose, onStatusChange }) => {
   // Admins can switch the History tab to the system log (ticket_action_logs, AppScript v9.2)
   const [showSystemLog, setShowSystemLog] = useState(false);
   const { data: systemLog, loading: systemLogLoading } = useTicketActionLogs(ticket?.id, currentUserId, Boolean(isAdmin && showSystemLog));
+  // AppScript v10.0 M4: Restricted - an admin's logged reveal of a stub, and the admin switch on a full ticket
+  const [revealReason, setRevealReason] = useState('');
+  const [revealed, setRevealed] = useState(null);
+  const [revealing, setRevealing] = useState(false);
+  const [restrictReason, setRestrictReason] = useState('');
+  const [restrictSaving, setRestrictSaving] = useState(false);
 
   if (!ticket) return null;
+
+  const isStub = isRestrictedStub(ticket);
+  const isRestricted = isStub || ticket.is_confidential === true || String(ticket.is_confidential).toUpperCase() === 'TRUE';
+
+  const handleReveal = async () => {
+    setRevealing(true);
+    try {
+      setRevealed(await API.Tickets.reveal(ticket.id, revealReason.trim(), currentUserId));
+    } catch (err) {
+      showError(err.message || 'Could not reveal the ticket');
+    } finally {
+      setRevealing(false);
+    }
+  };
+
+  const handleSetRestricted = async (on) => {
+    if (!restrictReason.trim()) {
+      showError('Give a reason');
+      return;
+    }
+    setRestrictSaving(true);
+    try {
+      const result = await API.Tickets.setRestricted(ticket.id, on, restrictReason.trim(), currentUserId);
+      success(on ? `Ticket is now ${RESTRICTED_LABEL}${result?.shares_revoked ? ` - ${result.shares_revoked} share(s) removed` : ''}`
+        : `Ticket is no longer ${RESTRICTED_LABEL} (shares are not restored)`);
+      setRestrictReason('');
+      if (onStatusChange) onStatusChange();
+    } catch (err) {
+      showError(err.message || 'Could not change the setting');
+    } finally {
+      setRestrictSaving(false);
+    }
+  };
+
+  // A Restricted ticket outside its chain: only its stub came back (number, status, company, type, created)
+  if (isStub) {
+    return (
+      <>
+        <ToastContainer />
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-lg font-medium text-gray-900 flex items-center">
+                <Icons.Lock size={18} className="mr-2 text-amber-600" />
+                {ticket.ticket_number || `TICKET-${ticket.id}`}
+              </h2>
+              <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded" title="Close">
+                <Icons.Close size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-gray-700">🔒 {RESTRICTED_TICKET_MESSAGE}.</p>
+              <p className="text-sm text-gray-500">Status: {ticket.status || '-'}</p>
+              {isAdmin && !revealed && (
+                <div className="border border-amber-200 bg-amber-50 rounded-lg p-4 space-y-2">
+                  <label className="block text-sm font-medium text-amber-900">Reveal as admin (logged with your reason)</label>
+                  <input
+                    type="text"
+                    value={revealReason}
+                    onChange={(e) => setRevealReason(e.target.value)}
+                    placeholder="Why do you need to see it?"
+                    className="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm"
+                  />
+                  <button
+                    onClick={handleReveal}
+                    disabled={revealing}
+                    className="px-3 py-1.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded disabled:opacity-50"
+                  >
+                    {revealing ? 'Revealing...' : 'Reveal'}
+                  </button>
+                </div>
+              )}
+              {revealed && (
+                <div className="border border-gray-200 rounded-lg p-4 space-y-2 text-sm">
+                  <p className="text-xs text-amber-700">Revealed - this was written to the admin log.</p>
+                  <p><span className="font-medium">Title:</span> {revealed.ticket?.title}</p>
+                  <p className="whitespace-pre-wrap"><span className="font-medium">Description:</span> {revealed.ticket?.description || '-'}</p>
+                  {Object.entries(revealed.field_values || {}).map(([fieldId, value]) => (
+                    <p key={fieldId}><span className="font-medium">{fieldId}:</span> {value}</p>
+                  ))}
+                  <p className="text-xs text-gray-500">{(revealed.history || []).length} history entries</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   const company = companies?.find(c => String(c.id) === String(ticket.company_id));
   const ticketType = ticketTypes?.find(t => String(t.id) === String(ticket.ticket_type_id));
@@ -315,6 +412,32 @@ const TicketDetail = ({ ticket, onClose, onStatusChange }) => {
 
   const renderActionsTab = () => (
     <div className="space-y-6">
+      {isAdmin && (
+        <div className="border border-amber-200 bg-amber-50 rounded-lg p-4 space-y-2">
+          <p className="text-sm font-medium text-amber-900">
+            {isRestricted ? `This ticket is ${RESTRICTED_LABEL}` : `Make this ticket ${RESTRICTED_LABEL}`}
+          </p>
+          <p className="text-xs text-amber-800">
+            {isRestricted
+              ? 'Removing it does not restore the shares that were removed.'
+              : 'Only its approval chain will see its content; every share is removed and nobody is told.'}
+          </p>
+          <input
+            type="text"
+            value={restrictReason}
+            onChange={(e) => setRestrictReason(e.target.value)}
+            placeholder="Reason (logged)"
+            className="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm"
+          />
+          <button
+            onClick={() => handleSetRestricted(!isRestricted)}
+            disabled={restrictSaving}
+            className="px-3 py-1.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded disabled:opacity-50"
+          >
+            {restrictSaving ? 'Saving...' : isRestricted ? `Remove ${RESTRICTED_LABEL}` : `Make ${RESTRICTED_LABEL}`}
+          </button>
+        </div>
+      )}
       {canCancel || canReopen ? (
         <div className="space-y-4">
           <div>
@@ -379,7 +502,8 @@ const TicketDetail = ({ ticket, onClose, onStatusChange }) => {
   // Tags / Sharing tabs only when the ticket type has them turned on (AppScript v9.3 setTicketTypeFeatures)
   const isOn = value => value === true || String(value).toUpperCase() === 'TRUE';
   const tagsOn = isOn(ticketType?.enable_tags);
-  const sharingOn = isOn(ticketType?.enable_sharing);
+  // v10.0 M4: a Restricted ticket can't be shared
+  const sharingOn = isOn(ticketType?.enable_sharing) && !isRestricted;
 
   const tabs = [
     { id: 'details', name: 'Details', icon: Icons.Info },
@@ -401,8 +525,14 @@ const TicketDetail = ({ ticket, onClose, onStatusChange }) => {
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-medium text-gray-900">
+                <h2 className="text-lg font-medium text-gray-900 flex items-center">
                   {ticket.ticket_number || `TICKET-${ticket.id}`}
+                  {isRestricted && (
+                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800"
+                      title="Only the people in its approval chain see its content">
+                      <Icons.Lock size={12} className="mr-1" /> {RESTRICTED_LABEL}
+                    </span>
+                  )}
                 </h2>
                 <p className="text-sm text-gray-500">{ticket.title}</p>
               </div>

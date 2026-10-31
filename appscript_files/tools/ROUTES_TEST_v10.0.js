@@ -521,6 +521,229 @@ test('M3 read budget (P10): a page reads each tab once and at most 10 tabs (desi
   assert.ok(Object.keys(reads).length <= 10, JSON.stringify(reads));
 });
 
+// --- M4: Restricted tickets + fields ------------------------------------------------------------------------------
+
+const SECRET_TITLE = 'TOPSECRET-TITLE';
+const SECRET_VALUE = 'SECRET-123456';
+const STUB_KEYS = ['company_id', 'confidential', 'created_at', 'id', 'status', 'ticket_number', 'ticket_type_id'];
+
+/**
+ * seed() + tt_sec (Restricted optional, sharing on, collaborative): steps ws_s1 (Manager) -> ws_s2 (Finance: u_fin);
+ * fields cf_salary (Restricted) and cf_note; report columns title + both fields. u_mgr2 gets Manager later (per test).
+ */
+function seedSecret(options = {}) {
+  const env = seed(options);
+  env.add('ticket_types', { id: 'tt_sec', code: 'HR', name: 'HR case', is_active: true, enable_sharing: true, visibility: 'collaborative',
+    confidential_mode: options.mode || 'optional', confidential_admin_access: options.adminAccess || 'reveal_with_reason' });
+  env.add('roles', { id: 'r_fin', name: 'Finance', is_active: true });
+  env.add('workflow_steps', { id: 'ws_s1', ticket_type_id: 'tt_sec', company_id: 'co_1', name: 'Managers', status_on_reach: 'Pending Managers',
+    step_type: 'approval', approver_logic: 'any', sort_order: 1, is_active: true });
+  env.add('workflow_steps', { id: 'ws_s2', ticket_type_id: 'tt_sec', company_id: 'co_1', name: 'Finance', status_on_reach: 'Pending Finance',
+    step_type: 'approval', approver_logic: 'any', sort_order: 2, is_active: true });
+  env.add('step_approvers', { step_id: 'ws_s1', role_id: 'r_mgr' });
+  env.add('step_approvers', { step_id: 'ws_s2', role_id: 'r_fin' });
+  env.rt.ctx.createUserRoleAssignment({ user_id: 'u_req', role_id: 'r_req', company_id: 'co_1', ticket_type_id: 'tt_sec' });
+  env.rt.ctx.createUserRoleAssignment({ user_id: 'u_fin', role_id: 'r_fin', company_id: 'co_1' });
+  env.add('custom_fields', { id: 'cf_salary', ticket_type_id: 'tt_sec', entity_category: 'ticket', name: 'salary', label: 'Salary', type: 'text',
+    is_active: true, is_confidential: true, sort_order: 1 });
+  env.add('custom_fields', { id: 'cf_note', ticket_type_id: 'tt_sec', entity_category: 'ticket', name: 'note', label: 'Note', type: 'text',
+    is_active: true, is_confidential: false, sort_order: 2 });
+  ['u_fin', 'u_mgr2', 'u_old'].forEach(uid =>
+    env.add('user_profiles', { user_id: uid, display_name: uid, email: `${uid}@example.com`, status: 'active', is_active: true }));
+  env.rt.cache.clear();
+  env.ok(env.as('u_admin', { action: 'saveReportConfig', ticket_type_id: 'tt_sec', company_id: 'co_1',
+    columns: ['ticket_number', 'title', 'status', 'cf_salary', 'cf_note'].map(f => ({ field_name: f })) }));
+  const create = (restricted, title = SECRET_TITLE) => String(env.ok(env.as('u_req', { action: 'createTicket', title, ticket_type_id: 'tt_sec',
+    requester_id: 'u_req', company_id: 'co_1', is_confidential: restricted, customData: { cf_salary: SECRET_VALUE, cf_note: 'plain note' } })).id);
+  /** Everything the uid can read about a ticket, as one JSON text. */
+  const everything = (uid, id) => JSON.stringify([
+    env.asGet(uid, { action: 'getTickets', limit: 50 }),
+    env.asGet(uid, { action: 'getTickets' }),
+    env.as(uid, { action: 'getTicket', ticket_id: id }),
+    env.asGet(uid, { action: 'getTicketHistory', ticket_id: id }),
+    env.as(uid, { action: 'getStepApprovals', ticket_id: id, step_id: 'ws_s1' }),
+    env.asGet(uid, { action: 'getTicketLinks' }),
+    env.asGet(uid, { action: 'getTicketAttachments', ticket_id: id }),
+    env.asGet(uid, { action: 'getReportData', ticket_type_id: 'tt_sec', company_id: 'co_1', user_id: uid }),
+    env.asGet(uid, { action: 'getTickets', limit: 50, filters: JSON.stringify({ q: SECRET_TITLE.toLowerCase() }) }),
+    env.asGet(uid, { action: 'getDashboard' }),
+    env.asGet(uid, { action: 'getTicketActionLogs', ticket_id: id })
+  ]);
+  const view = (uid, id) => {
+    const res = env.as(uid, { action: 'getTicket', ticket_id: id });
+    if (!res.success) return 'none';
+    return res.data.confidential === true && !('title' in res.data) ? 'stub' : 'full';
+  };
+  const decide = (uid, id, decision = 'approve') => env.ok(env.as(uid, { action: 'submitStepApproval', ticket_id: id, user_id: uid, decision, comment: 'ok' }));
+  return { ...env, create, everything, view, decide };
+}
+
+test('M4 Restricted ticket: outsiders in scope get the exact stub everywhere; the title and Restricted values appear nowhere', () => {
+  const env = seedSecret();
+  const id = env.create(true);
+  assert.strictEqual(env.view('u_req', id), 'full', 'requester');
+  assert.strictEqual(env.view('u_mgr', id), 'full', 'the current step pool');
+  ['u_peer', 'u_fin', 'u_admin'].forEach(uid => {
+    assert.strictEqual(env.view(uid, id), 'stub', uid);
+    const text = env.everything(uid, id);
+    assert.ok(!text.includes(SECRET_TITLE), `${uid}: the title leaked`);
+    assert.ok(!text.includes(SECRET_VALUE), `${uid}: the Restricted value leaked`);
+  });
+  const stub = env.ok(env.as('u_peer', { action: 'getTicket', ticket_id: id }));
+  assert.deepStrictEqual(Object.keys(stub).sort(), STUB_KEYS);
+  const listed = env.ok(env.asGet('u_peer', { action: 'getTickets', limit: 50 })).items.find(t => String(t.id) === id);
+  assert.deepStrictEqual(Object.keys(listed).sort(), STUB_KEYS);
+  assert.strictEqual(env.asGet('u_peer', { action: 'getTicketHistory', ticket_id: id }).code, 'RESTRICTED');
+  assert.strictEqual(env.view('u_far', id), 'none', 'outside the normal scope: nothing at all');
+  assert.ok(!env.everything('u_far', id).includes(SECRET_TITLE));
+  // search: the stub matches its ticket number only, never the title
+  const number = stub.ticket_number;
+  const search = q => env.ok(env.asGet('u_peer', { action: 'getTickets', limit: 50, filters: JSON.stringify({ q }) })).items.map(t => String(t.id));
+  assert.deepStrictEqual(search(SECRET_TITLE.toLowerCase()), []);
+  assert.deepStrictEqual(search(number.slice(0, 6).toLowerCase()).includes(id), true);
+  // report: a stub row, no values
+  const row = env.ok(env.asGet('u_peer', { action: 'getReportData', ticket_type_id: 'tt_sec', company_id: 'co_1', user_id: 'u_peer' })).rows[0];
+  assert.strictEqual(row.restricted, true);
+  assert.strictEqual(row.ticket_number, number);
+  assert.strictEqual(row.title, '•••••• Restricted');
+});
+
+test('M4 chain: the pool joins when the ticket reaches its step and keeps access; a role got after the step passed does not', () => {
+  const env = seedSecret();
+  const old = env.rt.ctx.createUserRoleAssignment({ user_id: 'u_old', role_id: 'r_mgr', company_id: 'co_1' });
+  const id = env.create(true);
+  assert.strictEqual(env.view('u_fin', id), 'stub', 'Finance before the ticket reaches Finance');
+  env.decide('u_mgr', id);
+  assert.strictEqual(env.view('u_fin', id), 'full', 'Finance once it is at their step');
+  assert.strictEqual(env.view('u_mgr', id), 'full', 'the approver who acted');
+  assert.strictEqual(env.view('u_old', id), 'full', 'a pool member of the passed step who did not act');
+  // u_old loses the role afterwards: still in the chain (held it during the window)
+  // ISO text, not a Date: a Date from this (test) realm isn't instanceof the runtime's Date and would lose its ms
+  env.rt.ctx.updateRecordFields('user_role_assignments', old.data.id, { is_active: false, deactivated_at: new Date().toISOString() });
+  assert.strictEqual(env.view('u_old', id), 'full');
+  // u_mgr2 gets Manager after the step passed: in scope (approver of the type), not in the chain
+  const pool = env.rows('ticket_participants').filter(p => p.reason === 'pool' && p.step_id === 'ws_s1');
+  pool.forEach(p => env.rt.ctx.updateRecordFields('ticket_participants', p.id, { window_start: new Date(Date.now() - 2 * 3600e3), window_end: new Date(Date.now() - 3600e3) }));
+  env.rt.ctx.createUserRoleAssignment({ user_id: 'u_mgr2', role_id: 'r_mgr', company_id: 'co_1' });
+  assert.strictEqual(env.view('u_mgr2', id), 'stub');
+  // a return reopens the Managers window: u_mgr2 is in the pool now
+  env.decide('u_fin', id, 'return');
+  assert.strictEqual(env.view('u_mgr2', id), 'full', 'a revisit after a return');
+});
+
+test('M4 admin access: reveal_with_reason = stub + logged reveal; never = refused; always = full', () => {
+  const env = seedSecret();
+  const id = env.create(true);
+  assert.strictEqual(env.view('u_admin', id), 'stub');
+  assert.match(env.as('u_admin', { action: 'revealConfidential', ticket_id: id }).error, /reason/);
+  assert.strictEqual(env.as('u_peer', { action: 'revealConfidential', ticket_id: id, reason: 'audit check' }).success, false, 'admins only');
+  const revealed = env.ok(env.as('u_admin', { action: 'revealConfidential', ticket_id: id, reason: 'audit check' }));
+  assert.strictEqual(revealed.ticket.title, SECRET_TITLE);
+  assert.strictEqual(revealed.field_values.cf_salary, SECRET_VALUE);
+  assert.ok(env.rows('admin_action_logs').some(l => l.action_type === 'REVEAL_RESTRICTED' && String(l.target_id) === id && /audit check/.test(l.details)));
+  env.ok(env.as('u_admin', { action: 'setTicketTypeFeatures', ticket_type_id: 'tt_sec', confidential_admin_access: 'never' }));
+  assert.match(env.as('u_admin', { action: 'revealConfidential', ticket_id: id, reason: 'audit check' }).error, /can't open Restricted content/);
+  env.ok(env.as('u_admin', { action: 'setTicketTypeFeatures', ticket_type_id: 'tt_sec', confidential_admin_access: 'always' }));
+  assert.strictEqual(env.view('u_admin', id), 'full');
+});
+
+test('M4 sharing: refused on a Restricted ticket; turning Restricted on later revokes every share (not restored when off)', () => {
+  const env = seedSecret();
+  const restricted = env.create(true);
+  assert.match(env.as('u_req', { action: 'shareTicket', ticket_id: restricted, shared_with_user_id: 'u_far', permission_level: 'view' }).error,
+    /Restricted tickets can't be shared/);
+  const id = env.create(false, 'Ordinary case');
+  env.ok(env.as('u_req', { action: 'shareTicket', ticket_id: id, shared_with_user_id: 'u_far', permission_level: 'view' }));
+  env.ok(env.as('u_req', { action: 'shareTicket', ticket_id: id, shared_with_company_id: 'co_2', permission_level: 'view' }));
+  assert.strictEqual(env.view('u_far', id), 'full');
+  assert.match(env.as('u_admin', { action: 'setTicketRestricted', ticket_id: id, is_confidential: true }).error, /reason/);
+  const on = env.ok(env.as('u_admin', { action: 'setTicketRestricted', ticket_id: id, is_confidential: true, reason: 'HR asked' }));
+  assert.strictEqual(on.shares_revoked, 2);
+  assert.strictEqual(env.view('u_far', id), 'none', 'a shared-only user gets nothing');
+  assert.strictEqual(env.view('u_peer', id), 'stub', 'an in-scope user gets the stub');
+  assert.ok(env.rows('ticket_collaborations').every(c => c.revocation_reason === 'restricted'));
+  assert.ok(!env.rows('ticket_participants').some(p => String(p.ticket_id) === id && p.reason === 'shared' && p.is_active === true));
+  assert.ok(!env.ok(env.asGet('u_far', { action: 'getSharedTickets' })).some(t => String(t.id) === id));
+  env.ok(env.as('u_admin', { action: 'setTicketRestricted', ticket_id: id, is_confidential: false, reason: 'closed case' }));
+  assert.strictEqual(env.view('u_far', id), 'none', 'turning it off does not restore shares');
+  assert.strictEqual(env.as('u_req', { action: 'setTicketRestricted', ticket_id: id, is_confidential: true, reason: 'x' }).code, 'ADMIN_ONLY');
+});
+
+test('M4 modes: off refuses the tick, optional takes it, always forces it and restricts the existing tickets', () => {
+  const env = seedSecret({ mode: 'off' });
+  assert.match(env.as('u_req', { action: 'createTicket', title: 'x', ticket_type_id: 'tt_sec', requester_id: 'u_req', company_id: 'co_1',
+    is_confidential: true }).error, /doesn't allow Restricted tickets/);
+  const before = env.create(false, 'Before always');
+  env.ok(env.as('u_req', { action: 'shareTicket', ticket_id: before, shared_with_user_id: 'u_far', permission_level: 'view' }));
+  const saved = env.ok(env.as('u_admin', { action: 'setTicketTypeFeatures', ticket_type_id: 'tt_sec', confidential_mode: 'always' }));
+  assert.strictEqual(saved.confidential_mode, 'always');
+  assert.strictEqual(saved.restricted_existing.tickets, 1);
+  assert.strictEqual(saved.restricted_existing.shares_revoked, 1);
+  assert.strictEqual(env.view('u_peer', before), 'stub');
+  const after = env.create(false, 'After always');
+  assert.strictEqual(env.view('u_peer', after), 'stub', 'always forces it even without the tick');
+  assert.match(env.as('u_admin', { action: 'setTicketRestricted', ticket_id: after, is_confidential: false, reason: 'try' }).error, /mode "always"/);
+  assert.match(env.as('u_admin', { action: 'setTicketTypeFeatures', ticket_type_id: 'tt_sec', confidential_mode: 'secret' }).error, /confidential_mode must be/);
+});
+
+test('M4 Restricted field on an ordinary ticket: masked in reports and system logs outside the chain; the chain sees it', () => {
+  const env = seedSecret();
+  const id = env.create(false, 'Ordinary with salary');
+  const report = uid => env.ok(env.asGet(uid, { action: 'getReportData', ticket_type_id: 'tt_sec', company_id: 'co_1', user_id: uid }));
+  const peerRow = report('u_peer').rows.find(r => r.ticket_id === id);
+  assert.strictEqual(peerRow.title, 'Ordinary with salary', 'the ticket itself is visible (collaborative)');
+  assert.strictEqual(peerRow.cf_salary, '•••••• Restricted');
+  assert.strictEqual(peerRow.cf_note, 'plain note');
+  assert.ok(!JSON.stringify(report('u_peer')).includes(SECRET_VALUE));
+  assert.strictEqual(report('u_req').rows.find(r => r.ticket_id === id).cf_salary, SECRET_VALUE, 'the requester (chain)');
+  assert.strictEqual(report('u_mgr').rows.find(r => r.ticket_id === id).cf_salary, SECRET_VALUE, 'the current pool');
+  // admin: the system log keeps the create payload, masked unless access is 'always'
+  const logs = () => JSON.stringify(env.ok(env.asGet('u_admin', { action: 'getTicketActionLogs', ticket_id: id })));
+  assert.ok(!logs().includes(SECRET_VALUE));
+  assert.ok(logs().includes('plain note'));
+  env.ok(env.as('u_admin', { action: 'setTicketTypeFeatures', ticket_type_id: 'tt_sec', confidential_admin_access: 'always' }));
+  assert.ok(logs().includes(SECRET_VALUE));
+});
+
+test('M4 field switch: Restricted only for ticket fields; turning it off on a field with values is logged', () => {
+  const env = seedSecret();
+  env.create(false, 'x');
+  env.ok(env.as('u_admin', { action: 'updateCustomField', field_id: 'cf_salary', is_confidential: false }));
+  assert.ok(env.rows('admin_action_logs').some(l => l.action_type === 'RESTRICTED_FIELD_OFF' && l.target_id === 'cf_salary'));
+  env.ok(env.as('u_admin', { action: 'updateCustomField', field_id: 'cf_note', is_confidential: true }));
+  assert.strictEqual(env.rows('custom_fields').find(f => f.id === 'cf_note').is_confidential, true);
+  env.add('custom_fields', { id: 'cf_prof', ticket_type_id: 'pt_1', entity_category: 'user_profile', name: 'p', label: 'P', type: 'text', is_active: true });
+  assert.match(env.as('u_admin', { action: 'updateCustomField', field_id: 'cf_prof', is_confidential: true }).error, /Only ticket fields/);
+});
+
+test('createCustomField reads the frontend keys (entityTypeId / entityCategory) and keeps the Restricted switch', () => {
+  const env = seedSecret();
+  const made = env.ok(env.as('u_admin', { action: 'createCustomField', entityTypeId: 'tt_sec', entityCategory: 'ticket', ticket_type_id: 'tt_sec',
+    name: 'ssn', label: 'SSN', type: 'text', is_confidential: true }));
+  const row = env.rows('custom_fields').find(f => f.name === 'ssn');
+  assert.strictEqual(row.ticket_type_id, 'tt_sec', 'the field belongs to its ticket type');
+  assert.strictEqual(row.is_confidential, true);
+  env.ok(env.as('u_admin', { action: 'createCustomField', entityTypeId: 'pt_1', entityCategory: 'user_profile', name: 'badge', label: 'Badge',
+    type: 'text', is_confidential: true }));
+  const profileField = env.rows('custom_fields').find(f => f.name === 'badge');
+  assert.strictEqual(profileField.entity_category, 'user_profile');
+  assert.notStrictEqual(profileField.is_confidential, true, 'only ticket fields can be Restricted');
+  assert.ok(made);
+});
+
+test('M4 chained child of a Restricted parent: its own type decides; the parent title is not copied', () => {
+  const env = seedSecret();
+  env.add('ticket_types', { id: 'tt_child', code: 'CH', name: 'Follow-up', is_active: true });
+  env.rt.ctx.updateRecordFields('workflow_steps', 'ws_s2', { next_ticket_type_id: 'tt_child' });
+  const id = env.create(true);
+  env.decide('u_mgr', id);
+  env.decide('u_fin', id);
+  const child = env.rows('tickets').find(t => t.ticket_type_id === 'tt_child');
+  assert.ok(child, 'chained child created');
+  assert.ok(!String(child.title).includes(SECRET_TITLE), child.title);
+  assert.notStrictEqual(child.is_confidential, true, 'the child follows its own type (off)');
+});
+
 test('ping reports 10.0.0 = header Version; the file has one definition of each new helper (A20)', () => {
   const env = seed();
   assert.strictEqual(env.rt.get({ action: 'ping' }).version, '10.0.0');

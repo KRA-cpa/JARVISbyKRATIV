@@ -6,6 +6,7 @@ import { previewTicketNumber } from '../../utils/ticketNumber';
 import { ticketAPI } from '../../api/googleSheet';
 import DateRangeInput from '../shared/DateRangeInput';
 import Icons from '../shared/Icons';
+import { RESTRICTED_LABEL } from '../../config/labels';
 
 /** Cell / form value -> boolean (sheet booleans can arrive as 'TRUE'). */
 const isTrue = value => value === true || String(value).toUpperCase() === 'TRUE';
@@ -108,6 +109,7 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
 
   const selectedCompany = companies?.find(c => String(c.id) === String(formData.company_id)) || null;
   const selectedTicketType = ticketTypes?.find(t => String(t.id) === String(formData.ticket_type_id)) || null;
+  const restrictedMode = String(selectedTicketType?.confidential_mode || 'off').toLowerCase();
 
   // Ticket number preview (AppScript v9.1 getNextTicketNumber peeks without reserving a number)
   useEffect(() => {
@@ -182,7 +184,9 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
           ticket_type_id: formData.ticket_type_id,
           priority: formData.priority,
           requester_id: currentUserId,
-          customData: toCustomData(customFields, formData.custom_fields)
+          customData: toCustomData(customFields, formData.custom_fields),
+          // v10.0 M4: only sent for a type in 'optional' mode (the server forces 'always' and refuses 'off')
+          is_confidential: restrictedMode === 'optional' && Boolean(formData.is_confidential)
         });
         const started = result?.workflow?.started;
         success(started
@@ -519,6 +523,28 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
               {errors.ticket_type_id && <p className="text-sm text-red-600 mt-1">{errors.ticket_type_id}</p>}
             </div>
           </div>
+
+          {/* v10.0 M4: Restricted - the requester ticks it for an 'optional' type; an 'always' type says so */}
+          {!isEditing && restrictedMode === 'optional' && (
+            <label className="flex items-start space-x-2 text-sm text-gray-800">
+              <input
+                type="checkbox"
+                checked={Boolean(formData.is_confidential)}
+                onChange={(e) => handleInputChange('is_confidential', e.target.checked)}
+                className="h-4 w-4 mt-0.5 text-blue-600 border-gray-300 rounded"
+                disabled={isSubmitting}
+              />
+              <span>
+                <span className="inline-flex items-center font-medium"><Icons.Lock size={12} className="mr-1" /> {RESTRICTED_LABEL}</span>
+                <span className="block text-xs text-gray-500">Only the people in its approval chain will see this ticket; it can't be shared.</span>
+              </span>
+            </label>
+          )}
+          {!isEditing && restrictedMode === 'always' && (
+            <p className="text-xs text-amber-700 inline-flex items-center">
+              <Icons.Lock size={12} className="mr-1" /> Tickets of this type are {RESTRICTED_LABEL}: only the approval chain sees them.
+            </p>
+          )}
 
           {/* Custom Fields (new tickets; editing values isn't part of updateTicket yet) */}
           {!isEditing && formData.ticket_type_id && (fieldsLoading ? (

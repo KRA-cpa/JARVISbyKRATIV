@@ -5,6 +5,7 @@ import { useToast } from '../shared/Toast';
 import { useTicketTypes, useCompanies } from '../../hooks/useAPI';
 import { useUser } from '../../contexts/UserContext';
 import { API } from '../../api/googleSheet';
+import { RESTRICTED_LABEL, RESTRICTED_MODES, RESTRICTED_ADMIN_ACCESS } from '../../config/labels';
 
 // Sheet booleans arrive as true / 'TRUE'
 const isOn = value => value === true || String(value).toUpperCase() === 'TRUE';
@@ -155,6 +156,22 @@ const AdminTicketTypeList = () => {
     }
   };
 
+  // Restricted (AppScript v10.0 M4): mode off | optional | always, and how admins reach Restricted content.
+  // 'always' also makes the type's existing tickets Restricted (their shares are removed).
+  const handleRestrictedSetting = async (ticketType, key, value) => {
+    setLoading(true);
+    try {
+      const saved = await API.TicketTypes.setFeatures(ticketType.id, { [key]: value }, user?.uid || user?.id);
+      const existing = saved?.restricted_existing;
+      success(existing ? `${ticketType.name}: ${existing.tickets} existing ticket(s) are now ${RESTRICTED_LABEL}` : `${ticketType.name}: saved`);
+      refetchTicketTypes();
+    } catch (err) {
+      error(err.message || 'Failed to change the setting');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Get company name
   const getCompanyName = (companyId) => {
     if (!companyId) return 'Global';
@@ -287,6 +304,28 @@ const AdminTicketTypeList = () => {
                           {ticketType.visibility === 'collaborative' ? <Icons.Users size={12} className="mr-1" /> : <Icons.Lock size={12} className="mr-1" />}
                           Visibility: {ticketType.visibility === 'collaborative' ? 'collaborative' : 'private'}
                         </button>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                        <Icons.Lock size={12} />
+                        <span>{RESTRICTED_LABEL}:</span>
+                        <select
+                          value={ticketType.confidential_mode || 'off'}
+                          disabled={loading}
+                          onChange={(e) => handleRestrictedSetting(ticketType, 'confidential_mode', e.target.value)}
+                          className="px-2 py-0.5 border border-gray-200 rounded text-xs"
+                          title="Off / the requester ticks it / every ticket. 'Always' also restricts existing tickets and removes their shares"
+                        >
+                          {RESTRICTED_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                        </select>
+                        <select
+                          value={ticketType.confidential_admin_access || 'reveal_with_reason'}
+                          disabled={loading}
+                          onChange={(e) => handleRestrictedSetting(ticketType, 'confidential_admin_access', e.target.value)}
+                          className="px-2 py-0.5 border border-gray-200 rounded text-xs"
+                          title="How admins reach Restricted tickets and fields of this type"
+                        >
+                          {RESTRICTED_ADMIN_ACCESS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                        </select>
                       </div>
                     </div>
 

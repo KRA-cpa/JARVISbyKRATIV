@@ -253,7 +253,7 @@ function appscriptViolations(text) {
 
 const ROUTER_FUNCTIONS = new Set(['doGet', 'doPost', 'routePostAction']);
 const CASE_LABEL = /case\s+'(\w+)'\s*:/g;
-const VISIBILITY_CALL = /\b(ticketReadGuard|canViewTicket|requestScope|buildActorScope|mayReadTicket|isAdminUser|requireAdmin)\s*\(/;
+const VISIBILITY_CALL = /\b(ticketReadGuard|ticketReadView|canViewTicket|requestScope|buildActorScope|mayReadTicket|isAdminUser|requireAdmin)\s*\(/;
 const TICKET_READ_ROUTES = new Set(['getReportData', 'getDashboard', 'getStepApprovals']);
 
 /** Does the route return ticket data? get* / search* routes that name tickets (not ticket types / numbers), plus a list. */

@@ -877,6 +877,21 @@ class TicketAPI extends BaseAPI {
     return response.data;
   }
 
+  // v10.0 M4: an admin reads a Restricted ticket they are outside the chain of (logged with the reason; the ticket
+  // type's admin access may refuse) -> { ticket, field_values, history }
+  async reveal(ticketId, reason, userId = null) {
+    const response = await this.makeRequest('revealConfidential', { ticket_id: ticketId, reason: reason || '', user_id: userId });
+    return response.data;
+  }
+
+  // v10.0 M4: admin - make one ticket Restricted (every share removed) or not (shares are not restored); reason logged
+  async setRestricted(ticketId, isConfidential, reason, userId = null) {
+    const response = await this.makeRequest('setTicketRestricted', { ticket_id: ticketId, is_confidential: Boolean(isConfidential),
+      reason: reason || '', user_id: userId });
+    cache.invalidate('tickets');
+    return response.data;
+  }
+
   async create(data) {
     if (!data.title?.trim()) {
       throw new Error('Ticket title is required');
@@ -902,7 +917,9 @@ class TicketAPI extends BaseAPI {
       requester_id: data.requester_id,
       priority: data.priority || 'medium',
       // custom field id -> value (AppScript createTicket writes them with setCustomFieldValue)
-      customData: data.customData || data.custom_fields || {}
+      customData: data.customData || data.custom_fields || {},
+      // v10.0 M4: the requester's Restricted tick (types in 'optional' mode; the server decides off / always)
+      ...(data.is_confidential ? { is_confidential: true } : {})
     });
 
     // Clear tickets cache since we added a new ticket
@@ -1819,7 +1836,9 @@ class CustomFieldsAPI extends BaseAPI {
       is_hidden: data.is_hidden || false,
       sort_order: data.sort_order || 1,
       dropdown_list_id: data.dropdown_list_id || null,
-      depends_on_field_id: data.depends_on_field_id || null
+      depends_on_field_id: data.depends_on_field_id || null,
+      // v10.0 M4: Restricted ticket field - its value is shown only to the ticket's approval chain
+      is_confidential: entityCategory === 'ticket' && Boolean(data.is_confidential)
     });
     return response.data;
   }
@@ -2311,6 +2330,9 @@ class TicketTypesAPI extends BaseAPI {
       ...(features.enable_tags !== undefined ? { enable_tags: Boolean(features.enable_tags) } : {}),
       ...(features.enable_sharing !== undefined ? { enable_sharing: Boolean(features.enable_sharing) } : {}),
       ...(features.visibility !== undefined ? { visibility: String(features.visibility) } : {}),
+      // v10.0 M4: Restricted mode (off | optional | always) and admin access (reveal_with_reason | always | never)
+      ...(features.confidential_mode !== undefined ? { confidential_mode: String(features.confidential_mode) } : {}),
+      ...(features.confidential_admin_access !== undefined ? { confidential_admin_access: String(features.confidential_admin_access) } : {}),
       user_id: userId
     });
     cache.invalidate('ticket_types');

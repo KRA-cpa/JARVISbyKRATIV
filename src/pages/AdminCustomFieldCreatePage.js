@@ -7,6 +7,7 @@ import ErrorBoundary130, { validateComponentReferences } from '../components/sha
 import { useToast } from '../components/shared/Toast';
 import { useTicketTypes, useDropdownLists, useCustomFields, useUserProfileTypes, useRoleTypes } from '../hooks/useAPI';
 import { API } from '../api/googleSheet';
+import { RESTRICTED_LABEL } from '../config/labels';
 
 /**
  * AdminCustomFieldCreatePage Component
@@ -49,6 +50,7 @@ const AdminCustomFieldCreatePage = () => {
     type: 'text',
     is_required: false,
     is_hidden: false,
+    is_confidential: false, // AppScript v10.0: Restricted ticket field
     sort_order: 1,
     dropdown_list_id: '',
     depends_on_field_id: ''
@@ -562,6 +564,24 @@ const AdminCustomFieldCreatePage = () => {
                               Hidden by default
                             </label>
                           </div>
+
+                          {formData.entityCategory === 'ticket' && (
+                            <div className="flex items-start">
+                              <input
+                                type="checkbox"
+                                name="is_confidential"
+                                checked={formData.is_confidential}
+                                onChange={handleInputChange}
+                                className="h-4 w-4 mt-0.5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              />
+                              <label className="ml-2 block text-sm text-gray-900">
+                                <span className="inline-flex items-center"><Icons.Lock size={12} className="mr-1" /> {RESTRICTED_LABEL} field</span>
+                                <span className="block text-xs text-gray-500">
+                                  Only the ticket's approval chain sees the value; everyone else sees it masked.
+                                </span>
+                              </label>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
