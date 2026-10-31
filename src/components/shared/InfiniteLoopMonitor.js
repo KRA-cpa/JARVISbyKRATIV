@@ -1,6 +1,7 @@
 import React, { useState, useEffect, memo } from 'react';
 import { useInfiniteLoopMonitor } from '../../utils/infiniteLoopPrevention';
 import Icons from './Icons';
+import { formatTimeOnly } from '../../utils/dateTime';
 
 /**
  * InfiniteLoopMonitor Component
@@ -137,7 +138,7 @@ const InfiniteLoopMonitor = ({ minimized = true, className = '' }) => {
                     </div>
                     {stat.circuitBreaker.state === 'OPEN' && stat.circuitBreaker.nextAttempt && (
                       <div className="mt-1 text-xs text-red-600">
-                        Next attempt: {stat.circuitBreaker.nextAttempt.toLocaleTimeString()}
+                        Next attempt: {formatTimeOnly(stat.circuitBreaker.nextAttempt, undefined, { seconds: true })}
                       </div>
                     )}
                   </div>
@@ -175,7 +176,7 @@ const InfiniteLoopMonitor = ({ minimized = true, className = '' }) => {
                         <span className="font-medium">Renders/min:</span> {stat.rendersInLastMinute}
                       </div>
                       <div className="col-span-2">
-                        <span className="font-medium">Last render:</span> {stat.lastRender.toLocaleTimeString()}
+                        <span className="font-medium">Last render:</span> {formatTimeOnly(stat.lastRender, undefined, { seconds: true })}
                       </div>
                     </div>
                   </div>
@@ -208,7 +209,7 @@ const InfiniteLoopMonitor = ({ minimized = true, className = '' }) => {
           </div>
 
           <div className="text-xs text-gray-500 text-center">
-            Last updated: {stats.timestamp.toLocaleTimeString()}
+            Last updated: {formatTimeOnly(stats.timestamp, undefined, { seconds: true })}
           </div>
         </div>
       )}

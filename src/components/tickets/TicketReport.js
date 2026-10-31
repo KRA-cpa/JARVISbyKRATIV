@@ -5,6 +5,7 @@ import { API } from '../../api/googleSheet';
 import { downloadCSV } from '../../utils/csvExport';
 import Icons from '../shared/Icons';
 import TicketDetail from './TicketDetail';
+import { formatDateTime } from '../../utils/dateTime';
 
 const SLA_COLORS = {
   Overdue: 'bg-red-100 text-red-800',
@@ -64,8 +65,8 @@ const TicketReport = () => {
 
   const displayValue = (column, value) => {
     if (DATE_COLUMNS.includes(column.field_name) && value) {
-      const date = new Date(value);
-      return isNaN(date) ? value : date.toLocaleString();
+      // v10.1: in the display zone (dateTime.js); an invalid value is shown as it is
+      return formatDateTime(value);
     }
     return value;
   };

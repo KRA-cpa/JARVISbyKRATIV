@@ -4,13 +4,11 @@ import { useTickets, useNotifications } from '../../hooks/useAPI';
 import { useToast } from './Toast';
 import Icons from './Icons';
 import { getSLAStatus } from '../../utils/slaCalculator';
+import { formatDateTime, toDateValue } from '../../utils/dateTime';
 
 const SLA_TYPES = ['sla_warning', 'sla_overdue', 'sla_escalated'];
-const manilaTime = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' });
-const formatTime = iso => {
-  const date = new Date(iso);
-  return isNaN(date.getTime()) ? '' : manilaTime.format(date);
-};
+// v10.1: in the display zone (dateTime.js)
+const formatTime = iso => formatDateTime(toDateValue(iso) || '');
 
 /**
  * SLA Notification System (Dashboard)

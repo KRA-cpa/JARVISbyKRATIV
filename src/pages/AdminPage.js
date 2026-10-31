@@ -20,6 +20,7 @@ import AdminReportConfigManager from '../components/admin/AdminReportConfigManag
 import AdminAuditLogViewer from '../components/admin/AdminAuditLogViewer';
 import CompanySLAManager from '../components/admin/CompanySLAManager';
 import AdminSLAEscalationManager from '../components/admin/AdminSLAEscalationManager';
+import AdminCountryCalendars from '../components/admin/AdminCountryCalendars';
 import AdminSystemBackup from '../components/admin/AdminSystemBackup';
 import APIConnectionStatus from '../components/admin/APIConnectionStatus';
 import Footer from '../components/shared/Footer';
@@ -213,6 +214,13 @@ const AdminPage = () => {
       icon: Icons.Notification,
       description: 'Timed notices and escalation levels per step, holidays and SLA email (AppScript v9.5)',
       component: AdminSLAEscalationManager
+    },
+    {
+      id: 'country-calendars',
+      name: 'Country Calendars',
+      icon: Icons.Calendar,
+      description: 'Ticket year, weekends, business hours and holidays per country; company time zones (AppScript v10.1)',
+      component: AdminCountryCalendars
     },
     {
       id: 'system',

@@ -1857,7 +1857,7 @@ createTicket needs a role on the ticket type in that company (enforce refuses) a
 
 | Action | Method | Request | Returns (`data`) |
 |---|---|---|---|
-| getTickets | GET / POST | `limit` (default 50, max 100), `cursor`, `filters` (object or JSON text, or top-level keys): status (one or a list; open / closed too), company_id, ticket_type_id, requester_id, mine, involved, date_from, date_to, q (number prefix or title words) | `{ items, next_cursor, has_more }` newest first (no total). Without `limit`: the old array (v10.0 only, logged DEPRECATED) |
+| getTickets | GET / POST | `limit` (default 50, max 100), `cursor`, `filters` (object or JSON text, or top-level keys): status (one or a list; open / closed too), company_id, ticket_type_id, requester_id, mine, involved, date_from, date_to, q (number prefix or title words) | `{ items, next_cursor, has_more }` newest first (no total). Without `limit`: the old array in v10.0 only; from v10.1 the first page of 50 |
 | getCreatableTicketTypes | GET | company_id? | active types the user may create, each with `creatable_company_ids`, `visibility`, `confidential_mode` |
 | getReportData | GET | as v9.2 | + `truncated`, `date_from`, `date_to`; default the last 90 days, max 1 year, 5,000 rows; stub rows `restricted: true`; Restricted field columns `•••••• Restricted` outside the chain |
 | getNotifications | GET | user_id, unread_only?, limit?, cursor? | `{ items, unread_count, total, next_cursor, has_more }` - own rows + the role notifications of the user's roles (`role_notification: true`) |
@@ -1869,6 +1869,25 @@ createTicket needs a role on the ticket type in that company (enforce refuses) a
 Editor / JARVIS Admin only (not routed): backfillTicketParticipantsDryRun / Apply, drainEmailOutboxNow, emailOutboxStatus,
 spreadsheetSizeReport, archiveOldLogsDryRun / Apply. Script Properties: EMAIL_OUTBOX_ENABLED (default true),
 ARCHIVE_SPREADSHEET_ID.
+
+**v10.1 (country calendars + time zones):** a company's days come from its country calendar (ticket number YEAR,
+weekends, holidays) and its own zone (SLA business hours, "due today", date filters, email dates). Date filters
+(`date_from` / `date_to` as yyyy-MM-dd) on getTickets / getReportData are the asked company's days (the default zone across
+companies). getUserProfile: each company carries `country_code` / `timezone`, the user `display_timezone`.
+
+| Action | Method | Request | Returns (`data`) |
+|---|---|---|---|
+| getCountryCalendars | GET | - | `[{ country_code, name, calendar_tz, allowed_timezones[], weekend_days[], default_business_hours { start, end }, is_active }]` (PH always) |
+| getCountryHolidays | GET | country_code (default PH), year? | the country's live holidays, date = yyyy-MM-dd |
+| saveCountryCalendar | POST (admin) | country_code, name, calendar_tz, allowed_timezones[], weekend_days[], default_business_hours | the calendar; logged CREATE / UPDATE_COUNTRY_CALENDAR |
+| importCountryHolidays | POST (admin) | country_code, rows [{ date, name, type? }], dry_run (default true) | `{ dry_run, would_add, added, errors }`; days already there skipped |
+| addCountryHolidays (alias addPhilippineHolidays) | POST (admin) | country_code (PH only - the built-in pack), year, dry_run | `{ dry_run, year, country_code, holidays [{ date, name, exists }], added }` |
+| setCompanyRegion | POST (admin) | company_id, country_code, timezone? (kept when allowed, else the reference zone), reason (needed to change the country of a company with tickets) | `{ company_id, country_code, timezone, ...companyClock }`; logged SET_COMPANY_REGION |
+| getCompanyHolidays | GET | company_id?, year? | + `source` (company / country) and `overrides_country`; with a company its country's days too (minus the days it works) |
+| createCompanyHoliday | POST (admin) | + `overrides_country` (add / remove; remove needs a company) | as before |
+| get / updateUserPreferences | GET / POST | + `display_timezone` ('' or an IANA zone; refused otherwise) | the preferences |
+
+Editor / JARVIS Admin only: migrateCountryCalendarsDryRun / Apply.
 
 **GET - new in v9.6:**
 

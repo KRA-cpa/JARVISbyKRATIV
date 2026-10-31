@@ -7,6 +7,7 @@
 import { ValidationUtils } from './models';
 import { apiConfig } from '../config/apiConfig';
 import { auth } from '../config/firebase';
+import { DEFAULT_ZONE } from '../config/timeZones';
 
 // API Configuration - Reduced retries to prevent resource exhaustion
 const CONFIG = {
@@ -356,7 +357,9 @@ class BaseAPI {
         // AppScript v9.6 reads (invites, company email settings, ticket attachment links)
         'getUserInvites', 'getCompanyEmailSettings', 'getTicketAttachments',
         // AppScript v10.0 reads (ticket access)
-        'getCreatableTicketTypes'
+        'getCreatableTicketTypes',
+        // AppScript v10.1 reads (country calendars)
+        'getCountryCalendars', 'getCountryHolidays'
       ];
 
       const isGetRequest = readActions.includes(action);
@@ -511,6 +514,14 @@ class CompanyAPI extends BaseAPI {
 
   async delete(id) {
     const response = await this.makeRequest('deleteCompany', { id });
+    return response.data;
+  }
+
+  // AppScript v10.1: the company's country calendar + time zone (one of the country's zones). Changing the country
+  // after the first ticket needs a reason (it moves the ticket year and the holidays); the server checks and logs it.
+  async setRegion(companyId, { country_code, timezone, reason } = {}) {
+    const response = await this.makeRequest('setCompanyRegion', { company_id: companyId, country_code, timezone, reason });
+    cache.invalidate('companies_');
     return response.data;
   }
 
@@ -1260,7 +1271,7 @@ class UserAPI extends BaseAPI {
           success: true,
           data: {
             dark_mode: false,
-            timezone: 'Asia/Manila',
+            timezone: DEFAULT_ZONE,
             language: 'en',
             email_notifications: true,
             desktop_notifications: true,
@@ -2621,12 +2632,6 @@ class SLAAPI extends BaseAPI {
     return response.data;
   }
 
-  // Philippine holidays of a year; a dry run (preview) unless dryRun is false
-  async addPhilippineHolidays(userId, year, companyId = '', dryRun = true) {
-    const response = await this.makeRequest('addPhilippineHolidays', { user_id: userId, year, company_id: companyId, dry_run: dryRun });
-    return response.data;
-  }
-
   // Email for SLA notices: global default (on / off) + per ticket type (default / on / off)
   async getNotificationSettings() {
     const response = await this.makeRequest('getSLANotificationSettings', {}, false);
@@ -2657,7 +2662,7 @@ class SLAAPI extends BaseAPI {
         business_hours_start: '09:00',
         business_hours_end: '17:00',
         business_days: [1, 2, 3, 4, 5],
-        timezone: 'Asia/Manila',
+        timezone: DEFAULT_ZONE,
         created_at: '2025-01-01T00:00:00.000Z'
       },
       {
@@ -2674,7 +2679,7 @@ class SLAAPI extends BaseAPI {
         business_hours_start: '09:00',
         business_hours_end: '17:00',
         business_days: [1, 2, 3, 4, 5],
-        timezone: 'Asia/Manila',
+        timezone: DEFAULT_ZONE,
         created_at: '2025-01-01T00:00:00.000Z'
       }
     ];
@@ -3107,6 +3112,49 @@ class CompanyEmailAPI extends BaseAPI {
 }
 
 /**
+ * Country calendars (AppScript v10.1, docs/planning/PLAN_CountryCalendars_TimeZones_20261031.md): per country the
+ * reference zone (the ticket YEAR), the allowed company zones, weekend days, default business hours and holidays.
+ * Reads are open to signed-in users; writes are admin-only on the server.
+ */
+class CountryCalendarAPI extends BaseAPI {
+  constructor() {
+    super('country_calendars');
+  }
+
+  async getAll() {
+    const response = await this.makeRequest('getCountryCalendars');
+    return response.data || [];
+  }
+
+  async getHolidays(countryCode, year = null) {
+    const response = await this.makeRequest('getCountryHolidays', { country_code: countryCode, year: year || undefined });
+    return response.data || [];
+  }
+
+  // calendar: { country_code, name, calendar_tz, allowed_timezones[], weekend_days[], default_business_hours { start, end } }
+  async save(calendar) {
+    const response = await this.makeRequest('saveCountryCalendar', calendar);
+    cache.invalidate('country_calendars_');
+    cache.invalidate('companies_');
+    return response.data;
+  }
+
+  // rows: [{ date: 'yyyy-MM-dd', name }]; a dry run (preview) unless dryRun is false
+  async importHolidays(countryCode, rows, dryRun = true) {
+    const response = await this.makeRequest('importCountryHolidays', { country_code: countryCode, rows, dry_run: dryRun });
+    if (!dryRun) cache.invalidate('country_calendars_');
+    return response.data;
+  }
+
+  // The built-in list of a year (the Philippines only); a dry run unless dryRun is false
+  async addBuiltInHolidays(countryCode, year, dryRun = true) {
+    const response = await this.makeRequest('addCountryHolidays', { country_code: countryCode, year, dry_run: dryRun });
+    if (!dryRun) cache.invalidate('country_calendars_');
+    return response.data;
+  }
+}
+
+/**
  * Ticket attachment links (AppScript v9.6): URL + name on a ticket. The server decides who may add / remove / fix
  * (requester, current approvers, admin) and returns can_manage; anyone who can see the ticket may report a link broken.
  */
@@ -3173,6 +3221,8 @@ export const API = {
   Invites: new InvitesAPI(),
   CompanyEmail: new CompanyEmailAPI(),
   Attachments: new AttachmentsAPI(),
+  // AppScript v10.1
+  CountryCalendars: new CountryCalendarAPI(),
   // Universal Entity Architecture APIs
   UserProfileTypes: new UserProfileTypesAPI(),
   RoleTypes: new RoleTypesAPI()

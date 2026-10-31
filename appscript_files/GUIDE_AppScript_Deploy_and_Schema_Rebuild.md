@@ -2,7 +2,7 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_AppScript_Deploy_and_Schema_Rebuild.md | Author: Kenneth R. Advento | Version: 1.9.0
+Document: GUIDE_AppScript_Deploy_and_Schema_Rebuild.md | Author: Kenneth R. Advento | Version: 1.10.0
 Created: 17 October 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Step-by-step guide to paste a new AppScript version and rebuild all Google Sheet tables safely | Status: Active
 
@@ -18,6 +18,7 @@ REVISION HISTORY:
 - v1.7.0 | 30 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v9.5 (v9.4 request cache, proxy auth, real UTC + v9.5 SLA escalation); 4 new tabs, tickets 27 → 28, ticket_types 12 → 13 columns; §5b proxy auth rollout (Script Properties PROXY_SECRET / AUTH_MODE + Vercel env, warn → enforce); §5c SLA escalation setup (migration, trigger with mail + trigger permissions, holidays, email); v9.4 may be skipped
 - v1.8.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v9.6 (admin-only routes + bootstrap, sign-in allow-list + invites, attachment links, company email); 1 new tab, ticket_attachments + 4, companies + 5 columns; new §5d (make yourself admin BEFORE the redeploy, then invites / company email / test email); Vercel env MAX_SESSION_HOURS; ADMIN_Tools v1.1
 - v1.9.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v10.0 (ticket visibility per type, who can create, participants + backfill, paged getTickets + search, Restricted tickets / fields, workflow notifications + email outbox, volume ops); 2 new tabs + 9 columns; new §5e (give requesters roles, backfill participants BEFORE the redeploy, visibility / Restricted per type, outbox); ADMIN_Tools v1.3, SEED v1.1
+- v1.10.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v10.1 (country calendars + company time zones: ticket year per country, SLA / due today / filters in the company zone, display zone per user); 2 new tabs, companies + 2, company_holidays + 1, user_preferences + 1; country calendar migration before the redeploy (§5f); ADMIN_Tools v1.4; getTickets always paged
 ===============================================================================
 -->
 
@@ -25,7 +26,15 @@ REVISION HISTORY:
 
 > Use this guide every time a new `APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt` file is created.
 > **Latest file is the one with the newest timestamp** in `appscript_files/`.
-> Current: `APPSCRIPT_v10.0_20261031_2053.txt` (contains v9.0–v9.7 - deploy it directly; nothing in between has to be deployed first)
+> Current: `APPSCRIPT_v10.1_20261101_0101.txt` (contains v9.0–v10.0 - deploy it directly; nothing in between has to be deployed first. From v9.x do the v10.0 steps below too, in the same sitting)
+
+> ⚠️ **v10.1 - do §5f. Nothing changes for existing companies (all become Philippines / Asia/Manila), but run the migration before the redeploy:**
+> 1. Paste `ADMIN_Tools_v1.4_20261101_0116.txt` over the `admin` script file (§0a; v1.3's *Give me a test role* fails on v10.1) and the v10.1 main file (§1). Save.
+> 2. §2 dry run → §3 apply: new tabs `country_calendars`, `country_holidays`; `companies` + 2 (`country_code` = PH, `timezone` = Asia/Manila for existing rows), `company_holidays` + 1 (`overrides_country` = add), `user_preferences` + 1 (`display_timezone`).
+> 3. **Before redeploying:** JARVIS Admin → **7. Regions → Migrate to country calendars** (dry run, then apply): adds the Philippines calendar row, sets companies without a region to PH / Asia/Manila, and moves the *All companies* holidays to the Philippines calendar. A second run does nothing. Editor: `migrateCountryCalendarsDryRun()` / `migrateCountryCalendarsApply()`.
+> 4. §5 redeploy (description from the header) → `?action=ping` says `10.1.0` → push the frontend from the same commit (Vercel). `getTickets` without `limit` now answers a page (the v10.0 frontend already sends `limit`).
+> 5. Optional: Admin → **Country Calendars** to add another country (reference zone, zones, weekends, hours, holidays by CSV); Admin → Companies → 📅 **Region** to move a company; Profile → **Display time zone** per user.
+> No new Google permission.
 
 > ⚠️ **v10.0 - do §5e. It changes who sees and who may create tickets, so the order matters:**
 > 1. Paste `ADMIN_Tools_v1.3_20261101_0042.txt` over the `admin` script file (§0a) and the v10.0 main file (§1). Save.
@@ -59,7 +68,8 @@ REVISION HISTORY:
 > An older frontend keeps working for everything except approvals and the new screens.
 >
 > Offline tests (all must pass on the file you paste; run them with `TZ=Asia/Manila` - one v9.0 date test assumes Manila midnight):
-> - `node appscript_files/tools/ROUTES_TEST_v10.0.js appscript_files/APPSCRIPT_v10.0_20261031_2053.txt` → 43 PASS (it also uses the newest `SEED_TestData` file next to it)
+> - `node appscript_files/tools/ROUTES_TEST_v10.1.js appscript_files/APPSCRIPT_v10.1_20261101_0101.txt` → 19 PASS - run it with `TZ=UTC` **and** `TZ=Asia/Manila`
+> - `ROUTES_TEST_v10.0.js` → 50 PASS (it also uses the newest `SEED_TestData` file next to it)
 > - `ROUTES_TEST_v9.7.js` → 6 PASS
 > - `ROUTES_TEST_v9.6.js` → 24 PASS
 > - `ROUTES_TEST_v9.5.js` → 25 PASS
@@ -67,7 +77,7 @@ REVISION HISTORY:
 > - `ROUTES_TEST_v9.2.js` → 14 PASS, `ROUTES_TEST_v9.1.js` → 18 PASS
 > - `ROUTES_AND_APPROVALS_TEST_v9.0.js` → 21 PASS
 > - `CODE_REVIEW_FIXES_TEST_v8.3.js` → 11 PASS (same file)
-> - `SEED_TEST.js` (with SEED v1.1) → 4 PASS, `ADMIN_TOOLS_TEST.js` (with ADMIN_Tools v1.3) → 17 PASS
+> - `SEED_TEST.js` (with SEED v1.1) → 4 PASS, `ADMIN_TOOLS_TEST.js` (with ADMIN_Tools v1.4) → 19 PASS
 > - `node scripts/test-proxy-auth.js` → 26 PASS (the Vercel proxy)
 >
 > Checks: `npm run check:api-contract` → OK, `npm run check:code-rules` → OK. Never apply with v8.2.
@@ -283,6 +293,15 @@ Never give these a `REACT_APP_` prefix: Create React App bakes `REACT_APP_*` int
 4. **Restricted** (Admin → Ticket Types, the 🔒 selects; field builder: *Restricted field*): mode off / optional (the requester ticks it) / always (also restricts the type's existing tickets and removes their shares); admin access *reveal with a reason* (logged) / always / never. People outside a Restricted ticket's approval chain see only its number and status. Admins can make one ticket Restricted (or not) in the ticket's Actions tab; removing it doesn't restore shares.
 5. **Email outbox:** workflow notices (waiting for approval, approved / completed / rejected / returned / cancelled, shared) go to the bell and to `email_outbox`. The SLA trigger from §5c sends them every 15 minutes when the company / ticket type email is on and the user hasn't turned email off - one digest per address, at most 80 % of the day's quota. JARVIS Admin → 6. Volume → *Email outbox status* / *Send the email outbox now*. To stop sending: Script Property `EMAIL_OUTBOX_ENABLED` = `false`.
 6. **Volume:** *Spreadsheet size* shows cells per tab and the migrate signals (a tab over 20k rows, over 5M cells - plan the Postgres migration then). *Archive old logs* moves read notifications and finished emails over 90 days and action logs over a year to the spreadsheet in Script Property `ARCHIVE_SPREADSHEET_ID` (tabs `archive_<table>`; dry run first). Every request logs one `[perf]` line (action, ms, tab reads) in Executions.
+
+## §5f After v10.1: country calendars, company time zones, display zone
+
+1. **Migrate** (before the redeploy): JARVIS Admin → 7. Regions → *Migrate to country calendars* (dry run, then apply). Status then says *Regions: migrated*; *Country calendars and company regions* lists each company as `PH / Asia/Manila`.
+2. **What a country calendar decides** (Admin → Country Calendars): the ticket number **year** (in the country's reference zone), the weekend days, the default business hours, and the holidays. Holidays: the Philippines has a built-in list per year (*Philippine holidays for <year>...*); any country can import `yyyy-MM-dd,Name` lines (dry run first). Eid holidays and Chinese New Year are proclaimed each year - import them.
+3. **A company's region** (Admin → Companies → 📅): the country, and the company's time zone (one of the country's zones) - SLA business hours, "due today", report / list date filters and email dates use it. Changing the **country** of a company that has tickets needs a reason and is logged (it moves the ticket year and holidays); from v10.2 only a platform admin may.
+4. **Company holidays** (Admin → SLA Escalations → Holidays, per company): the country's days are listed; *We work* makes one a working day for that company; *Add day off* adds a company holiday.
+5. **Display time zone** (Profile → Preferences): blank = the company's zone. It only changes how dates are shown; the server's results don't depend on it (from v10.2 an Advanced / Enterprise feature).
+6. **SLA rules** no longer pick a time zone: business hours are in the company's zone. Older rules keep their `timezone` cell, which is not used any more.
 
 ## §6 If Something Goes Wrong
 

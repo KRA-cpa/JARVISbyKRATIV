@@ -4,6 +4,7 @@ import { useUser } from '../../contexts/UserContext';
 import { API } from '../../api/googleSheet';
 import { useToast } from '../shared/Toast';
 import Icons from '../shared/Icons';
+import { formatDateOnly } from '../../utils/dateTime';
 
 /**
  * ConfigurationExportImportDialog Component
@@ -464,7 +465,7 @@ const ConfigurationExportImportDialog = ({ isOpen, onClose, onSuccess, mode: ini
                     </div>
                     <div>
                       <span className="text-gray-600">Export Date:</span>
-                      <span className="ml-2 font-medium">{new Date().toLocaleDateString()}</span>
+                      <span className="ml-2 font-medium">{formatDateOnly(new Date())}</span>
                     </div>
                   </div>
                 </div>

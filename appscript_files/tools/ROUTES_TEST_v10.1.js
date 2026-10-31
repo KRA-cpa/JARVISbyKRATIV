@@ -256,4 +256,75 @@ test('T2 SLA status: "Due Today" is the company\'s today', () => {
   assert.strictEqual(env.rt.ctx.ticketSLAStatus({ status: 'Pending', company_id: 'co_ph', step_due_date: due }, now), 'Due Today');
 });
 
+test('CR5-02 setCompanyRegion without a timezone keeps the company zone when the country allows it', () => {
+  const env = seed();
+  env.usCalendar();
+  env.ok(env.as('u_admin', { action: 'setCompanyRegion', company_id: 'co_us', country_code: 'US', timezone: 'America/Los_Angeles' }));
+  const again = env.ok(env.as('u_admin', { action: 'setCompanyRegion', company_id: 'co_us', country_code: 'US' }));
+  assert.strictEqual(again.timezone, 'America/Los_Angeles');
+  env.ok(env.as('u_admin', { action: 'saveCountryCalendar', country_code: 'AE', calendar_tz: 'Asia/Dubai', weekend_days: [5, 6] }));
+  const moved = env.ok(env.as('u_admin', { action: 'setCompanyRegion', company_id: 'co_us', country_code: 'AE' }));
+  assert.strictEqual(moved.timezone, 'Asia/Dubai', 'a zone of the old country falls back to the new reference zone');
+});
+
+// --- T3: holidays + SLA rule zone from the app ----------------------------------------------------------------------
+
+test('T3 createCompanyHoliday: "remove" = the company works a country holiday (needs a company); listed and counted', () => {
+  const env = seed();
+  env.ok(env.as('u_admin', { action: 'importCountryHolidays', country_code: 'PH', dry_run: false, rows: [{ date: '2026-11-04', name: 'Test day' }] }));
+  assert.match(env.as('u_admin', { action: 'createCompanyHoliday', date: '2026-11-04', name: 'x', overrides_country: 'remove' }).error, /needs a company/);
+  const saved = env.ok(env.as('u_admin', { action: 'createCompanyHoliday', company_id: 'co_ph', date: '2026-11-04', name: 'Working day', overrides_country: 'remove' }));
+  assert.strictEqual(saved.overrides_country, 'remove');
+  assert.ok(!env.rt.ctx.companyHolidayDays('co_ph').has('2026-11-04'), 'worked');
+  assert.ok(env.rt.ctx.companyHolidayDays('co_us').has('2026-11-04'), 'only this company');
+  const listed = env.ok(env.asGet('u_admin', { action: 'getCompanyHolidays', company_id: 'co_ph', year: 2026 }));
+  assert.ok(listed.some(h => h.source === 'company' && h.overrides_country === 'remove' && h.date === '2026-11-04'));
+  assert.ok(!listed.some(h => h.source === 'country' && h.date === '2026-11-04'), 'the country row is hidden for this company');
+  const plain = env.ok(env.as('u_admin', { action: 'createCompanyHoliday', company_id: 'co_ph', date: '2026-11-10', name: 'Founders' }));
+  assert.strictEqual(plain.overrides_country, 'add');
+});
+
+test('T3 company SLA rule: no timezone defaulted any more (the company clock decides)', () => {
+  const env = seed();
+  const rule = env.ok(env.as('u_admin', { action: 'createCompanySLARule', company_id: 'co_ph', ticket_type_id: 'tt_1', step_name: 'Managers',
+    duration: 4, unit: 'business_hours' }));
+  assert.strictEqual(String(rule.timezone || ''), '');
+});
+
+// --- T3: display zone -----------------------------------------------------------------------------------------------
+
+test('T3 preferences: display_timezone blank = company zone, a real zone is kept, a bad one refused; written by header', () => {
+  const env = seed();
+  assert.strictEqual(env.ok(env.asGet('u_req', { action: 'getUserPreferences' })).display_timezone, '');
+  env.ok(env.as('u_req', { action: 'updateUserPreferences', preferences: { language: 'fil' } }));
+  const saved = env.ok(env.as('u_req', { action: 'updateUserPreferences', preferences: { display_timezone: 'Asia/Singapore' } }));
+  assert.strictEqual(saved.display_timezone, 'Asia/Singapore');
+  assert.strictEqual(saved.language, 'fil', 'other preferences kept');
+  const bad = env.as('u_req', { action: 'updateUserPreferences', preferences: { display_timezone: 'Mars/Base' } });
+  assert.strictEqual(bad.success, false);
+  assert.match(bad.error, /not a time zone/);
+  const row = env.rows('user_preferences').find(r => r.user_id === 'u_req');
+  assert.strictEqual(row.display_timezone, 'Asia/Singapore', 'the column after updated_at is written (the positional row dropped it)');
+  assert.strictEqual(env.rows('user_preferences').length, 1);
+  env.ok(env.as('u_req', { action: 'updateUserPreferences', preferences: { display_timezone: '' } }));
+  assert.strictEqual(env.ok(env.asGet('u_req', { action: 'getUserPreferences' })).display_timezone, '');
+});
+
+test('T3 profile: each company carries its country + zone, the user their display zone; server answers do not depend on it', () => {
+  const env = seed();
+  dubai(env);
+  const profile = () => env.ok(env.as('u_req', { action: 'getUserProfile', user_id: 'u_req' }));
+  const before = profile();
+  const byId = Object.fromEntries(before.companies.map(c => [c.id, c]));
+  assert.deepStrictEqual([byId.co_ph.country_code, byId.co_ph.timezone], ['PH', 'Asia/Manila']);
+  assert.deepStrictEqual([byId.co_us.country_code, byId.co_us.timezone], ['AE', 'Asia/Dubai']);
+  assert.strictEqual(before.display_timezone, '');
+  const id = String(env.ok(env.as('u_req', { action: 'createTicket', title: 'z', ticket_type_id: 'tt_1', requester_id: 'u_req', company_id: 'co_us' })).id);
+  const read = () => JSON.stringify(env.ok(env.as('u_req', { action: 'getTicket', ticket_id: id })));
+  const first = read();
+  env.ok(env.as('u_req', { action: 'updateUserPreferences', preferences: { display_timezone: 'America/New_York' } }));
+  assert.strictEqual(profile().display_timezone, 'America/New_York');
+  assert.strictEqual(read(), first, 'the display zone only changes the display');
+});
+
 report();

@@ -3,6 +3,7 @@ import { getAPIHealthStatus, apiConfig, extractDeploymentId } from '../../config
 import { useToast } from '../shared/Toast';
 import { useInfiniteLoopMonitor } from '../../utils/infiniteLoopPrevention';
 import Icons from '../shared/Icons';
+import { formatDateTime, formatTimeOnly } from '../../utils/dateTime';
 
 const APIConnectionStatus = () => {
   const { success, error: showError } = useToast();
@@ -121,7 +122,7 @@ const APIConnectionStatus = () => {
             </div>
             {lastChecked && (
               <div className={`text-xs text-${statusColor}-600 mt-1`}>
-                Last checked: {lastChecked.toLocaleTimeString()}
+                Last checked: {formatTimeOnly(lastChecked, undefined, { seconds: true })}
               </div>
             )}
           </div>
@@ -204,7 +205,7 @@ const APIConnectionStatus = () => {
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-600">Server Time:</span>
                     <span className="font-mono text-gray-900 text-xs">
-                      {new Date(connectionStatus.details.serverTime).toLocaleString()}
+                      {formatDateTime(connectionStatus.details.serverTime)}
                     </span>
                   </div>
                 )}
@@ -328,7 +329,7 @@ const APIConnectionStatus = () => {
                                   </div>
                                   {stat.circuitBreaker.state === 'OPEN' && stat.circuitBreaker.nextAttempt && (
                                     <div className="mt-1 text-xs text-red-600">
-                                      Next attempt: {stat.circuitBreaker.nextAttempt.toLocaleTimeString()}
+                                      Next attempt: {formatTimeOnly(stat.circuitBreaker.nextAttempt, undefined, { seconds: true })}
                                     </div>
                                   )}
                                 </div>
@@ -366,7 +367,7 @@ const APIConnectionStatus = () => {
                                       <span className="font-medium">Renders/min:</span> {stat.rendersInLastMinute}
                                     </div>
                                     <div className="col-span-2">
-                                      <span className="font-medium">Last render:</span> {stat.lastRender.toLocaleTimeString()}
+                                      <span className="font-medium">Last render:</span> {formatTimeOnly(stat.lastRender, undefined, { seconds: true })}
                                     </div>
                                   </div>
                                 </div>
@@ -399,7 +400,7 @@ const APIConnectionStatus = () => {
                         </div>
 
                         <div className="text-xs text-gray-500 text-center">
-                          Last updated: {stats.timestamp.toLocaleTimeString()}
+                          Last updated: {formatTimeOnly(stats.timestamp, undefined, { seconds: true })}
                         </div>
                       </>
                     );

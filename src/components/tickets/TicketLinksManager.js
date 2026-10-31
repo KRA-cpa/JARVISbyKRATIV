@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Icons from '../shared/Icons';
 import { useTicketAttachments } from '../../hooks/useAPI';
+import { formatDateTime } from '../../utils/dateTime';
 
 /**
  * TicketLinksManager (AppScript v9.6, TicketDetail → Links)
@@ -12,8 +13,8 @@ import { useTicketAttachments } from '../../hooks/useAPI';
  * someone who can manage links - also on a closed ticket - and the fix clears the report (plan §4.13).
  * Mounted only while the Links tab is open, so opening a ticket costs no extra call (F5).
  */
-const manilaTime = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' });
-const formatManila = (iso) => (iso ? manilaTime.format(new Date(iso)) : '');
+// v10.1: in the display zone (dateTime.js)
+const formatWhen = (iso) => formatDateTime(iso);
 const isWebLink = (url) => /^https?:\/\//i.test(String(url || '').trim());
 
 const TicketLinksManager = ({ ticketId, nameOf = (id) => id, notify }) => {
@@ -105,10 +106,10 @@ const TicketLinksManager = ({ ticketId, nameOf = (id) => id, notify }) => {
                       )}
                     </div>
                     {link.description && <p className="text-xs text-gray-600 mt-1">{link.description}</p>}
-                    <p className="text-xs text-gray-400 mt-1">Added by {nameOf(link.uploader_id)} · {formatManila(link.created_at)}</p>
+                    <p className="text-xs text-gray-400 mt-1">Added by {nameOf(link.uploader_id)} · {formatWhen(link.created_at)}</p>
                     {reported && (
                       <p className="text-xs text-red-700 mt-1">
-                        Reported by {nameOf(link.reported_by)} · {formatManila(link.reported_at)}{link.report_note ? ` - ${link.report_note}` : ''}
+                        Reported by {nameOf(link.reported_by)} · {formatWhen(link.reported_at)}{link.report_note ? ` - ${link.report_note}` : ''}
                       </p>
                     )}
                   </div>

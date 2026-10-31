@@ -1051,6 +1051,40 @@ export const useTicketAttachments = (ticketId) => {
   };
 };
 
+/** Country calendars (AppScript v10.1) + save / holiday import (admin; the server checks). */
+export const useCountryCalendars = () => {
+  const { data, loading, error, refetch } = useAPIData(['country_calendars'], () => API.CountryCalendars.getAll());
+  const { loading: saving, error: saveError, run } = useWriteRunner();
+  const after = useCallback(async (fn) => {
+    const result = await run(fn);
+    await refetch();
+    return result;
+  }, [run, refetch]);
+  return {
+    calendars: data || [],
+    loading,
+    error,
+    refetch,
+    saving,
+    saveError,
+    save: useCallback(calendar => after(() => API.CountryCalendars.save(calendar)), [after]),
+    importHolidays: useCallback((code, rows, dryRun) => run(() => API.CountryCalendars.importHolidays(code, rows, dryRun)), [run]),
+    addBuiltInHolidays: useCallback((code, year, dryRun) => run(() => API.CountryCalendars.addBuiltInHolidays(code, year, dryRun)), [run])
+  };
+};
+
+/** One country's holidays (a year, or all). */
+export const useCountryHolidays = (countryCode, year = null) => {
+  return useAPIData(['country_holidays', countryCode, year], () => API.CountryCalendars.getHolidays(countryCode, year), { enabled: !!countryCode });
+};
+
+/** Set a company's country + time zone (Admin → Companies → Region). */
+export const useCompanyRegion = () => {
+  const { loading: saving, error, run } = useWriteRunner();
+  const setRegion = useCallback((companyId, region) => run(() => API.Companies.setRegion(companyId, region)), [run]);
+  return { saving, error, setRegion };
+};
+
 // Universal Entity Architecture hooks
 // includeInactive: admin lists show deactivated types too, so they can be reactivated
 export const useUserProfileTypes = (companyId = null, includeInactive = false) => {
@@ -1212,6 +1246,10 @@ const useAPIModule = {
   useUserInvites,
   useCompanyEmailSettings,
   useTicketAttachments,
+  // AppScript v10.1
+  useCountryCalendars,
+  useCountryHolidays,
+  useCompanyRegion,
   // Universal Entity Architecture hooks
   useUserProfileTypes,
   useUserProfileTypeMutations,

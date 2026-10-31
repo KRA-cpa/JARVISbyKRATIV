@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import Icons from '../shared/Icons';
 import { useCompanies, useRoles, useUserInvites } from '../../hooks/useAPI';
+import { formatDateTime } from '../../utils/dateTime';
 
 // Times in Manila (compliance F3)
-const manilaTime = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' });
-const formatManila = (iso) => (iso ? manilaTime.format(new Date(iso)) : '');
+// v10.1: in the display zone (dateTime.js), not a fixed Manila
 
 /**
  * AdminUserInvites (AppScript v9.6, Admin → Users → Invite)
@@ -191,7 +191,7 @@ const AdminUserInvites = ({ users = [], onClose, notify }) => {
                   </div>
                   <p className="text-xs text-gray-500 truncate">
                     {invite.email} · {companyName(invite.company_id)} · {(invite.role_grants || []).length} role(s)
-                    {invite.expires_at && invite.status === 'pending' ? ` · until ${formatManila(invite.expires_at)}` : ''}
+                    {invite.expires_at && invite.status === 'pending' ? ` · until ${formatDateTime(invite.expires_at)}` : ''}
                     {invite.send_count ? ` · sent ${invite.send_count}×` : ' · not emailed'}
                   </p>
                 </div>

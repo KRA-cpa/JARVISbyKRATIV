@@ -2,6 +2,7 @@
  * External App Integration - Manual Task-based Workflow Pausing
  * Handles integration points where workflows pause for external system interactions
  */
+import { formatDateTime } from './dateTime';
 
 /**
  * External app integration types
@@ -372,7 +373,7 @@ const generateContextualText = (template, ticket, user, step) => {
     .replace('{step_name}', step.name)
     .replace('{user_name}', user.name || user.email)
     .replace('{user_email}', user.email)
-    .replace('{timestamp}', new Date().toLocaleString());
+    .replace('{timestamp}', formatDateTime(new Date())); // v10.1: the display zone
 };
 
 /**

@@ -4,6 +4,7 @@ import Icons from '../shared/Icons';
 import ErrorBoundary130 from '../shared/ErrorBoundary130';
 import { useToast } from '../shared/Toast';
 import { useUserProfileTypes, useUserProfileTypeMutations } from '../../hooks/useAPI';
+import { formatDateOnly } from '../../utils/dateTime';
 
 /**
  * AdminUserProfileTypeList Component
@@ -155,7 +156,7 @@ const AdminUserProfileTypeList = () => {
                           <div className="flex items-center mt-1 text-xs text-gray-500 space-x-4">
                             <span>{userProfileType.company_id ? 'Company-specific' : 'Global'}</span>
                             <span>•</span>
-                            <span>Created {new Date(userProfileType.created_at).toLocaleDateString()}</span>
+                            <span>Created {formatDateOnly(userProfileType.created_at)}</span>
                           </div>
                         </div>
                       </div>

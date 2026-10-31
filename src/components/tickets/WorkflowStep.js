@@ -10,6 +10,7 @@ import {
 } from '../../utils/workflowEngine';
 import { processExternalAppIntegration, verifyTaskCompletion } from '../../utils/externalAppIntegration';
 import Icons from '../shared/Icons';
+import { formatDateOnly } from '../../utils/dateTime';
 
 const WorkflowStep = ({ ticket, onTicketUpdate }) => {
   const { user } = useUser();
@@ -391,7 +392,7 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
                       </div>
                     </div>
                     <div className="text-sm text-gray-500">
-                      {new Date(approval.timestamp).toLocaleDateString()}
+                      {formatDateOnly(approval.timestamp)}
                     </div>
                   </div>
                 ))}

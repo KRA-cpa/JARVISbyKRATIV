@@ -5,8 +5,11 @@
  * including due date calculations, status determination, and business hours logic.
  *
  * Business Rules:
- * - Philippine timezone (UTC+8) is the default timezone
- * - Weekend exclusion means Saturday and Sunday are not counted
+ * - The server decides due dates and SLA status (compliance F1); this file previews them and labels them.
+ * - Time zone (v10.1): the zone passed in, else the display zone (dateTime.js - the company's zone, Philippines /
+ *   Asia/Manila by default). Day math runs on the zone's wall clock (wallClockIn) and results are real moments
+ *   (fromWallClock). Before v10.1 a fixed "+8 h" was added to the real moment, which put a Manila browser 8 h ahead.
+ * - Weekend exclusion means Saturday and Sunday are not counted (the preview; the server uses the country's weekend)
  * - Business hours: 8:00 AM to 5:00 PM (configurable)
  * - SLA status: "On Time", "Due Today", "Overdue", "No SLA"
  */
@@ -16,17 +19,12 @@ import {
   addDays,
   isWeekend,
   isAfter,
-  isBefore,
-  startOfDay,
-  endOfDay,
   differenceInHours,
   differenceInDays,
   format,
   parseISO
 } from 'date-fns';
-// Note: Using simplified timezone handling without date-fns-tz dependency
-
-// Philippine timezone configuration
+import { dayInZone, fromWallClock, resolveZone, wallClockIn } from './dateTime';
 
 // Business hours configuration (24-hour format)
 const BUSINESS_HOURS = {
@@ -96,9 +94,10 @@ export class SLACalculator {
    * @param {string} unit - 'hours' or 'days'
    * @param {boolean} excludeWeekends - Whether to exclude weekends
    * @param {boolean} businessHoursOnly - Whether to only count business hours
-   * @returns {Object} Result object with dueDate or error
+   * @param {string} [zone] - IANA zone for the day math (default: the display zone)
+   * @returns {Object} Result object with dueDate (a real moment) or error
    */
-  static calculateDueDate(startDate, duration, unit = 'days', excludeWeekends = false, businessHoursOnly = false) {
+  static calculateDueDate(startDate, duration, unit = 'days', excludeWeekends = false, businessHoursOnly = false, zone = undefined) {
     try {
       // Validate inputs
       if (!startDate) {
@@ -115,7 +114,6 @@ export class SLACalculator {
         throw new Error(`Invalid SLA configuration: ${validation.errors.join(', ')}`);
       }
 
-      // Convert to Philippine timezone if needed
       let start;
       try {
         start = typeof startDate === 'string' ? parseISO(startDate) : startDate;
@@ -126,13 +124,17 @@ export class SLACalculator {
         throw new Error('Failed to parse start date: ' + dateError.message);
       }
 
-      const philippineStart = this.toPhilippineTime(start);
+      // v10.1: the day math runs on the zone's wall clock; the answer is the real moment
+      const tz = resolveZone(zone);
+      const wallStart = wallClockIn(start, tz);
 
       let dueDate;
-      if (unit === 'hours') {
-        dueDate = this._calculateHoursDueDate(philippineStart, duration, excludeWeekends, businessHoursOnly);
+      if (unit === 'hours' && !excludeWeekends && !businessHoursOnly) {
+        dueDate = addHours(start, duration); // plain hours: no wall clock needed
+      } else if (unit === 'hours') {
+        dueDate = fromWallClock(this._calculateHoursDueDate(wallStart, duration, excludeWeekends, businessHoursOnly), tz);
       } else if (unit === 'days') {
-        dueDate = this._calculateDaysDueDate(philippineStart, duration, excludeWeekends);
+        dueDate = fromWallClock(this._calculateDaysDueDate(wallStart, duration, excludeWeekends), tz);
       } else {
         throw new Error(`Invalid SLA unit: ${unit}. Must be 'hours' or 'days'.`);
       }
@@ -152,7 +154,7 @@ export class SLACalculator {
         success: true,
         dueDate,
         calculatedAt: new Date(),
-        configuration: { duration, unit, excludeWeekends, businessHoursOnly }
+        configuration: { duration, unit, excludeWeekends, businessHoursOnly, zone: tz }
       };
 
     } catch (error) {
@@ -270,9 +272,10 @@ export class SLACalculator {
    * Determine SLA status for a ticket step
    * @param {Date|string|null} dueDate - When the step is due
    * @param {Date} currentDate - Current date/time (defaults to now)
+   * @param {string} [zone] - Whose "today" (default: the display zone - the company's zone)
    * @returns {Object} SLA status object with type, label, color, and urgency
    */
-  static getSLAStatus(dueDate, currentDate = new Date()) {
+  static getSLAStatus(dueDate, currentDate = new Date(), zone = undefined) {
     if (!dueDate) {
       return {
         type: 'no_sla',
@@ -284,13 +287,17 @@ export class SLACalculator {
       };
     }
 
+    // v10.1: real moments for "overdue" and the durations; the zone only decides which day is today
     const due = typeof dueDate === 'string' ? parseISO(dueDate) : dueDate;
-    const now = this.toPhilippineTime(currentDate);
-    const dueDatePhilippine = this.toPhilippineTime(due);
+    const now = currentDate instanceof Date ? currentDate : new Date(currentDate);
+    if (!due || isNaN(due.getTime())) {
+      return { type: 'no_sla', label: 'No SLA', color: 'gray', urgency: 0, isOverdue: false, isDueToday: false };
+    }
+    const tz = resolveZone(zone);
 
     // Check if overdue
-    if (isAfter(now, dueDatePhilippine)) {
-      const hoursOverdue = differenceInHours(now, dueDatePhilippine);
+    if (isAfter(now, due)) {
+      const hoursOverdue = differenceInHours(now, due);
       return {
         type: 'overdue',
         label: `Overdue by ${this._formatDuration(hoursOverdue)}`,
@@ -302,12 +309,9 @@ export class SLACalculator {
       };
     }
 
-    // Check if due today
-    const todayStart = startOfDay(now);
-    const todayEnd = endOfDay(now);
-
-    if (isAfter(dueDatePhilippine, todayStart) && isBefore(dueDatePhilippine, todayEnd)) {
-      const hoursUntilDue = differenceInHours(dueDatePhilippine, now);
+    // Check if due today (in the zone)
+    if (dayInZone(due, tz) === dayInZone(now, tz)) {
+      const hoursUntilDue = differenceInHours(due, now);
       return {
         type: 'due_today',
         label: `Due in ${this._formatDuration(hoursUntilDue)}`,
@@ -320,7 +324,7 @@ export class SLACalculator {
     }
 
     // Due in the future
-    const daysUntilDue = differenceInDays(dueDatePhilippine, now);
+    const daysUntilDue = differenceInDays(due, now);
     return {
       type: 'on_time',
       label: `Due in ${daysUntilDue} day${daysUntilDue !== 1 ? 's' : ''}`,
@@ -391,50 +395,30 @@ export class SLACalculator {
   }
 
   /**
-   * Format date for display in Philippine timezone
+   * Format a moment for the SLA preview in a zone (v10.1; was formatDatePhilippine with the +8 h shift)
    * @param {Date|string} date - Date to format
-   * @param {string} formatString - Format pattern (default: 'MMM d, yyyy h:mm a')
+   * @param {string} formatString - date-fns pattern (default: 'MMM d, yyyy h:mm a')
+   * @param {string} [zone] - IANA zone (default: the display zone)
    * @returns {string} Formatted date string
    */
-  static formatDatePhilippine(date, formatString = 'MMM d, yyyy h:mm a') {
+  static formatSLADate(date, formatString = 'MMM d, yyyy h:mm a', zone = undefined) {
     if (!date) return '';
-
     const dateObj = typeof date === 'string' ? parseISO(date) : date;
-    const philippineDate = this.toPhilippineTime(dateObj);
-
-    return format(philippineDate, formatString);
-  }
-
-  /**
-   * Convert UTC time to Philippine time (UTC+8)
-   * @param {Date} date - Date to convert
-   * @returns {Date} Date adjusted to Philippine timezone
-   */
-  static toPhilippineTime(date) {
-    if (!date) return new Date();
-
-    const utcDate = new Date(date);
-    // Philippine time is UTC+8
-    const philippineTime = new Date(utcDate.getTime() + (8 * 60 * 60 * 1000));
-    return philippineTime;
-  }
-
-  /**
-   * Get current Philippine time
-   * @returns {Date} Current date/time in Philippine timezone
-   */
-  static getCurrentPhilippineTime() {
-    return this.toPhilippineTime(new Date());
+    return format(wallClockIn(dateObj, resolveZone(zone)), formatString);
   }
 
   /**
    * Simulate SLA calculation for testing/validation purposes
    * @param {Object} slaConfig - SLA configuration to test
    * @param {Date} testStartDate - Optional start date for simulation (defaults to now)
+   * @param {string} [zone] - IANA zone of the examples (default: the display zone)
    * @returns {Object} Simulation result with examples and validation
    */
-  static simulateSLA(slaConfig, testStartDate = null) {
-    const startDate = testStartDate || this.getCurrentPhilippineTime();
+  static simulateSLA(slaConfig, testStartDate = null, zone = undefined) {
+    const startDate = testStartDate || new Date();
+    const tz = resolveZone(zone);
+    // the example starts ("Monday 9 AM") are wall-clock times in the zone
+    const inZone = pick => fromWallClock(pick(wallClockIn(startDate, tz)), tz);
     const results = {
       isValid: true,
       errors: [],
@@ -458,7 +442,8 @@ export class SLACalculator {
         slaConfig.duration,
         slaConfig.unit,
         slaConfig.excludeWeekends,
-        slaConfig.businessHoursOnly
+        slaConfig.businessHoursOnly,
+        tz
       );
 
       if (!calculation.success) {
@@ -470,9 +455,9 @@ export class SLACalculator {
       // Generate example scenarios
       const scenarios = [
         { name: 'If started now', startDate: startDate },
-        { name: 'If started Monday 9 AM', startDate: this._getNextMondayMorning(startDate) },
-        { name: 'If started Friday 4 PM', startDate: this._getNextFridayAfternoon(startDate) },
-        { name: 'If started on weekend', startDate: this._getNextSaturdayMorning(startDate) }
+        { name: 'If started Monday 9 AM', startDate: inZone(d => this._getNextMondayMorning(d)) },
+        { name: 'If started Friday 4 PM', startDate: inZone(d => this._getNextFridayAfternoon(d)) },
+        { name: 'If started on weekend', startDate: inZone(d => this._getNextSaturdayMorning(d)) }
       ];
 
       for (const scenario of scenarios) {
@@ -481,14 +466,15 @@ export class SLACalculator {
           slaConfig.duration,
           slaConfig.unit,
           slaConfig.excludeWeekends,
-          slaConfig.businessHoursOnly
+          slaConfig.businessHoursOnly,
+          tz
         );
 
         if (scenarioResult.success) {
           results.examples.push({
             scenario: scenario.name,
-            startDate: this.formatDatePhilippine(scenario.startDate),
-            dueDate: this.formatDatePhilippine(scenarioResult.dueDate),
+            startDate: this.formatSLADate(scenario.startDate, undefined, tz),
+            dueDate: this.formatSLADate(scenarioResult.dueDate, undefined, tz),
             duration: this._formatDuration(differenceInHours(scenarioResult.dueDate, scenario.startDate)),
             businessDaysOnly: slaConfig.excludeWeekends
           });
@@ -551,8 +537,7 @@ export class SLACalculator {
 // Convenience functions for common operations
 export const calculateSLADueDate = SLACalculator.calculateDueDate.bind(SLACalculator);
 export const getSLAStatus = SLACalculator.getSLAStatus.bind(SLACalculator);
-export const formatDatePhilippine = SLACalculator.formatDatePhilippine.bind(SLACalculator);
-export const getCurrentPhilippineTime = SLACalculator.getCurrentPhilippineTime.bind(SLACalculator);
+export const formatSLADate = SLACalculator.formatSLADate.bind(SLACalculator);
 
 // Default export
 export default SLACalculator;

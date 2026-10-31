@@ -2,8 +2,8 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_CodeReview_Compliance.md | Author: Kenneth R. Advento | Version: 2.2.0
-Created: 18 October 2026 UTC+8 (Philippine Standard Time) | Modified: 31 October 2026 UTC+8 (Philippine Standard Time)
+Document: GUIDE_CodeReview_Compliance.md | Author: Kenneth R. Advento | Version: 2.3.0
+Created: 18 October 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Coding rules for AppScript, its counterpart frontend / proxy code and scripts, derived from the code reviews (17 + 19 Oct 2026) and the Apps Script reco review (30 Oct 2026), so new changes don't reintroduce them | Status: Active — MANDATORY for AppScript, counterpart (src/, api/) and scripts/ changes
 
 REVISION HISTORY:
@@ -15,6 +15,7 @@ REVISION HISTORY:
 - v2.0.0 | 30 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §0 change recipe (AppScript + counterparts in order); A14–A20 (cache invalidation, actor identity, read budget, real UTC, ids, time-driven jobs, one definition); §1b counterpart rules F1–F6 (frontend + proxy); P7–P10 (version-diff review, whole-file review, one review log per version, performance gate); `npm run check:code-rules` + `scripts/code-rules-known-gaps.txt` (baseline 91 on v9.3, may only shrink). Source: `docs/planning/REVIEW_AppScriptReco_20261030.md`
 - v2.1.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | From the v9.6 review (docs/planning/TODO_CodeReview_20261031.md): A1 logAdminAction is header-driven (off the legacy list); A14 re-read inside the lock what a locked decision depends on; A15 admin routes are gated in doPost (ADMIN_ONLY_ACTIONS); F6 only an expired token may end a session, verify outages get their own code, `_auth_email` only when verified
 - v2.2.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | A21 (v10.0 M1, session ff4c803f): every ticket read goes through canViewTicket, a hidden ticket answers like a missing one; `check:code-rules A21`
+- v2.3.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | A17 v3 / F3 v3 (v10.1, session ff4c803f): local days and clocks come from the COMPANY's calendar (companyClock / dateTime.js effective zone), the default zone is named once (DEFAULT_TZ / DEFAULT_ZONE); `check:code-rules` flags the literal elsewhere, and `toLocale*String(` / an Intl `timeZone:` outside dateTime.js. Review log docs/planning/TODO_CodeReview_20261101_v10.1.md
 ===============================================================================
 -->
 
@@ -264,7 +265,7 @@ ids.forEach(id => findRecord(SHEETS.TICKETS, id));                       // one 
 
 **Checked by:** `check:code-rules A16` (a direct read or `readTable` / `findRecord` / `getSheetDataAsJSON` inside a loop or array callback); read-count assertions in `ROUTES_TEST_v9.4.js` (one approval reads each tab once) (P10).
 
-### A17 — Store real UTC; Manila only for display and day logic *(reco S2, `calculateSLADueDate`)*
+### A17 — Store real UTC; local days only through the company's clock *(reco S2, `calculateSLADueDate`; v3 = v10.1 country calendars)*
 
 `getCurrentTimestamp()` added 8 hours and then called `toISOString()`, so 21:35 PHT was stored as `21:35Z` (= 05:35 PHT the next day). `calculateSLADueDate` skipped weekends with `getDay()`, which uses the script's time zone.
 
@@ -282,7 +283,24 @@ dueDate.getDay(); dueDate.setHours(dueDate.getHours() + 8);    // script time zo
 
 Rows written before v9.4 are 8 h ahead in the audit columns; Script Property `TS_UTC_SINCE` records the switch, and the migration transform corrects older rows.
 
-**Checked by:** `check:code-rules A17` (`8 * 60 * 60`, `getTime() + 8`, `getDay` / `getHours` / `setHours`).
+**v3 (v10.1, `PLAN_CountryCalendars_TimeZones_20261031.md`):** a company's days are its own, not Manila's.
+
+- The ticket number YEAR is the **country calendar's** year: `calendarYear(companyId)` (the country's reference zone, not the company zone).
+- SLA time, "due today", report / list date filters, notice and email dates use `companyClock(companyId)` (`tz`, `weekendDays`, `businessHours`) with `dayIn` / `clockIn` / `zoneAt` / `dayStartIn` / `dayEndIn`, and holidays from `companyHolidayDays` (country + company add − company remove).
+- The default zone is named **once**: `const DEFAULT_TZ = 'Asia/Manila'` (with `DEFAULT_COUNTRY = 'PH'`); everything else uses the constant. Any IANA zone works (daylight saving included) - never a fixed offset such as `'+08:00'`.
+
+```javascript
+// ✅ Do (v3)
+const clock = companyClock(ticket.company_id);
+const today = dayIn(new Date(), clock.tz);                     // the company's today
+const due = addSlaTime(start, 2, 'business_days', slaCalendar(rule, companyHolidayDays(ticket.company_id), clock));
+const year = calendarYear(company.id);                         // the ticket number YEAR
+// ❌ Don't (v3)
+Utilities.formatDate(d, 'Asia/Manila', 'yyyy');                // a company outside the Philippines gets Manila's year
+new Date(`${day}T08:00:00+08:00`);                             // fixed offset: wrong for every other zone
+```
+
+**Checked by:** `check:code-rules A17` (`8 * 60 * 60`, `getTime() + 8`, `getDay` / `getHours` / `setHours`; v3: a quoted `'Asia/Manila'` anywhere but the `DEFAULT_TZ` line). Test: `ROUTES_TEST_v10.1.js`, run under `TZ=UTC` **and** `TZ=Asia/Manila`.
 
 ### A18 — Ids come from `generateId()` or a locked sequence *(reco S5, P6)*
 
@@ -345,16 +363,22 @@ The SLA escalation "engine" ran in every open browser on hard-coded rules: each 
 
 **Checked by:** `scripts/test-proxy-auth.js`; review.
 
-### F3 — Show times with `Intl` in Asia/Manila; no hour arithmetic *(`toPhilippineTime`)*
+### F3 — Show times through `src/utils/dateTime.js` in the effective zone; no hour arithmetic *(`toPhilippineTime`; v3 = v10.1)*
+
+Every date on screen goes through `dateTime.js` (`formatDateTime`, `formatDateOnly`, `formatTimeOnly`, `formatInZone`, `dayInZone`). The zone is `useUser().effectiveZone(companyId)`: the user's display zone when set, else the company's zone (from the profile; pass the zone from a company list the screen has as the fallback), else `DEFAULT_ZONE`. Calls without a zone use the current company's effective zone (UserContext keeps it set). A day the **server** filters or counts (date filters, "due today") uses `companyZone(companyId)` - the company's zone, not the display zone. Day math with date-fns uses `wallClockIn` / `fromWallClock`, never a shifted `Date`. A date-only value (`yyyy-MM-dd`) is a calendar day: `formatDateOnly` shows the same day in every zone.
 
 ```javascript
 // ✅ Do
-new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
+const { effectiveZone } = useUser();
+formatDateTime(ticket.created_at, effectiveZone(ticket.company_id));
+dayInZone(ticket.step_due_date, companyZone(ticket.company_id)) === dayInZone(new Date(), companyZone(ticket.company_id));
 // ❌ Don't
-new Date(utcDate.getTime() + (8 * 60 * 60 * 1000));
+new Date(utcDate.getTime() + (8 * 60 * 60 * 1000));            // the old toPhilippineTime: 8 h ahead in a Manila browser
+new Date(iso).toLocaleString();                                  // the browser's zone
+new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila' });   // a fixed zone outside dateTime.js
 ```
 
-**Checked by:** `check:code-rules F3`.
+**Checked by:** `check:code-rules F3` (hour shifts; v3: `.toLocaleString(` / `.toLocaleDateString(` / `.toLocaleTimeString(` and an Intl `timeZone:` option outside `src/utils/dateTime.js`, a quoted `'Asia/Manila'` anywhere but `DEFAULT_ZONE` in `src/config/timeZones.js`). Tests: `src/utils/dateTime.test.js`, `src/utils/slaCalculator.test.js` (run with TZ=UTC / America/New_York / Asia/Manila).
 
 ### F4 — No fake saves *(useAPI escalation mutations; P5 made checkable)*
 
@@ -470,7 +494,7 @@ git show --name-only HEAD; git diff --cached --name-only     # only the intended
 - [ ] `npm run check:api-contract` passes: routes, client methods, mounted components and icons (A12)
 - [ ] A new screen is mounted and uses the real API - no simulated saves or placeholder modals (P5, F4)
 - [ ] `npm run check:code-rules` passes; its known-gaps list only shrank (F3, F4)
-- [ ] Business rules computed on the server, not in the browser (F1); times shown with `Intl` in Asia/Manila (F3)
+- [ ] Business rules computed on the server, not in the browser (F1); times shown through `dateTime.js` in the effective zone (F3 v3)
 - [ ] Identity sent only as the ID token header; body `user_id` is a target or display value (F2)
 - [ ] A screen makes ≤ 2–3 calls on load; writes invalidate the cached entity (F5)
 
@@ -495,7 +519,7 @@ git show --name-only HEAD; git diff --cached --name-only     # only the intended
 - [ ] Every sheet write invalidates its cache entry; offline suites run with the stale-cache detector (A14)
 - [ ] Permission checks use `actorId(...)`; target-user keys kept as sent (A15)
 - [ ] No read inside a loop; hot paths keep their read-count assertion (A16, P10)
-- [ ] Timestamps are real UTC; Manila only via `Utilities.formatDate` / `addSlaTime`; no `getDay` / `+8h` (A17)
+- [ ] Timestamps are real UTC; local days only via `companyClock` / `dayIn` / `addSlaTime` / `calendarYear`; no `getDay` / `+8h` / `'Asia/Manila'` literal (A17 v3)
 - [ ] Ids from `generateId()` or a locked sequence (A18)
 - [ ] Time-driven jobs idempotent, `tryLock` skip, bounded, dry-run, editor-only install (A19)
 - [ ] No duplicate function names (A20)

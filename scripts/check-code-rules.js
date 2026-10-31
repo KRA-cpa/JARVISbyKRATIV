@@ -18,14 +18,19 @@
  *   A16  a sheet read (getDataRange / getValues / getDisplayValues / openById / readTable / getSheetDataAsJSON /
  *        findRecord) inside a loop or an array callback - read once and build a lookup map
  *   A17  hour arithmetic on dates (8 * 60 * 60, getTime() + 8) or a weekday / hour from the script time zone
- *        (getDay / getHours / setHours) - store real UTC, use Asia/Manila through Utilities.formatDate
+ *        (getDay / getHours / setHours) - store real UTC, local days through companyClock + formatDate(..., tz).
+ *        v3 (v10.1): a quoted 'Asia/Manila' anywhere but the DEFAULT_TZ constant line (reported per function, or
+ *        "top-level") - the default zone is named once
  *   A18  an id from the row count (getLastRow() > 0 ? x.getLastRow() ...) or from max(id) + 1
  *   A20  two top-level functions with the same name (Apps Script keeps the last one)
  *   A21  (v10.0) a route that returns tickets (getTickets, getTicket*, search*Ticket*, getReportData, getDashboard,
  *        getStepApprovals, ...) reaches no visibility check - neither its case nor the handler it calls uses
  *        ticketReadGuard / canViewTicket / requestScope / buildActorScope / mayReadTicket (or an admin-only check)
  * Frontend checks run per file in src/ (tests skipped):
- *   F3   hour arithmetic for Philippine time (8 * 60 * 60) - format with Intl and timeZone 'Asia/Manila'
+ *   F3   hour arithmetic for Philippine time (8 * 60 * 60). v3 (v10.1): outside src/utils/dateTime.js also
+ *        .toLocaleString( / .toLocaleDateString( / .toLocaleTimeString( and an Intl `timeZone:` option (the browser's
+ *        zone or a fixed one - use formatInZone / formatDateTime with the effective zone), and a quoted
+ *        'Asia/Manila' anywhere but the DEFAULT_ZONE constant (src/config/timeZones.js)
  *   F4   a fake save: `await new Promise(resolve => setTimeout(resolve, N))` or `TODO: Replace with actual API call`
  *
  * A deliberate exception carries `code-rules-allow <RULE> <reason>` on the same line or the line above.
@@ -171,6 +176,23 @@ const A16_EXEMPT = new Set(['ss', 'readTable', 'sheetValues', 'readRawTable', 'f
   'getSheetDataAsJSON', 'readHeaders']);
 const A17_EXEMPT = new Set([]);
 
+// A17 v3 / F3 v3 (v10.1): the default zone is named once - on the DEFAULT_TZ (AppScript) / DEFAULT_ZONE (src) line
+const ZONE_LITERAL = /(['"`])Asia\/Manila\1/g;
+const ZONE_CONSTANT_LINE = /^\s*(?:export\s+)?(?:const|var|let)\s+DEFAULT_(?:TZ|ZONE)\s*=/;
+
+/** Offsets of quoted 'Asia/Manila' in code (not comments), skipping the constant's own line and allow comments. */
+function zoneLiterals(raw, code, rule) {
+  const found = [];
+  each(ZONE_LITERAL, raw, m => {
+    if (code[m.index] !== m[1]) return; // inside a comment or another string
+    const lineStart = raw.lastIndexOf('\n', m.index - 1) + 1;
+    const lineEnd = raw.indexOf('\n', m.index);
+    if (ZONE_CONSTANT_LINE.test(raw.slice(lineStart, lineEnd === -1 ? raw.length : lineEnd))) return;
+    if (!allowed(raw, m.index, rule)) found.push(m.index);
+  });
+  return found;
+}
+
 function each(re, code, fn) {
   re.lastIndex = 0;
   let m;
@@ -187,6 +209,13 @@ function appscriptViolations(text) {
     if (seen.has(f.name)) add('A20', f.name, `defined twice (offsets ${seen.get(f.name)} and ${f.start})`);
     else seen.set(f.name, f.start);
   }
+
+  // A17 v3 - the default zone named outside its constant
+  const wholeCode = codeOnly(text);
+  zoneLiterals(text, wholeCode, 'A17').forEach(index => {
+    const owner = functions.find(f => index >= f.start && index < f.start + f.raw.length);
+    add('A17', owner ? owner.name : 'top-level', `line ${text.slice(0, index).split('\n').length} 'Asia/Manila' literal (use DEFAULT_TZ)`);
+  });
 
   for (const f of functions) {
     const local = { raw: f.raw, code: f.code };
@@ -278,6 +307,11 @@ function sourceFiles(dir) {
   return out;
 }
 
+// F3 v3 (v10.1): the browser's zone or a fixed zone outside dateTime.js
+const LOCALE_DATE = /\.toLocale(?:Date|Time)?String\s*\(/g;
+const TZ_OPTION = /\btimeZone\s*:/g;
+const DATE_TIME_FILE = 'src/utils/dateTime.js';
+
 const FAKE_SAVE = /await\s+new\s+Promise\s*\(\s*\(?\s*resolve\s*\)?\s*=>\s*setTimeout\s*\(\s*resolve\s*,\s*\d+\s*\)\s*\)/g;
 const FAKE_TODO = /TODO:\s*Replace with actual API call/g;
 
@@ -288,9 +322,15 @@ function frontendViolations(files, readFile) {
     const code = codeOnly(raw);
     const rel = path.relative(ROOT, file).replace(/\\/g, '/');
     const lineOf = idx => raw.slice(0, idx).split('\n').length;
-    each(HOUR_SHIFT, code, m => {
-      if (!allowed(raw, m.index, 'F3') && !violations.has(`F3 ${rel}`)) violations.set(`F3 ${rel}`, `line ${lineOf(m.index)} hour shift`);
-    });
+    const f3 = (index, detail) => {
+      if (!allowed(raw, index, 'F3') && !violations.has(`F3 ${rel}`)) violations.set(`F3 ${rel}`, `line ${lineOf(index)} ${detail}`);
+    };
+    each(HOUR_SHIFT, code, m => f3(m.index, 'hour shift'));
+    if (rel !== DATE_TIME_FILE) {
+      each(LOCALE_DATE, code, m => f3(m.index, `${m[0].replace(/\s*\($/, '')}() - the browser's zone (use dateTime.js)`));
+      each(TZ_OPTION, code, m => f3(m.index, 'Intl timeZone option (use dateTime.js formatInZone)'));
+    }
+    zoneLiterals(raw, code, 'F3').forEach(index => f3(index, "'Asia/Manila' literal (use DEFAULT_ZONE)"));
     each(FAKE_SAVE, code, m => {
       if (!allowed(raw, m.index, 'F4') && !violations.has(`F4 ${rel}`)) violations.set(`F4 ${rel}`, `line ${lineOf(m.index)} setTimeout save`);
     });
@@ -324,6 +364,8 @@ function selfTest() {
     ['A21 flags a ticket route without a check', "function doGet(e) {\n  switch (a) {\n    case 'getTicketFoo':\n      return foo(p);\n  }\n}\nfunction foo(p) {\n  return readTable('tickets');\n}\n", ['A21 getTicketFoo']],
     ['A21 passes a guard in the case', "function doGet(e) {\n  switch (a) {\n    case 'getTicketFoo':\n      return ticketReadGuard(p, id, 'x') || foo(p);\n  }\n}\n", []],
     ['A21 passes a check in the handler', "function doGet(e) {\n  switch (a) {\n    case 'getTickets':\n      return foo(p);\n  }\n}\nfunction foo(p) {\n  const s = requestScope(p.user_id, 'x');\n  return s;\n}\n", []],
+    ['A17 v3 flags the zone literal in a function', "const DEFAULT_TZ = 'Asia/Manila';\nfunction z(d) {\n  return Utilities.formatDate(d, 'Asia/Manila', 'yyyy');\n}\n", ['A17 z']],
+    ['A17 v3 flags a top-level literal, not the constant or comments', "const DEFAULT_TZ = 'Asia/Manila';\n// 'Asia/Manila' in a comment\nconst X = { tz: 'Asia/Manila' };\n", ['A17 top-level']],
     ['A21 ignores ticket types and allow comments', "function doGet(e) {\n  switch (a) {\n    case 'getTicketTypes':\n      return t();\n    // code-rules-allow A21 own inbox\n    case 'getTicketsForApproval':\n      return i();\n  }\n}\n", []]
   ];
   let failed = 0;
@@ -335,10 +377,17 @@ function selfTest() {
   }
   const frontCases = [
     ['F3 flags +8h', 'const t = new Date(d.getTime() + (8 * 60 * 60 * 1000));', ['F3 src/x.js']],
+    ['F3 v3 flags toLocaleString', 'const s = new Date(x).toLocaleString();', ['F3 src/x.js']],
+    ['F3 v3 flags a timeZone option', "const f = new Intl.DateTimeFormat('en-PH', { timeZone: tz });", ['F3 src/x.js']],
+    ['F3 v3 flags the zone literal, not the constant', "export const DEFAULT_ZONE = 'Asia/Manila';\nconst z = 'Asia/Manila';", ['F3 src/x.js']],
+    ['F3 v3 passes the constant, comments and dateTime calls', "export const DEFAULT_ZONE = 'Asia/Manila';\n// toLocaleString() in Asia/Manila\nconst s = formatDateTime(x, zone);", []],
     ['F4 flags a setTimeout save', 'async function s() {\n  await new Promise(resolve => setTimeout(resolve, 500));\n}', ['F4 src/x.js']],
     ['F4 flags the TODO marker', '// TODO: Replace with actual API call\n', ['F4 src/x.js']],
     ['F4 allow comment', '// code-rules-allow F4 minimum spinner time\nawait new Promise(resolve => setTimeout(resolve, 600));', []]
   ];
+  const dateTimeCase = [...frontendViolations([path.join(ROOT, DATE_TIME_FILE)], () => "const f = new Intl.DateTimeFormat('en-US', { timeZone: zone });").keys()];
+  if (dateTimeCase.length) failed++;
+  console.log(`${dateTimeCase.length ? 'FAIL' : 'PASS'}  F3 v3 dateTime.js may use Intl timeZone`);
   for (const [name, src, expected] of frontCases) {
     const got = [...frontendViolations([path.join(SRC, 'x.js')], () => src).keys()];
     const ok = JSON.stringify(got) === JSON.stringify(expected);

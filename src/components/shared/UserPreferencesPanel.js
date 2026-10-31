@@ -4,19 +4,21 @@ import { useDarkMode } from '../../contexts/DarkModeContext';
 import { API } from '../../api/googleSheet';
 import { useToast } from './Toast';
 import Icons from './Icons';
+import DisplayTimeZoneSelect from './DisplayTimeZoneSelect';
+import { DEFAULT_ZONE } from '../../utils/dateTime';
 
 /**
  * UserPreferencesPanel Component
  *
  * Allows users to manage their personal preferences:
  * - Dark mode toggle with profile sync
- * - Timezone selection
+ * - Display time zone (v10.1: display_timezone, blank = the company zone)
  * - Language preferences
  * - Notification settings
  * - Dashboard layout options
  */
 const UserPreferencesPanel = ({ isOpen, onClose }) => {
-  const { user } = useUser();
+  const { user, companyZone, setDisplayTimezone } = useUser();
   // Firebase users carry uid; the dev mock user carries id
   const userId = user?.uid || user?.id;
   const { isDarkMode, setDarkMode } = useDarkMode();
@@ -24,7 +26,8 @@ const UserPreferencesPanel = ({ isOpen, onClose }) => {
 
   const [preferences, setPreferences] = useState({
     dark_mode: false,
-    timezone: 'Asia/Manila',
+    timezone: DEFAULT_ZONE,
+    display_timezone: '',
     language: 'en',
     email_notifications: true,
     desktop_notifications: true,
@@ -36,15 +39,6 @@ const UserPreferencesPanel = ({ isOpen, onClose }) => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
-  const timezones = [
-    { value: 'Asia/Manila', label: 'Asia/Manila (UTC+8)' },
-    { value: 'UTC', label: 'UTC (UTC+0)' },
-    { value: 'America/New_York', label: 'America/New_York (UTC-5)' },
-    { value: 'Europe/London', label: 'Europe/London (UTC+0)' },
-    { value: 'Asia/Tokyo', label: 'Asia/Tokyo (UTC+9)' },
-    { value: 'Australia/Sydney', label: 'Australia/Sydney (UTC+11)' }
-  ];
 
   const languages = [
     { value: 'en', label: 'English' },
@@ -113,6 +107,7 @@ const UserPreferencesPanel = ({ isOpen, onClose }) => {
 
       // Save all preferences
       await API.Users.updatePreferences(userId, preferences);
+      setDisplayTimezone(preferences.display_timezone || '');
       success('Preferences saved successfully');
       onClose();
     } catch (error) {
@@ -237,19 +232,13 @@ const UserPreferencesPanel = ({ isOpen, onClose }) => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Timezone
+                        Display time zone
                       </label>
-                      <select
-                        value={preferences.timezone}
-                        onChange={(e) => handlePreferenceChange('timezone', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      >
-                        {timezones.map((tz) => (
-                          <option key={tz.value} value={tz.value}>
-                            {tz.label}
-                          </option>
-                        ))}
-                      </select>
+                      <DisplayTimeZoneSelect
+                        value={preferences.display_timezone}
+                        onChange={(zone) => handlePreferenceChange('display_timezone', zone)}
+                        companyZone={companyZone()}
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAPIConnection, useAPITest } from '../../hooks/useAPI';
 import { APIUtils } from '../../api/googleSheet';
 import Icons from './Icons';
+import { formatTimeOnly } from '../../utils/dateTime';
 
 const APITestPanel = () => {
   const { status, loading, lastChecked, checkConnection } = useAPIConnection();
@@ -81,7 +82,7 @@ const APITestPanel = () => {
               </div>
               {lastChecked && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Last checked: {lastChecked.toLocaleTimeString()}
+                  Last checked: {formatTimeOnly(lastChecked, undefined, { seconds: true })}
                 </p>
               )}
             </div>

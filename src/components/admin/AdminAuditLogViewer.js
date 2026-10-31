@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useUser } from '../../contexts/UserContext';
 import { API } from '../../api/googleSheet';
 import Icons from '../shared/Icons';
+import { formatDateTime } from '../../utils/dateTime';
 
 const PAGE_SIZE = 50;
 const EMPTY_FILTERS = { actionType: '', targetEntity: '', targetId: '', dateFrom: '', dateTo: '' };
@@ -139,7 +140,7 @@ const AdminAuditLogViewer = () => {
                   return (
                     <React.Fragment key={key}>
                       <tr className="hover:bg-gray-50">
-                        <td className="px-3 py-2 whitespace-nowrap text-gray-700">{log.timestamp ? new Date(log.timestamp).toLocaleString() : ''}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-gray-700">{formatDateTime(log.timestamp)}</td>
                         <td className="px-3 py-2 text-gray-700 break-all">{log.admin_user_id}</td>
                         <td className="px-3 py-2 font-medium text-gray-900">{log.action_type}</td>
                         <td className="px-3 py-2 text-gray-700">{log.target_entity}</td>

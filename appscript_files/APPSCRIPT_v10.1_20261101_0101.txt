@@ -2,7 +2,7 @@
 =================================================================================
  * Ticketing & Workflow Orchestration System - Google Apps Script Backend API
  *
- * Version: 10.1 (country calendars + time zones - on v10.0; in progress, see Phase 20.0)
+ * Version: 10.1 (country calendars + time zones: company clock, SLA / ticket year / filters per company, display zone - on v10.0)
  * Phase 1A: Custom Fields System (12 functions) → v6.1
  * Phase 1B: Workflow Steps System (18 functions) → v6.2
  * Phase 1C: Ticket Management (15 functions) → v6.3
@@ -173,15 +173,20 @@
  *     country calendar; report and list date filters are the asked company's days (dayStartIn / dayEndIn); invite expiry
  *     in the company zone. MANILA_TZ / MANILA_OFFSET / the fixed +8 h helpers are gone (DEFAULT_TZ = the one default).
  *     getTickets is always one page - without `limit` = 50 (D6: the v10.0 array answer is removed; ADMIN_Tools v1.4)
+ *   T3 (display): user preferences read / written by header (A1; the positional row dropped display_timezone) +
+ *     display_timezone (blank = company zone, else a real zone); getUserProfile gives each company its country_code /
+ *     timezone and the user display_timezone; createCompanyHoliday overrides_country (remove = the company works a
+ *     country holiday); new company SLA rules leave timezone blank (the company clock decides). Frontend: dateTime.js,
+ *     effectiveZone, Country Calendars + Company Region + Profile display zone; check:code-rules A17 v3 / F3 v3
  *   - Rebuild apply needed: 2 new tabs (country_calendars, country_holidays); companies + 2, company_holidays + 1,
  *     user_preferences + 1 columns
  *   - From v9.x also the v10.0 rebuild: 2 new tabs (ticket_participants, email_outbox); ticket_types + 4, tickets + 3,
  *     custom_fields + 1, notifications + 1 columns
  *
- * Deploy description: v10.1 20261101_0101 - country calendars + company time zones (in progress)
+ * Deploy description: v10.1 20261101_0101 - country calendars, company time zones, SLA + ticket year per company
  *   (paste at redeploy: Deploy > Manage deployments > Edit > New version > Description)
  *
- * Last Updated: November 1, 2026 01:01 UTC+8 (file: APPSCRIPT_v10.1_20261101_0101.txt)
+ * Last Updated: November 1, 2026 01:01 UTC+8 (file: APPSCRIPT_v10.1_20261101_0101.txt; T2 + T3 in the same file - not deployed yet)
  * Author: System Generated
  * Description: This script provides a complete serverless backend using Google Sheets
  * for the dynamic ticketing system, as specified in the design document. It includes
@@ -3159,158 +3164,83 @@ function deleteTicketType(ticketTypeId) {
  * =================================================================================
  */
 
+/** Preference defaults (v10.1: display_timezone '' = show dates in the company's zone). */
+const PREFERENCE_DEFAULTS = {
+  dark_mode: false, timezone: DEFAULT_TZ, language: 'en', email_notifications: true, desktop_notifications: true,
+  dashboard_layout: 'grid', items_per_page: 20, auto_refresh: true, refresh_interval: 30000, display_timezone: ''
+};
+
+/** A user_preferences row (or none) as the API answer, with defaults. */
+function preferencesView(userId, record) {
+  const r = record || {};
+  const flag = (value, fallback) => (value === '' || value === null || value === undefined ? fallback : boolFlag(value));
+  const zone = String(r.display_timezone || '').trim();
+  return {
+    user_id: userId,
+    dark_mode: flag(r.dark_mode, PREFERENCE_DEFAULTS.dark_mode),
+    timezone: r.timezone || PREFERENCE_DEFAULTS.timezone,
+    language: r.language || PREFERENCE_DEFAULTS.language,
+    email_notifications: flag(r.email_notifications, true),
+    desktop_notifications: flag(r.desktop_notifications, true),
+    dashboard_layout: r.dashboard_layout || PREFERENCE_DEFAULTS.dashboard_layout,
+    items_per_page: Number(r.items_per_page) || PREFERENCE_DEFAULTS.items_per_page,
+    auto_refresh: flag(r.auto_refresh, true),
+    refresh_interval: Number(r.refresh_interval) || PREFERENCE_DEFAULTS.refresh_interval,
+    display_timezone: zone && validTimeZone(zone) ? zone : '',
+    created_at: r.created_at || null,
+    updated_at: r.updated_at || null
+  };
+}
+
 /**
- * Retrieves user preferences by user ID.
+ * Retrieves user preferences by user ID (v10.1: read by header - A1 - and display_timezone).
  * @param {string} userId - The user's ID.
  * @returns {object} - The user's preferences or default preferences.
  */
 function getUserPreferences(userId) {
-  try {
-    const ss = openSpreadsheet();
-    // v9.4 (A10): getSheetByName returns null for a missing tab - it never threw, so the catch never ran
-    const preferencesSheet = ss.getSheetByName(SHEETS.USER_PREFERENCES) || initializeUserPreferencesSheet();
-
-    const data = sheetValues(preferencesSheet);
-
-    // Look for existing user preferences
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][0] === userId) {
-        // Found existing preferences, return them
-        return {
-          user_id: data[i][0],
-          dark_mode: data[i][1] || false,
-          timezone: data[i][2] || DEFAULT_TZ,
-          language: data[i][3] || 'en',
-          email_notifications: data[i][4] !== false, // Default to true
-          desktop_notifications: data[i][5] !== false, // Default to true
-          dashboard_layout: data[i][6] || 'grid',
-          items_per_page: data[i][7] || 20,
-          auto_refresh: data[i][8] !== false, // Default to true
-          refresh_interval: data[i][9] || 30000,
-          created_at: data[i][10],
-          updated_at: data[i][11]
-        };
-      }
-    }
-
-    // If no preferences found, return default preferences
-    const defaultPreferences = {
-      user_id: userId,
-      dark_mode: false,
-      timezone: DEFAULT_TZ,
-      language: 'en',
-      email_notifications: true,
-      desktop_notifications: true,
-      dashboard_layout: 'grid',
-      items_per_page: 20,
-      auto_refresh: true,
-      refresh_interval: 30000,
-      created_at: null,
-      updated_at: null
-    };
-
-    Logger.log(`No existing preferences found for user ${userId}, returning defaults`);
-    return defaultPreferences;
-
-  } catch (error) {
-    Logger.log(`Error getting user preferences: ${error.message}`);
-    throw error;
-  }
+  // v9.4 (A10): getSheetByName returns null for a missing tab - it never threw, so the catch never ran
+  if (!ss().getSheetByName(SHEETS.USER_PREFERENCES)) initializeUserPreferencesSheet();
+  const found = findRecord(SHEETS.USER_PREFERENCES, userId, 'user_id');
+  if (!found) Logger.log(`No existing preferences found for user ${userId}, returning defaults`);
+  return preferencesView(userId, found && found.record);
 }
 
 /**
- * Updates or creates user preferences.
+ * Updates or creates user preferences. v10.1: written by header (A1 - the old positional row dropped every column
+ * after updated_at), only known keys change, display_timezone is blank (= the company zone) or a real IANA zone.
  * @param {string} userId - The user's ID.
  * @param {object} preferences - The preferences to update.
  * @returns {object} - The updated preferences.
  */
 function updateUserPreferences(userId, preferences) {
-  try {
-    const ss = openSpreadsheet();
-    // v9.4 (A10): getSheetByName returns null for a missing tab - it never threw, so the catch never ran
-    const preferencesSheet = ss.getSheetByName(SHEETS.USER_PREFERENCES) || initializeUserPreferencesSheet();
-
-    const data = sheetValues(preferencesSheet);
-    let rowIndex = -1;
-    let existingPrefs = null;
-
-    // Look for existing user preferences
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][0] === userId) {
-        rowIndex = i + 1; // Sheet rows are 1-indexed
-        existingPrefs = {
-          dark_mode: data[i][1] || false,
-          timezone: data[i][2] || DEFAULT_TZ,
-          language: data[i][3] || 'en',
-          email_notifications: data[i][4] !== false,
-          desktop_notifications: data[i][5] !== false,
-          dashboard_layout: data[i][6] || 'grid',
-          items_per_page: data[i][7] || 20,
-          auto_refresh: data[i][8] !== false,
-          refresh_interval: data[i][9] || 30000,
-          created_at: data[i][10],
-          updated_at: data[i][11]
-        };
-        break;
-      }
+  if (!ss().getSheetByName(SHEETS.USER_PREFERENCES)) initializeUserPreferencesSheet();
+  const changes = {};
+  Object.keys(PREFERENCE_DEFAULTS).forEach(key => {
+    if (preferences[key] !== undefined) changes[key] = typeof preferences[key] === 'string' ? preferences[key].trim() : preferences[key];
+  });
+  if ('display_timezone' in changes) {
+    const outdated = requireColumns(SHEETS.USER_PREFERENCES, ['display_timezone']);
+    if (outdated) throw new Error(outdated.message);
+    if (changes.display_timezone && !validTimeZone(changes.display_timezone)) {
+      throw new Error(`${changes.display_timezone} is not a time zone (use a name like Asia/Singapore, or blank for the company zone)`);
     }
-
-    const now = new Date();
-    const updatedPrefs = {
-      user_id: userId,
-      dark_mode: preferences.dark_mode !== undefined ? preferences.dark_mode : (existingPrefs?.dark_mode || false),
-      timezone: preferences.timezone || existingPrefs?.timezone || DEFAULT_TZ,
-      language: preferences.language || existingPrefs?.language || 'en',
-      email_notifications: preferences.email_notifications !== undefined ? preferences.email_notifications : (existingPrefs?.email_notifications !== false),
-      desktop_notifications: preferences.desktop_notifications !== undefined ? preferences.desktop_notifications : (existingPrefs?.desktop_notifications !== false),
-      dashboard_layout: preferences.dashboard_layout || existingPrefs?.dashboard_layout || 'grid',
-      items_per_page: preferences.items_per_page || existingPrefs?.items_per_page || 20,
-      auto_refresh: preferences.auto_refresh !== undefined ? preferences.auto_refresh : (existingPrefs?.auto_refresh !== false),
-      refresh_interval: preferences.refresh_interval || existingPrefs?.refresh_interval || 30000,
-      created_at: existingPrefs?.created_at || now,
-      updated_at: now
-    };
-
-    const rowData = [
-      updatedPrefs.user_id,
-      updatedPrefs.dark_mode,
-      updatedPrefs.timezone,
-      updatedPrefs.language,
-      updatedPrefs.email_notifications,
-      updatedPrefs.desktop_notifications,
-      updatedPrefs.dashboard_layout,
-      updatedPrefs.items_per_page,
-      updatedPrefs.auto_refresh,
-      updatedPrefs.refresh_interval,
-      updatedPrefs.created_at,
-      updatedPrefs.updated_at
-    ];
-
-    if (rowIndex > -1) {
-      // Update existing row
-      preferencesSheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
-      invalidateTable(cacheNameOf(preferencesSheet));
-      Logger.log(`Updated preferences for user ${userId}`);
-    } else {
-      // Create new row
-      preferencesSheet.appendRow(rowData);
-      invalidateTable(cacheNameOf(preferencesSheet));
-      Logger.log(`Created new preferences for user ${userId}`);
-    }
-
-    // Log the admin action
-    logAdminAction('UPDATE_USER_PREFERENCES', userId, {
-      updatedFields: Object.keys(preferences),
-      preferences: updatedPrefs
-    });
-
-    return updatedPrefs;
-
-  } catch (error) {
-    Logger.log(`Error updating user preferences: ${error.message}`);
-    throw error;
   }
+  const found = findRecord(SHEETS.USER_PREFERENCES, userId, 'user_id');
+  const now = new Date();
+  const current = preferencesView(userId, found && found.record);
+  const record = { ...(found ? found.record : {}), ...current, ...changes, user_id: userId,
+    created_at: current.created_at || now, updated_at: now };
+  if (found) {
+    updateRecordFields(SHEETS.USER_PREFERENCES, userId, record, 'user_id');
+    Logger.log(`Updated preferences for user ${userId}`);
+  } else {
+    appendRecord(SHEETS.USER_PREFERENCES, record);
+    Logger.log(`Created new preferences for user ${userId}`);
+  }
+  logAdminAction(userId, 'UPDATE_USER_PREFERENCES', 'user_preferences', userId, { updatedFields: Object.keys(changes), changes });
+  return preferencesView(userId, record);
 }
+
 
 /**
  * Initializes the user_preferences sheet with proper headers.
@@ -12640,7 +12570,13 @@ function getUserProfileWithAccess(userId) {
   const companyIds = unique(roles.map(r => String(r.company_id)));
   const userCompanies = (companies ? companies.records : [])
     .filter(c => companyIds.includes(String(c.id)) && isActiveFlag(c.is_active))
-    .map(c => ({ id: c.id, name: c.name, code: c.code }));
+    .map(c => {
+      // v10.1: the company clock, so the app shows dates in the company's zone (companyClock: valid zone or the country's)
+      const clock = companyClock(c.id);
+      return { id: c.id, name: c.name, code: c.code, country_code: clock.country, timezone: clock.tz };
+    });
+  // v10.1: the user's display zone ('' = the company zone); no write when the tab doesn't exist yet
+  const preference = findRecord(SHEETS.USER_PREFERENCES, userId, 'user_id');
 
   const general = getUserGeneralRole(userId);
 
@@ -12660,6 +12596,7 @@ function getUserProfileWithAccess(userId) {
         effective_end_date: r.effective_end_date
       })),
       companies: userCompanies,
+      display_timezone: preferencesView(userId, preference && preference.record).display_timezone,
       general_role: general.status === 'success' ? general.data.general_role : 'viewer'
     },
     message: 'User profile retrieved'
@@ -14930,7 +14867,8 @@ function companySLARuleValues(payload, partial) {
   ['escalation_recipients', 'business_days'].forEach(key => {
     if (!partial || has(key)) values[key] = JSON.stringify(Array.isArray(payload[key]) ? payload[key] : listParam(payload[key]));
   });
-  if (!partial && !values.timezone) values.timezone = DEFAULT_TZ;
+  // v10.1: SLA time runs in the COMPANY's zone (slaCalendar + companyClock); the rule's timezone column is kept for old
+  // rows and not used - blank on new rules means "the company zone"
   return { values };
 }
 
@@ -16282,15 +16220,23 @@ function createCompanyHoliday(payload) {
   if (!String(payload.name || '').trim()) return { status: 'error', message: 'name is required' };
   const companyId = payload.company_id || '';
   if (companyId && !findRecord(SHEETS.COMPANIES, companyId)) return { status: 'error', message: `Company ${companyId} not found` };
+  // v10.1: 'add' = an extra day off for the company; 'remove' = the company works on one of its country's holidays
+  const override = String(payload.overrides_country || 'add') === 'remove' ? 'remove' : 'add';
+  if (override === 'remove') {
+    if (!companyId) return { status: 'error', message: 'A "we work that day" entry needs a company' };
+    const outdated = requireColumns(SHEETS.COMPANY_HOLIDAYS, ['overrides_country']);
+    if (outdated) return outdated;
+  }
   if (liveRecords(SHEETS.COMPANY_HOLIDAYS).some(h => String(h.company_id || '') === String(companyId) && holidayDay(h.date) === date)) {
     return { status: 'error', message: `${date} is already a holiday${companyId ? ' for this company' : ''}` };
   }
   const now = new Date();
   // The date is stored as text ('2026-12-25'), so Sheets can't turn it into a midnight in another time zone
   const holiday = appendRecord(SHEETS.COMPANY_HOLIDAYS, { id: generateId('hol'), company_id: companyId, date: `'${date}`,
-    name: String(payload.name).trim(), is_active: true, created_at: now, created_by: actor, updated_at: now, updated_by: actor });
-  logAdminAction(actor, 'CREATE_COMPANY_HOLIDAY', 'company_holiday', holiday.id, { company_id: companyId, date, name: holiday.name });
-  return { status: 'success', data: { ...holiday, date }, message: 'Holiday added' };
+    name: String(payload.name).trim(), overrides_country: override, is_active: true, created_at: now, created_by: actor,
+    updated_at: now, updated_by: actor });
+  logAdminAction(actor, 'CREATE_COMPANY_HOLIDAY', 'company_holiday', holiday.id, { company_id: companyId, date, name: holiday.name, overrides_country: override });
+  return { status: 'success', data: { ...holiday, date }, message: override === 'remove' ? 'Working day saved' : 'Holiday added' };
 }
 
 function deleteCompanyHoliday(payload) {
@@ -18671,7 +18617,9 @@ function setCompanyRegion(payload = {}) {
   const code = String(payload.country_code || found.record.country_code || DEFAULT_COUNTRY).toUpperCase();
   const cal = calendars[code];
   if (!cal || !cal.is_active) return { status: 'error', message: `No calendar for ${code} - add the country first (Country calendars)` };
-  const tz = String(payload.timezone || cal.calendar_tz);
+  // No zone sent: keep the company's own zone when it is one of the country's (review CR5-02), else the reference zone
+  const kept = String(found.record.timezone || '');
+  const tz = String(payload.timezone || (cal.allowed_timezones.includes(kept) ? kept : cal.calendar_tz));
   if (!cal.allowed_timezones.includes(tz)) return { status: 'error', message: `${tz} isn't a zone of ${code} (allowed: ${cal.allowed_timezones.join(', ')})` };
   const previous = String(found.record.country_code || DEFAULT_COUNTRY).toUpperCase();
   const hasTickets = (Number(found.record.ticket_count) || 0) > 0 || isLockedFlag(found.record.code_locked);

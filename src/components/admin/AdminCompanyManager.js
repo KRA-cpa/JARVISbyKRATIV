@@ -5,6 +5,8 @@ import { useUser } from '../../contexts/UserContext';
 import { useToast } from '../shared/Toast';
 import Icons from '../shared/Icons';
 import CompanyEmailSettings from './CompanyEmailSettings';
+import CompanyRegionSettings from './CompanyRegionSettings';
+import { formatDateOnly } from '../../utils/dateTime';
 
 // Only true / 'TRUE' is locked - before AppScript v9.1, editing a company wrote a date into code_locked
 const isCodeLocked = company => company?.code_locked === true || String(company?.code_locked).toUpperCase() === 'TRUE';
@@ -16,6 +18,8 @@ const AdminCompanyManager = () => {
   const { ToastContainer, success, error: showError } = toast;
   // v9.6: the company whose email settings are open
   const [emailCompany, setEmailCompany] = useState(null);
+  // v10.1: the company whose region (country calendar + time zone) is open
+  const [regionCompany, setRegionCompany] = useState(null);
   const notify = (type, message) => (toast[type] || toast.info)(message);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingCompany, setEditingCompany] = useState(null);
@@ -325,10 +329,10 @@ const AdminCompanyManager = () => {
                   </div>
                   {company.created_at && (
                     <p className="text-xs text-gray-400 mt-1">
-                      Created: {new Date(company.created_at).toLocaleDateString()}
+                      Created: {formatDateOnly(company.created_at, company.timezone)}
                       {isCodeLocked(company) && company.code_locked_at && (
                         <span className="ml-2">
-                          • Locked: {new Date(company.code_locked_at).toLocaleDateString()}
+                          • Locked: {formatDateOnly(company.code_locked_at, company.timezone)}
                         </span>
                       )}
                     </p>
@@ -343,6 +347,14 @@ const AdminCompanyManager = () => {
                     aria-label={`Email settings for ${company.name}`}
                   >
                     <Icons.Bell size={16} />
+                  </button>
+                  <button
+                    onClick={() => setRegionCompany(company)}
+                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
+                    title={`Region: ${company.country_code || 'PH'} / ${company.timezone || 'default'}`}
+                    aria-label={`Region for ${company.name}`}
+                  >
+                    <Icons.Calendar size={16} />
                   </button>
                   <button
                     onClick={() => setEditingCompany(company)}
@@ -405,6 +417,19 @@ const AdminCompanyManager = () => {
       {/* v9.6: company email settings */}
       {emailCompany && (
         <CompanyEmailSettings company={emailCompany} onClose={() => setEmailCompany(null)} notify={notify} />
+      )}
+
+      {/* v10.1: country calendar + time zone */}
+      {regionCompany && (
+        <CompanyRegionSettings
+          company={regionCompany}
+          isLocked={isCodeLocked(regionCompany)}
+          notify={notify}
+          onClose={saved => {
+            setRegionCompany(null);
+            if (saved) refetch();
+          }}
+        />
       )}
 
       {/* Company List */}

@@ -1,6 +1,6 @@
 # JarvisByERP Dependency Mapping
 
-**Date**: September 28, 2025 - 🏷️ **TICKET TAGS & COLLABORATION SYSTEM UPDATE** (latest section: October 30, 2026 — proxy auth, dashboard call, SLA escalation)
+**Date**: September 28, 2025 - 🏷️ **TICKET TAGS & COLLABORATION SYSTEM UPDATE** (latest section: November 1, 2026 — AppScript v10.1 country calendars + time zones)
 **Purpose**: Map all component dependencies, imports, and exports to prevent circular dependencies and ensure proper architecture with ticket tags and collaboration system integration
 
 ### **🔬 PROOF OF CONCEPT BACKEND ARCHITECTURE**
@@ -382,6 +382,23 @@ Until v9.1 nothing imported the ticket components or `AdminWorkflowBuilder`; `np
 | `src/components/tickets/TicketDashboard.js` | Component | `?ticket=<id>` opens that ticket (bell links) | `TicketsPage` |
 
 - **Unmounted now**: 8 components + 2 icons (`AdminSLAEscalationManager` mounted in v9.5).
+
+### **🌏 COUNTRY CALENDARS, COMPANY TIME ZONES, DISPLAY ZONE (November 1, 2026 — AppScript v10.1)**
+
+| File | Layer | Imports (new in bold) | Used by |
+|---|---|---|---|
+| `src/config/timeZones.js` | Config (new) | - (`DEFAULT_ZONE` - the only `'Asia/Manila'` in src/, `DEFAULT_COUNTRY`) | `dateTime.js`, `googleSheet.js` (mock defaults), `CompanyRegionSettings` |
+| `src/utils/dateTime.js` | Util (new, leaf) | **`config/timeZones`** (`formatInZone`, `formatDateTime`, `formatDateOnly`, `formatTimeOnly`, `dayInZone`, `zoneParts`, `wallClockIn` / `fromWallClock`, `zoneOffsetMinutes`, `zoneLabel`, `listTimeZones`, `get` / `setDisplayZone`) | every date display (F3 v3); `UserContext` imports it like `utils/sessionGuard` (a leaf with no app imports - the one context → util exception) |
+| `src/utils/slaCalculator.js` | Util (fixed) | **`dateTime`** (the +8 h `toPhilippineTime` is gone; day math on the zone's wall clock; `formatSLADate`) | `AdminWorkflowBuilder`, `TicketDetail`, `SLANotificationSystem`, `useAPI` |
+| `src/contexts/UserContext.js` | Context | **`dateTime`** (new `effectiveZone(companyId, fallbackZone)`, `companyZone`, `setDisplayTimezone`, `displayTimezone` from the profile; keeps `setDisplayZone` on the current company) | every component through `useUser` |
+| `src/api/googleSheet.js` | API | **`config/timeZones`**; new **`CountryCalendars`** (`getAll`, `getHolidays`, `save`, `importHolidays`, `addBuiltInHolidays`), **`Companies.setRegion`**; `SLA.addPhilippineHolidays` removed (the country calendar has it) | hooks below |
+| `src/hooks/useAPI.js` | Hooks | new **`useCountryCalendars`**, **`useCountryHolidays`**, **`useCompanyRegion`** | components below |
+| `src/components/admin/AdminCountryCalendars.js` | Component (new, mounted) | **`useCountryCalendars`**, **`useCountryHolidays`**, `dateTime` | `AdminPage` tab **Country Calendars** |
+| `src/components/admin/CompanyRegionSettings.js` | Component (new, mounted) | **`useCountryCalendars`**, **`useCompanyRegion`**, `dateTime`, `config/timeZones` | `AdminCompanyManager` (📅 Region) |
+| `src/components/shared/DisplayTimeZoneSelect.js` | Shared component (new, mounted) | `dateTime` | `ProfilePage` (Preferences), `UserPreferencesPanel` |
+| `src/components/admin/AdminSLAEscalationManager.js` | Component | Holidays panel: country days + *We work* / *Add day off* (`overrides_country`) | `AdminPage` |
+| `src/components/shared/LiveClock.js` | Shared component | **`dateTime`** (display zone + its label; the +8 h shift is gone) | `Header`, `DashboardPage` |
+| 20 components / pages (Header, SLANotificationSystem, TicketDashboard, TicketDetail, TicketReport, TicketLinksManager, TicketCollaborationManager, WorkflowStep, DashboardPage, ProfilePage, AdminAuditLogViewer, AdminCompanyManager, AdminUserInvites, AdminRoleTypeList, AdminUserProfileTypeList, DateBasedRoleAssignmentManager, CompanySLAManager, ConfigurationExportImportDialog, APIConnectionStatus, APITestPanel, InfiniteLoopMonitor) + `utils/externalAppIntegration` | - | **`dateTime`** instead of `toLocale*String()` / a fixed Manila `Intl` | - |
 
 ### **🔒 TICKET ACCESS, PAGING, RESTRICTED, NOTIFICATIONS (November 1, 2026 — AppScript v10.0)**
 

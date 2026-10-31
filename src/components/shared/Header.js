@@ -6,13 +6,10 @@ import Icons from './Icons';
 import { HeaderClock } from './LiveClock';
 import DarkModeToggle from './DarkModeToggle';
 import { useNotifications } from '../../hooks/useAPI';
+import { formatDateTime, toDateValue } from '../../utils/dateTime';
 
-// Notification times in Manila (compliance F3: Intl with the time zone, no hour arithmetic)
-const manilaTime = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' });
-const formatNotificationTime = iso => {
-  const date = new Date(iso);
-  return isNaN(date.getTime()) ? '' : manilaTime.format(date);
-};
+// Notification times in the display zone (v10.1, compliance F3 v3: dateTime.js, no hour arithmetic)
+const formatNotificationTime = iso => formatDateTime(toDateValue(iso) || '');
 
 // The bell shows the signed-in user's own notifications from the backend (AppScript v9.5 getNotifications) -
 // SLA warnings, overdue notices and escalations written by the server's escalation run

@@ -10,6 +10,7 @@ import { RESTRICTED_LABEL, isRestrictedStub } from '../../config/labels';
 import TicketForm from './TicketForm';
 import TicketDetail from './TicketDetail';
 import TagSearchFilter from '../shared/TagSearchFilter';
+import { DEFAULT_ZONE, dayInZone, formatDateOnly } from '../../utils/dateTime';
 
 // Ticket statuses that end the workflow (AppScript TERMINAL_TICKET_STATUSES)
 const TERMINAL_STATUSES = ['completed', 'rejected', 'cancelled'];
@@ -32,9 +33,11 @@ const TERMINAL_STATUSES = ['completed', 'rejected', 'cancelled'];
 const SEARCH_DEBOUNCE_MS = 300;
 
 const TicketDashboard = () => {
-  const { user } = useUser();
+  const { user, effectiveZone, companyZone } = useUser();
   const currentUserId = user?.uid || user?.id;
   const { data: companies } = useCompanies();
+  // v10.1: a company's zone from the list (an admin sees companies outside the profile)
+  const listedZone = companyId => (companies || []).find(c => String(c.id) === String(companyId))?.timezone;
   const { data: ticketTypes } = useTicketTypes();
   const { data: approvalInbox, refetch: refetchInbox } = useTicketsForApproval(currentUserId);
   const { data: sharedWithMe, refetch: refetchShared } = useSharedTickets(currentUserId);
@@ -73,8 +76,8 @@ const TicketDashboard = () => {
   const dateFrom = (() => {
     const days = { today: 0, week: 7, month: 30 }[filters.dateRange];
     if (days === undefined) return '';
-    const d = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+    // v10.1: the server reads the day in the filtered company's zone (else the default), so compute it there too
+    return dayInZone(new Date(Date.now() - days * 24 * 60 * 60 * 1000), filters.company ? companyZone(filters.company, listedZone(filters.company)) : DEFAULT_ZONE);
   })();
   const serverFilters = {
     q: debouncedSearch,
@@ -194,7 +197,8 @@ const TicketDashboard = () => {
       const now = new Date();
       const dueDate = new Date(ticket.step_due_date);
       const isOverdue = now > dueDate;
-      const isDueToday = dueDate.toDateString() === now.toDateString();
+      const zone = companyZone(ticket.company_id, listedZone(ticket.company_id)); // v10.1: the company's today, as the server counts it
+      const isDueToday = dayInZone(dueDate, zone) === dayInZone(now, zone);
 
       switch (filters.slaStatus) {
         case 'overdue': return isOverdue;
@@ -447,7 +451,7 @@ const TicketDashboard = () => {
                   {ticket.created_at && (
                     <>
                       <span className="text-gray-300">•</span>
-                      <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
+                      <span>{formatDateOnly(ticket.created_at, effectiveZone(ticket.company_id, listedZone(ticket.company_id)))}</span>
                     </>
                   )}
                   {inInbox && (

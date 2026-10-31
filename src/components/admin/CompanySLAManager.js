@@ -38,7 +38,7 @@ const CompanySLAManager = () => {
     businessHoursStart: '09:00',
     businessHoursEnd: '17:00',
     businessDays: [1, 2, 3, 4, 5], // Monday to Friday
-    timezone: 'Asia/Manila'
+    timezone: '' // v10.1: SLA time runs in the company's zone (Company -> Region); kept blank
   });
 
   const slaUnits = [
@@ -49,13 +49,6 @@ const CompanySLAManager = () => {
     { value: 'business_days', label: 'Business Days' }
   ];
 
-  const timezones = [
-    { value: 'Asia/Manila', label: 'Asia/Manila (UTC+8)' },
-    { value: 'UTC', label: 'UTC (UTC+0)' },
-    { value: 'America/New_York', label: 'America/New_York (UTC-5)' },
-    { value: 'Europe/London', label: 'Europe/London (UTC+0)' },
-    { value: 'Asia/Tokyo', label: 'Asia/Tokyo (UTC+9)' }
-  ];
 
   const weekDays = [
     { value: 1, label: 'Monday' },
@@ -151,7 +144,7 @@ const CompanySLAManager = () => {
       businessHoursStart: '09:00',
       businessHoursEnd: '17:00',
       businessDays: [1, 2, 3, 4, 5],
-      timezone: 'Asia/Manila'
+      timezone: ''
     });
   };
 
@@ -503,20 +496,12 @@ const CompanySLAManager = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Timezone
+                      Time zone
                     </label>
-                    <select
-                      name="timezone"
-                      value={formData.timezone}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      {timezones.map((tz) => (
-                        <option key={tz.value} value={tz.value}>
-                          {tz.label}
-                        </option>
-                      ))}
-                    </select>
+                    <p className="text-sm text-gray-600">
+                      The company's time zone, weekends and holidays (Admin → Companies → Region). Business hours
+                      above are in that zone.
+                    </p>
                   </div>
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">

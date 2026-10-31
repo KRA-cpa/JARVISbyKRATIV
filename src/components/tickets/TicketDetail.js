@@ -10,6 +10,7 @@ import TicketLinksManager from './TicketLinksManager';
 import Icons from '../shared/Icons';
 import { API } from '../../api/googleSheet';
 import { RESTRICTED_LABEL, RESTRICTED_TICKET_MESSAGE, isRestrictedStub } from '../../config/labels';
+import { formatDateTime } from '../../utils/dateTime';
 
 // Ticket statuses that end the workflow (AppScript TERMINAL_TICKET_STATUSES)
 const TERMINAL_STATUSES = ['Completed', 'Rejected', 'Cancelled'];
@@ -42,7 +43,7 @@ const HISTORY_LABELS = {
  * Props: ticket, onClose, onStatusChange() - called after any change so the list refetches.
  */
 const TicketDetail = ({ ticket, onClose, onStatusChange }) => {
-  const { user, isAdmin } = useUser();
+  const { user, isAdmin, effectiveZone } = useUser();
   const currentUserId = user?.uid || user?.id;
   const { data: companies } = useCompanies();
   const { data: ticketTypes } = useTicketTypes();
@@ -200,10 +201,11 @@ const TicketDetail = ({ ticket, onClose, onStatusChange }) => {
     return 'text-blue-600 bg-blue-50 border-blue-200';
   };
 
+  // v10.1: in the ticket company's effective zone (the user's display zone when set)
   const formatDate = (dateString) => {
     if (!dateString) return 'Not set';
-    const date = new Date(dateString);
-    return isNaN(date.getTime()) ? String(dateString) : date.toLocaleString();
+    const listed = (companies || []).find(c => String(c.id) === String(ticket?.company_id));
+    return formatDateTime(dateString, effectiveZone(ticket?.company_id, listed?.timezone));
   };
 
   // 'Cancelled' | 'Reopened' - the only direct status changes (approve / reject / return are in Workflow)

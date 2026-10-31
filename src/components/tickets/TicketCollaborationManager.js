@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { API } from '../../api/googleSheet';
 import { useUsers, useCompanies } from '../../hooks/useAPI';
 import Icons from '../shared/Icons';
+import { formatDateOnly } from '../../utils/dateTime';
 
 const EMPTY_SHARE = { target: 'user', shared_with_user_id: '', shared_with_company_id: '', permission_level: 'view', expiration_date: '', share_reason: '' };
 
@@ -178,8 +179,8 @@ const TicketCollaborationManager = ({
                   </p>
                   <p className="text-xs text-gray-500">
                     Shared by {share.shared_by_user_name}
-                    {share.shared_at && ` · ${new Date(share.shared_at).toLocaleDateString()}`}
-                    {share.expiration_date && ` · until ${new Date(share.expiration_date).toLocaleDateString()}`}
+                    {share.shared_at && ` · ${formatDateOnly(share.shared_at)}`}
+                    {share.expiration_date && ` · until ${formatDateOnly(share.expiration_date)}`}
                   </p>
                   {share.share_reason && <p className="text-xs text-gray-600">{share.share_reason}</p>}
                 </div>

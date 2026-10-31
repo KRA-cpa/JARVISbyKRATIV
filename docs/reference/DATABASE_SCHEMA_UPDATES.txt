@@ -28,11 +28,27 @@
 
 ---
 
-## ✅ AUTHORITATIVE COLUMN LIST (October 17, 2026 — AppScript v8.1+, latest v10.0)
+## ✅ AUTHORITATIVE COLUMN LIST (October 17, 2026 — AppScript v8.1+, latest v10.1)
 
-`TABLE_SCHEMAS` in the latest `appscript_files/APPSCRIPT_v10.0_20261031_2053.txt` is now the single source of truth
-for the headers of all 40 tables (v9.3 moved the tag / sharing names from TAG_SHEETS into SHEETS). Where this
+`TABLE_SCHEMAS` in the latest `appscript_files/APPSCRIPT_v10.1_20261101_0101.txt` is now the single source of truth
+for the headers of all 42 tables (v9.3 moved the tag / sharing names from TAG_SHEETS into SHEETS). Where this
 document and the code disagree, the code wins.
+
+**v10.1 (November 1, 2026) — country calendars + time zones: 2 new tables, companies: 26 → 28, company_holidays: 12 → 13, user_preferences: 12 → 13 columns.**
+- `country_calendars` (11): country_code (ISO alpha-2, the key), name, calendar_tz (reference zone - the ticket YEAR),
+  allowed_timezones (JSON list; the zones a company there may use, calendar_tz first), weekend_days (JSON, 0 = Sunday ... 6),
+  default_business_hours (JSON { start, end } HH:mm), is_active, created_at, created_by, updated_at, updated_by.
+  The migration adds PH: Asia/Manila, [0, 6], 08:00-17:00.
+- `country_holidays` (14): id, country_code, date (text 'yyyy-MM-dd' - a calendar day, no time), name, type (regular | special),
+  year, is_active, created_at, created_by, updated_at, updated_by, deactivated_at, deactivated_by, deactivation_reason.
+- `companies` + `country_code` (COLUMN_DEFAULTS 'PH'), `timezone` ('Asia/Manila'; must be one of the country's zones, else
+  the country's calendar_tz is used).
+- `company_holidays` + `overrides_country` (add | remove; 'add'): add = an extra day off for the company (blank company_id
+  = every company, the v9.5 list - the migration moves those rows to the PH calendar), remove = the company works on one of
+  its country's holidays.
+- `user_preferences` + `display_timezone` (blank = show dates in the company's zone; a real IANA zone otherwise). The
+  preference rows are now written by header (the old 12-cell positional write dropped later columns).
+- `company_sla_rules.timezone` is no longer read (SLA time uses the company's zone); new rules leave it blank.
 
 **v10.0 (November 1, 2026) — ticket access + volume: 2 new tables, ticket_types: 13 → 17, tickets: 28 → 31, custom_fields: 19 → 20, notifications: 14 → 15 columns.**
 - `ticket_participants` (12): id, ticket_id, user_id (blank on pool rows), role_id, step_id, reason (requester | head | acted |

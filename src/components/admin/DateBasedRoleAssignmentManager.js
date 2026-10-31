@@ -3,6 +3,7 @@ import Icons from '../shared/Icons';
 import { useToast } from '../shared/Toast';
 import { useUserRoleAssignments, useRoles, useCompanies, useTicketTypes } from '../../hooks/useAPI';
 import { API } from '../../api/googleSheet';
+import { formatDateOnly } from '../../utils/dateTime';
 
 /**
  * DateBasedRoleAssignmentManager Component (Phase 2 Role Maintenance)
@@ -49,10 +50,8 @@ const parseDate = (value) => {
   return isNaN(date.getTime()) ? null : date;
 };
 
-const formatDate = (value) => {
-  const date = parseDate(value);
-  return date ? date.toLocaleDateString() : '—';
-};
+// v10.1: a yyyy-MM-dd end date is that calendar day in every zone; a moment is shown in the display zone
+const formatDate = (value) => (parseDate(value) ? formatDateOnly(value) : '—');
 
 // For <input type="date">: the stored value as YYYY-MM-DD in local time
 const toInputDate = (value) => {

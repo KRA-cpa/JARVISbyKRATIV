@@ -7,6 +7,7 @@ import {
   ACTIVITY_EVENTS, ACTIVITY_WRITE_INTERVAL_MS, clearLastActivity, clearSessionNotice, isIdleExpired, readLastActivity,
   setSessionNotice, writeLastActivity
 } from '../utils/sessionGuard';
+import { DEFAULT_ZONE, isValidZone, setDisplayZone } from '../utils/dateTime';
 
 // User Context
 const UserContext = createContext();
@@ -18,6 +19,7 @@ const USER_ACTION_TYPES = {
   SET_USER_ROLES: 'SET_USER_ROLES',
   SET_USER_COMPANIES: 'SET_USER_COMPANIES',
   SET_CURRENT_COMPANY: 'SET_CURRENT_COMPANY',
+  SET_DISPLAY_TIMEZONE: 'SET_DISPLAY_TIMEZONE',
   SET_ERROR: 'SET_ERROR',
   CLEAR_ERROR: 'CLEAR_ERROR',
   LOGOUT: 'LOGOUT'
@@ -31,6 +33,7 @@ const initialState = {
   userRoles: [],
   userCompanies: [],
   currentCompany: null,
+  displayTimezone: '', // v10.1: user_preferences.display_timezone ('' = the company's zone)
   permissions: {},
   isAdmin: false,
   isAuthenticated: false
@@ -77,6 +80,12 @@ function userReducer(state, action) {
       return {
         ...state,
         currentCompany: action.payload
+      };
+
+    case USER_ACTION_TYPES.SET_DISPLAY_TIMEZONE:
+      return {
+        ...state,
+        displayTimezone: isValidZone(action.payload) ? action.payload : ''
       };
 
     case USER_ACTION_TYPES.SET_ERROR:
@@ -289,6 +298,9 @@ export const UserProvider = ({ children }) => {
       const userProfile = await API.Users.getProfile(user.uid);
 
       if (userProfile) {
+        // v10.1: how dates are shown to this user ('' = each company's own zone)
+        dispatch({ type: USER_ACTION_TYPES.SET_DISPLAY_TIMEZONE, payload: userProfile.display_timezone || '' });
+
         // Set user roles
         if (userProfile.roles && userProfile.roles.length > 0) {
           dispatch({ type: USER_ACTION_TYPES.SET_USER_ROLES, payload: userProfile.roles });
@@ -427,6 +439,36 @@ export const UserProvider = ({ children }) => {
     dispatch({ type: USER_ACTION_TYPES.SET_CURRENT_COMPANY, payload: company });
   };
 
+  /**
+   * The zone dates are shown in (v10.1, design §4): the user's display zone when set, else the company's zone
+   * (from the profile), else the default (Philippines / Asia/Manila). From v10.2 the display zone is Advanced+.
+   * @param {string} [companyId] - Whose zone (default: the current company)
+   * @returns {string} IANA zone
+   */
+  // fallbackZone: the zone from a company list the screen already has (an admin sees companies outside the profile)
+  const companyZone = React.useCallback((companyId, fallbackZone) => {
+    // The company's own zone, whatever the user's display zone: the days the server filters and counts SLA days in
+    const id = companyId === undefined || companyId === null || companyId === '' ? state.currentCompany && state.currentCompany.id : companyId;
+    const company = state.userCompanies.find(c => String(c.id) === String(id)) ||
+      (state.currentCompany && String(state.currentCompany.id) === String(id) ? state.currentCompany : null);
+    if (company && isValidZone(company.timezone)) return company.timezone;
+    return isValidZone(fallbackZone) ? fallbackZone : DEFAULT_ZONE;
+  }, [state.currentCompany, state.userCompanies]);
+
+  const effectiveZone = React.useCallback((companyId, fallbackZone) => (
+    isValidZone(state.displayTimezone) ? state.displayTimezone : companyZone(companyId, fallbackZone)
+  ), [state.displayTimezone, companyZone]);
+
+  // v10.1: formatters without an explicit zone (dateTime.js) use the current company's effective zone
+  useEffect(() => {
+    setDisplayZone(effectiveZone());
+  }, [effectiveZone]);
+
+  // v10.1: the Profile screen saved a new display zone ('' = back to the company zone)
+  const setDisplayTimezone = (zone) => {
+    dispatch({ type: USER_ACTION_TYPES.SET_DISPLAY_TIMEZONE, payload: zone || '' });
+  };
+
   // Clear error
   const clearError = () => {
     dispatch({ type: USER_ACTION_TYPES.CLEAR_ERROR });
@@ -458,11 +500,14 @@ export const UserProvider = ({ children }) => {
     logout,
     switchCompany,
     clearError,
+    setDisplayTimezone,
 
     // Utilities
     hasPermission,
     canAccessCompany,
-    getUserRoleForCompany
+    getUserRoleForCompany,
+    effectiveZone,
+    companyZone
   };
 
   return (

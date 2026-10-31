@@ -8,6 +8,8 @@ import DarkModeToggle from '../components/shared/DarkModeToggle';
 import UserPreferencesPanel from '../components/shared/UserPreferencesPanel';
 import { useToast } from '../components/shared/Toast';
 import { useUserPreferences } from '../hooks/useAPI';
+import DisplayTimeZoneSelect from '../components/shared/DisplayTimeZoneSelect';
+import { DEFAULT_ZONE, formatDateTime } from '../utils/dateTime';
 
 /**
  * ProfilePage Component
@@ -15,7 +17,7 @@ import { useUserPreferences } from '../hooks/useAPI';
  * User profile settings and preferences management
  */
 const ProfilePage = () => {
-  const { user, userRoles } = useUser();
+  const { user, userRoles, companyZone, effectiveZone, setDisplayTimezone } = useUser();
   const location = useLocation();
   const [activeSection, setActiveSection] = useState('profile');
   const [loading, setLoading] = useState(false);
@@ -36,7 +38,8 @@ const ProfilePage = () => {
   const [showMoreSettings, setShowMoreSettings] = useState(false);
   const [userPreferences, setUserPreferences] = useState({
     dark_mode: false,
-    timezone: 'Asia/Manila',
+    timezone: DEFAULT_ZONE,
+    display_timezone: '',
     language: 'en',
     email_notifications: true,
     desktop_notifications: true,
@@ -57,6 +60,7 @@ const ProfilePage = () => {
     setLoading(true);
     try {
       await savePreferences(userPreferences);
+      setDisplayTimezone(userPreferences.display_timezone || '');
       success('Preferences saved');
     } catch (error) {
       console.error('Failed to save preferences:', error);
@@ -235,6 +239,25 @@ const ProfilePage = () => {
                       <p className="text-sm text-gray-500">Choose your preferred application theme</p>
                       <div className="mt-4">
                         <DarkModeToggle />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-base font-medium text-gray-900">Display time zone</label>
+                      <p className="text-sm text-gray-500">
+                        How dates and times are shown to you. The company time zone is the default; SLA days, holidays
+                        and ticket years always follow the company's calendar.
+                      </p>
+                      <div className="mt-4 max-w-md">
+                        <DisplayTimeZoneSelect
+                          value={userPreferences.display_timezone}
+                          onChange={(zone) => setUserPreferences(prev => ({ ...prev, display_timezone: zone }))}
+                          companyZone={companyZone()}
+                        />
+                        <p className="mt-2 text-xs text-gray-500">
+                          Now: {formatDateTime(new Date(), userPreferences.display_timezone || companyZone())}
+                          {effectiveZone() !== (userPreferences.display_timezone || companyZone()) ? ' (save to apply)' : ''}
+                        </p>
                       </div>
                     </div>
 

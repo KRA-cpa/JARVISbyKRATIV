@@ -382,20 +382,25 @@ const AdminSLAEscalationManager = () => {
   );
 };
 
-/** Holidays: count against business time when a company SLA rule excludes holidays (AppScript v9.5). */
+/**
+ * Holidays: count against business time when a company SLA rule excludes holidays (AppScript v9.5).
+ * v10.1: a company follows its COUNTRY's holidays (Country calendars) plus its own days off ("add"); it can also
+ * work on one of its country's holidays ("remove" = we work that day). "All companies" rows are the v9.5 list
+ * (the v10.1 migration moves them to the Philippines calendar).
+ */
 const HolidaysPanel = ({ userId, companies, onError, onSuccess }) => {
   const [companyId, setCompanyId] = useState('');
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const { data: holidays, refetch } = useCompanyHolidays(companyId || null, year);
   const [newHoliday, setNewHoliday] = useState({ date: '', name: '' });
-  const [phPreview, setPhPreview] = useState(null);
+  const company = (companies || []).find(c => String(c.id) === String(companyId));
   const companyName = id => (id ? ((companies || []).find(c => String(c.id) === String(id))?.name || id) : 'All companies');
 
-  const add = async () => {
+  const add = async (holiday = newHoliday, override = 'add') => {
     try {
-      await API.SLA.createHoliday(userId, { ...newHoliday, company_id: companyId });
-      setNewHoliday({ date: '', name: '' });
-      onSuccess('Holiday added');
+      await API.SLA.createHoliday(userId, { ...holiday, company_id: companyId, overrides_country: override });
+      if (holiday === newHoliday) setNewHoliday({ date: '', name: '' });
+      onSuccess(override === 'remove' ? `Working day saved: ${holiday.date}` : 'Holiday added');
       refetch();
     } catch (err) {
       onError(err.message);
@@ -411,26 +416,23 @@ const HolidaysPanel = ({ userId, companies, onError, onSuccess }) => {
     }
   };
 
-  const addPhilippine = async dryRun => {
-    try {
-      const result = await API.SLA.addPhilippineHolidays(userId, Number(year), companyId, dryRun);
-      setPhPreview(dryRun ? result : null);
-      if (!dryRun) {
-        onSuccess(`${result.added} holiday(s) added`);
-        refetch();
-      }
-    } catch (err) {
-      onError(err.message);
-    }
+  const label = h => {
+    if (h.source === 'country') return `country ${company?.country_code || 'PH'}`;
+    if (h.overrides_country === 'remove') return `${companyName(h.company_id)} works this day`;
+    return companyName(h.company_id);
   };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-4">
+      <p className="text-sm text-gray-600">
+        A company has its country's holidays (Admin → Country Calendars) plus the days added here. Use "We work" on a
+        country holiday the company works on.
+      </p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
           <select value={companyId} onChange={e => setCompanyId(e.target.value)} className={inputClass}>
-            <option value="">All companies</option>
+            <option value="">All companies (v9.5 list)</option>
             {(companies || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
@@ -438,39 +440,30 @@ const HolidaysPanel = ({ userId, companies, onError, onSuccess }) => {
           <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
           <input type="number" value={year} onChange={e => setYear(e.target.value)} className={inputClass} />
         </div>
-        <div className="flex items-end">
-          <button onClick={() => addPhilippine(true)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
-            Philippine holidays for {year}...
-          </button>
-        </div>
       </div>
-
-      {phPreview && (
-        <div className="p-4 bg-blue-50 rounded-lg text-sm">
-          <p className="text-blue-800 mb-2">
-            {phPreview.holidays.filter(h => !h.exists).length} to add for {companyName(phPreview.company_id)} (Eid holidays and Chinese New Year are proclaimed each year - add them by hand):
-          </p>
-          <ul className="grid grid-cols-1 md:grid-cols-2 gap-1 text-blue-900">
-            {phPreview.holidays.map(h => <li key={h.date} className={h.exists ? 'opacity-50' : ''}>{h.date} - {h.name}{h.exists ? ' (already there)' : ''}</li>)}
-          </ul>
-          <div className="mt-3 flex space-x-2">
-            <button onClick={() => addPhilippine(false)} className="px-3 py-1 bg-blue-600 text-white rounded-lg">Add them</button>
-            <button onClick={() => setPhPreview(null)} className="px-3 py-1 bg-white text-gray-700 rounded-lg border">Cancel</button>
-          </div>
-        </div>
-      )}
 
       <div className="flex flex-col md:flex-row gap-2">
         <input type="date" value={newHoliday.date} onChange={e => setNewHoliday({ ...newHoliday, date: e.target.value })} className={inputClass} />
         <input placeholder="Name" value={newHoliday.name} onChange={e => setNewHoliday({ ...newHoliday, name: e.target.value })} className={inputClass} />
-        <button onClick={add} disabled={!newHoliday.date || !newHoliday.name} className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50">Add</button>
+        <button onClick={() => add()} disabled={!newHoliday.date || !newHoliday.name} className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50">Add day off</button>
       </div>
 
       <div className="divide-y divide-gray-100">
         {(holidays || []).map(h => (
-          <div key={h.id} className="py-2 flex items-center justify-between text-sm">
-            <span>{h.date} - {h.name} <span className="text-gray-400">({companyName(h.company_id)})</span></span>
-            <button onClick={() => remove(h.id)} className="p-1 text-red-600 hover:bg-red-50 rounded" title="Remove"><Icons.Delete size={14} /></button>
+          <div key={`${h.source}-${h.id}`} className="py-2 flex items-center justify-between text-sm">
+            <span className={h.overrides_country === 'remove' ? 'line-through text-gray-500' : ''}>
+              {h.date} - {h.name} <span className="text-gray-400 no-underline">({label(h)})</span>
+            </span>
+            {h.source === 'country' ? (
+              companyId && (
+                <button onClick={() => add({ date: h.date, name: `Working day: ${h.name}` }, 'remove')}
+                  className="px-2 py-1 text-xs border rounded text-gray-700 hover:bg-gray-50" title="The company works on this country holiday">
+                  We work
+                </button>
+              )
+            ) : (
+              <button onClick={() => remove(h.id)} className="p-1 text-red-600 hover:bg-red-50 rounded" title="Remove"><Icons.Delete size={14} /></button>
+            )}
           </div>
         ))}
         {(holidays || []).length === 0 && <p className="text-sm text-gray-500 py-2">No holidays for {year}.</p>}

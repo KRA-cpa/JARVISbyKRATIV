@@ -4,6 +4,7 @@ import Icons from '../shared/Icons';
 import ErrorBoundary130 from '../shared/ErrorBoundary130';
 import { useToast } from '../shared/Toast';
 import { useRoleTypes, useRoleTypeMutations } from '../../hooks/useAPI';
+import { formatDateOnly } from '../../utils/dateTime';
 
 /**
  * AdminRoleTypeList Component
@@ -155,7 +156,7 @@ const AdminRoleTypeList = () => {
                           <div className="flex items-center mt-1 text-xs text-gray-500 space-x-4">
                             <span>{roleType.company_id ? 'Company-specific' : 'Global'}</span>
                             <span>•</span>
-                            <span>Created {new Date(roleType.created_at).toLocaleDateString()}</span>
+                            <span>Created {formatDateOnly(roleType.created_at)}</span>
                           </div>
                         </div>
                       </div>

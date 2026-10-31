@@ -13,9 +13,10 @@ import { DetailedClock } from '../components/shared/LiveClock';
 import { SLASummaryWidgets } from '../components/shared/SLAWidgets';
 import SLANotificationSystem from '../components/shared/SLANotificationSystem';
 import DEV_CONFIG from '../config/development';
+import { formatDateOnly } from '../utils/dateTime';
 
 const DashboardPage = () => {
-  const { user, userRoles, userCompanies, permissions, hasPermission } = useUser();
+  const { user, userRoles, userCompanies, permissions, hasPermission, effectiveZone } = useUser();
   // The ticket list is shared with the SLA widgets (one getTickets per load - identical reads are deduplicated)
   const { data: tickets, loading: ticketsLoading, error: ticketsError, refetch: refetchTickets } = useTickets();
   const currentUserId = user?.uid || user?.id;
@@ -130,7 +131,7 @@ const DashboardPage = () => {
                     <>
                       <span className="text-gray-300">•</span>
                       <span className="text-xs text-gray-500">
-                        Step due: {new Date(ticket.step_due_date).toLocaleDateString()}
+                        Step due: {formatDateOnly(ticket.step_due_date, effectiveZone(ticket.company_id))}
                       </span>
                     </>
                   )}

@@ -1,6 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import Icons from './Icons';
+import { getDisplayZone, wallClockIn, zoneLabel } from '../../utils/dateTime';
+
+// v10.1: the clock shows the display zone (the company's zone, or the user's display zone) - dateTime.js.
+// Before v10.1 it added a fixed 8 h to the browser's UTC fields. The real moment ticks; wallClockIn only
+// prepares the zone's wall clock for date-fns format.
+const useZoneClock = () => {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+  const zone = getDisplayZone();
+  return { wall: wallClockIn(now, zone), zone, label: zoneLabel(zone, now) };
+};
 
 const LiveClock = ({
   showSeconds = true,
@@ -9,28 +23,7 @@ const LiveClock = ({
   className = "",
   size = "normal" // "small", "normal", "large"
 }) => {
-  const [philippineTime, setPhilippineTime] = useState(new Date());
-
-  useEffect(() => {
-    const updateTime = () => {
-      // Get current UTC time and convert to Philippine Time (UTC+8)
-      const now = new Date();
-      const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
-      const philippineTimeOffset = 8; // UTC+8
-      const philippineCurrentTime = new Date(utcTime + (philippineTimeOffset * 3600000));
-
-      setPhilippineTime(philippineCurrentTime);
-    };
-
-    // Update immediately
-    updateTime();
-
-    // Set up interval to update every second
-    const interval = setInterval(updateTime, 1000);
-
-    // Cleanup interval on component unmount
-    return () => clearInterval(interval);
-  }, []);
+  const { wall, zone, label } = useZoneClock();
 
   const formatDateTime = (date) => {
     if (showSeconds) {
@@ -74,12 +67,12 @@ const LiveClock = ({
       <div className="flex flex-col">
         {/* Primary display: DD Mmm YYYY HH:MM:SS AM/PM */}
         <div className={`${sizeClasses.time} text-gray-900`}>
-          {formatDateTime(philippineTime)}
+          {formatDateTime(wall)}
         </div>
 
         {showTimezone && (
           <div className={`${sizeClasses.timezone} text-gray-500`}>
-            Philippine Time (GMT+8)
+            {zone.replace(/_/g, ' ')} ({label})
           </div>
         )}
       </div>
@@ -109,31 +102,17 @@ export const DetailedClock = ({ className = "" }) => (
   />
 );
 
-// Header version with full Philippine time format
+// Header version: the display zone's time and its short label
 export const HeaderClock = ({ className = "" }) => {
-  const [philippineTime, setPhilippineTime] = React.useState(new Date());
-
-  React.useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
-      const philippineTimeOffset = 8; // UTC+8
-      const philippineCurrentTime = new Date(utcTime + (philippineTimeOffset * 3600000));
-      setPhilippineTime(philippineCurrentTime);
-    };
-
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const { wall, label } = useZoneClock();
 
   return (
     <div className={`flex items-center space-x-1 text-sm text-gray-600 ${className}`}>
       <Icons.Clock size={16} />
       <span className="font-medium">
-        {format(philippineTime, 'dd MMM yyyy hh:mm:ss a')}
+        {format(wall, 'dd MMM yyyy hh:mm:ss a')}
       </span>
-      <span className="text-xs opacity-75">PHT</span>
+      <span className="text-xs opacity-75">{label}</span>
     </div>
   );
 };
