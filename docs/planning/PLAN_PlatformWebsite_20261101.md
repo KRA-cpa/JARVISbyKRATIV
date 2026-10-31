@@ -109,7 +109,7 @@ This plan turns that into a small website around the app.
   - an Open Graph image.
 - **Code split (W1):** `React.lazy` + `Suspense` for the app's pages, so `/`, `/plans`, `/features` and `/contact` don't download the admin and ticket bundles. This is built into React 19, so no new dependency.
 - **W4 prerender:** the CRA app renders in the browser, so crawlers see an empty `index.html`. Two options:
-  - a build step that snapshots the public routes to static HTML (a prerender package, which needs `PRODUCTION_REQUIREMENTS.md` first);
+  - a build step that snapshots the public routes to static HTML (a prerender package, which needs `docs/reference/PRODUCTION_REQUIREMENTS.md` first);
   - moving the public pages to a static generator when the Neon/Vercel migration (`docs/planning/PLAN_Migration_NeonVercel_20261030.md`) changes the frontend build anyway.
   - Decide in W4, with measurements.
 - **Targets:** Lighthouse ≥ 90 for performance / SEO / accessibility on `/`, `/plans` and `/features` (mobile); first load JS for the home page ≤ 200 KB gzip.
