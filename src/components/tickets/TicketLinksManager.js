@@ -33,9 +33,17 @@ const TicketLinksManager = ({ ticketId, nameOf = (id) => id, notify }) => {
     }
   };
 
+  // The name is required (user, 31 Oct 2026); the server enforces it from AppScript v10.0
+  const nameMissing = (name) => {
+    if (String(name || '').trim()) return false;
+    notify('error', 'Enter a name for the link');
+    return true;
+  };
+
   const handleAdd = async (event) => {
     event.preventDefault();
-    if (await run(() => addLink(form), 'Link added')) setForm({ fileUrl: '', fileName: '', description: '' });
+    if (nameMissing(form.fileName)) return;
+    if (await run(() => addLink({ ...form, fileName: form.fileName.trim() }), 'Link added')) setForm({ fileUrl: '', fileName: '', description: '' });
   };
 
   const handleReport = async (id) => {
@@ -47,7 +55,8 @@ const TicketLinksManager = ({ ticketId, nameOf = (id) => id, notify }) => {
 
   const handleFix = async (event) => {
     event.preventDefault();
-    if (await run(() => fixLink(fixing.id, fixing), 'Link fixed')) setFixing(null);
+    if (nameMissing(fixing.fileName)) return;
+    if (await run(() => fixLink(fixing.id, { ...fixing, fileName: fixing.fileName.trim() }), 'Link fixed')) setFixing(null);
   };
 
   const handleRemove = async (link) => {
@@ -134,8 +143,8 @@ const TicketLinksManager = ({ ticketId, nameOf = (id) => id, notify }) => {
                   <form onSubmit={handleFix} className="grid grid-cols-1 gap-2 md:grid-cols-2">
                     <input type="url" required value={fixing.fileUrl} onChange={e => setFixing({ ...fixing, fileUrl: e.target.value })}
                       placeholder="https://..." className={`${inputClass} md:col-span-2`} aria-label="New URL" />
-                    <input type="text" maxLength={200} value={fixing.fileName} onChange={e => setFixing({ ...fixing, fileName: e.target.value })}
-                      placeholder="Name" className={inputClass} aria-label="Name" />
+                    <input type="text" required maxLength={200} value={fixing.fileName} onChange={e => setFixing({ ...fixing, fileName: e.target.value })}
+                      placeholder="Name (required)" className={inputClass} aria-label="Name" />
                     <input type="text" maxLength={1000} value={fixing.description} onChange={e => setFixing({ ...fixing, description: e.target.value })}
                       placeholder="Description (optional)" className={inputClass} aria-label="Description" />
                     <div className="md:col-span-2 flex gap-2">
@@ -158,7 +167,7 @@ const TicketLinksManager = ({ ticketId, nameOf = (id) => id, notify }) => {
           <input type="url" required value={form.fileUrl} onChange={e => setForm({ ...form, fileUrl: e.target.value })}
             placeholder="https://drive.google.com/..." className={`${inputClass} md:col-span-2`} aria-label="URL" />
           <input type="text" required maxLength={200} value={form.fileName} onChange={e => setForm({ ...form, fileName: e.target.value })}
-            placeholder="Name (e.g. Quotation)" className={inputClass} aria-label="Name" />
+            placeholder="Name (required, e.g. Quotation)" className={inputClass} aria-label="Name" />
           <input type="text" maxLength={1000} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
             placeholder="Description (optional)" className={inputClass} aria-label="Description" />
           <div className="md:col-span-2">
