@@ -233,6 +233,23 @@ create table auth_identities (
 - **Client dev / staging database (preferred - make it a contract condition):** a copy of their production engine, same version and collation, reachable from our CI (tunnel / VPN / allow-listed IP) with a dedicated test user. Our CI then runs the handler suite and every migration against it before each release, and the release goes to their production only after it passes there. Refresh it from production (masked data) before major releases.
 - **A pilot client** before offering it widely.
 
-### §11.5 Recommendation
+### §11.5 Schema build-up scripts (one source, every engine)
+
+Client DBAs usually want to **review and run the scripts themselves** instead of letting our tool change their database, so every release ships both a tool and plain SQL. Built in Phase 0 together with the Neon schema; not before, because their source of truth is that typed schema.
+
+| Script | What it does |
+|---|---|
+| `scripts/db/schema.js` | **The single source of truth**: every table, column, type, default, key, index and constraint, defined once in a dialect-neutral form. It replaces `TABLE_SCHEMAS` (typing rules §4: `is_*` → boolean, `*_at` → timestamp UTC, ids → text, JSON columns, amounts → numeric) |
+| `npm run db:gen-ddl -- --dialect postgres\|mssql\|mysql` | Generates the **full create script** for one engine (`build/sql/<dialect>/000_full_schema.sql`): tables in dependency order, keys, indexes, constraints. Idempotent (`IF NOT EXISTS` / `IF OBJECT_ID(...) IS NULL`), so running it twice changes nothing |
+| `migrations/<dialect>/NNN_<name>.up.sql` + `.down.sql` | One numbered change per release, with its **rollback**; a `schema_migrations` table records what ran (version, checksum, time) |
+| `npm run db:migrate` / `db:migrate -- --dry-run` | Applies the pending migrations in one transaction per migration; dry run prints the SQL only |
+| `npm run db:verify` | Compares the live database with `schema.js` (missing / extra tables, columns, types, indexes) - the Postgres-era equivalent of `rebuildAllTables()` dry run and `getSystemHealth`. Read-only; run it first at every install |
+| `npm run db:seed-reference` | Inserts the reference rows a new install needs (admin role, default sequences, statuses) - never test data; idempotent |
+| `npm run db:bundle -- --dialect mssql --from 012` | Packs a **DBA bundle**: the SQL files from a migration number on, the rollbacks, the verify query and a README (order, expected results, how to roll back) - for clients whose DBA runs scripts by hand |
+
+- **Tested in CI** on every engine offered (§11.4): full script on an empty database → `db:verify` passes; every migration up → down → up; the handler suite on the result.
+- **Data load from Sheets** (§7) stays a separate one-off script; it uses the same `schema.js` for column names and types.
+
+### §11.6 Recommendation
 
 Offer **shape A (client Postgres)** first: it is the same code as Neon and needs no extra dialect. Offer **B (SQL Server / MySQL)** only as a paid add-on when a client requires it, after §11.3 is in place and the CI matrix covers that engine. Treat **C** as a separate on-prem edition, priced with its support burden.
