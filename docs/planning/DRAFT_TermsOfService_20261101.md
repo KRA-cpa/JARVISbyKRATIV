@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.8.0
+Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.9.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: DRAFT General Terms of Service for Daloy (B2B subscription), aligned with the plan, usage, data and privacy decisions so far | Status: DRAFT - not legal advice, not in effect; for review by counsel; [[...]] = pending decision (§0)
 REVISION HISTORY:
+- v0.9.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.3a: Customer notifies its withholding agent status + CWT rates at sign-up and on change (user); attestation 3; tax profile in §0a
 - v0.8.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.3a Philippine taxes (user: "include Daloy is covered by Philippine income tax laws")
 - v0.7.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §3a Customer attestations (user: "attestations by customer in terms, like users must be 18 and other stuff"); recorded with the acceptance (§0a)
 - v0.6.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Renamed "General Terms of Service" (user); the DPA is available only to customer admins in the Service (admin page /admin/dpa), prospects on request
@@ -59,6 +60,7 @@ If they conflict: Subscription details → Data Processing Agreement (for person
 | Which versions: Terms, DPA, Privacy Policy (version + effective date) | same - a version string per document |
 | The attestations confirmed (§3a) - the list as shown, ticked by the accepting admin | same |
 | The subscription details accepted (plan, period, packs, add-on prices) | a snapshot (JSON) |
+| Tax profile: TIN, VAT status, **withholding agent status / classification, CWT rate(s)**, effective date of each change (§5.3a) | the company / organization billing profile, history kept; shown on *Plan & usage*; statements compute the expected net |
 | Waivers / overrides granted later (what, scope, from - to, by which platform admin, reason) | the override record (`setSubscriptionOverrides`) + an audit-log entry; shown to the customer on *Plan & usage* |
 
 - A **material change** of the Terms (§17) asks a company / organization admin to accept the new version at next
@@ -120,7 +122,7 @@ By accepting these Terms - at sign-up, and again each time it renews, changes Pl
 Customer confirms that:
 1. The Customer is a business, government office or other organization (not an individual consumer), validly existing and, where the law requires, registered (for example with the SEC, DTI or BIR).
 2. The person accepting these Terms is authorized to bind the Customer, and for an organization, each company it adds.
-3. The information given at sign-up and for billing (names, addresses, TIN, VAT status, contacts) is true and complete, and the Customer keeps it up to date.
+3. The information given at sign-up and for billing (names, addresses, TIN, VAT status, withholding agent status and creditable withholding tax rates, contacts) is true and complete, and the Customer keeps it up to date.
 4. Every User is at least 18 years old and uses the Service for the Customer's business.
 5. The Customer has a lawful basis and has given the required notices for the personal information it and its Users put into the Service, including sensitive personal information (Data Privacy Act), and has the right to share the rest of the Customer Data.
 6. The Customer's use of the Service, its templates and its exports (for example leave, overtime and payroll requests) complies with the laws that apply to it, including labor, tax and data privacy laws; the Customer remains responsible for its own policies and decisions.
@@ -144,7 +146,7 @@ Add-ons are billed in arrears (§6).
 5.2 We send a **usage statement** each month. Official invoices are issued [[through our accounting / billing
 system, in compliance with BIR rules]] *(verify the EOPT Act invoicing requirements)*.
 5.3 Payment is due within [[15]] days ([[T5]]). Fees are [[exclusive]] of VAT and other taxes.
-5.3a **Philippine taxes.** Daloy is provided by KRATIV, a Philippine taxpayer, from the Philippines. The fees and the income KRATIV earns from them are covered by the Philippine tax laws (the National Internal Revenue Code, as amended, and the rules of the Bureau of Internal Revenue), including income tax and VAT or percentage tax as they apply. Where the Customer is required by law to withhold creditable withholding tax on its payments to KRATIV, it withholds at the rate the law sets, pays it to the BIR, and gives KRATIV the certificate (BIR Form 2307) within the period the BIR requires; the amount withheld counts as paid. The Customer is responsible for its own taxes. *(verify the current NIRC / BIR
+5.3a **Philippine taxes.** Daloy is provided by KRATIV, a Philippine taxpayer, from the Philippines. The fees and the income KRATIV earns from them are covered by the Philippine tax laws (the National Internal Revenue Code, as amended, and the rules of the Bureau of Internal Revenue), including income tax and VAT or percentage tax as they apply. Where the Customer is required by law to withhold creditable withholding tax on its payments to KRATIV, it withholds at the rate the law sets, pays it to the BIR, and gives KRATIV the certificate (BIR Form 2307) within the period the BIR requires; the amount withheld counts as paid once KRATIV receives the certificate. The Customer tells KRATIV, at sign-up and within [[15]] days of any change, whether it is a withholding agent (and its classification, for example a top withholding agent or a government office) and the creditable withholding tax rate(s) it applies to KRATIV's fees; statements show the expected amount net of that withholding. Until KRATIV is told, it treats the Customer as not withholding, and an amount withheld without notice and certificate remains due. The Customer is responsible for its own taxes. *(verify the current NIRC / BIR
 withholding rules and the 2307 deadline)*
 5.4 Fees paid are non-refundable except where these Terms or the law say otherwise.
 

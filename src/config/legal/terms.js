@@ -13,7 +13,7 @@
 
 export const TERMS_OF_SERVICE = {
   status: 'draft', // 'draft' | 'published'
-  version: '0.8', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
+  version: '0.9', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
   effectiveDate: '',
   lastUpdated: '1 November 2026',
   title: 'General Terms of Service',
@@ -84,7 +84,7 @@ export const TERMS_OF_SERVICE = {
         'Customer confirms that:\n\n' +
         '- The Customer is a business, government office or other organization (not an individual consumer), validly existing and, where the law requires, registered (for example with the SEC, DTI or BIR).\n' +
         '- The person accepting these Terms is authorized to bind the Customer, and for an organization, each company it adds.\n' +
-        '- The information given at sign-up and for billing (names, addresses, TIN, VAT status, contacts) is true and complete, and the Customer keeps it up to date.\n' +
+        '- The information given at sign-up and for billing (names, addresses, TIN, VAT status, withholding agent status and creditable withholding tax rates, contacts) is true and complete, and the Customer keeps it up to date.\n' +
         '- Every User is at least 18 years old and uses the Service for the Customer\'s business.\n' +
         '- The Customer has a lawful basis and has given the required notices for the personal information it and its Users put into the Service, including sensitive personal information (Data Privacy Act), and has the right to share the rest of the Customer Data.\n' +
         '- The Customer\'s use of the Service, its templates and its exports (for example leave, overtime and payroll requests) complies with the laws that apply to it, including labor, tax and data privacy laws; the Customer remains responsible for its own policies and decisions.\n' +
@@ -111,7 +111,7 @@ export const TERMS_OF_SERVICE = {
         'We send a usage statement each month. Official invoices are issued [[through our accounting / billing system, in ' +
         'compliance with BIR rules]].\n\n' +
         'Payment is due within [[15]] days. Fees are [[exclusive]] of VAT and other taxes.\n\n' +
-        'Philippine taxes. Daloy is provided by KRATIV, a Philippine taxpayer, from the Philippines. The fees and the income KRATIV earns from them are covered by the Philippine tax laws (the National Internal Revenue Code, as amended, and the rules of the Bureau of Internal Revenue), including income tax and VAT or percentage tax as they apply. Where the Customer is required by law to withhold creditable withholding tax on its payments to KRATIV, it withholds at the rate the law sets, pays it to the BIR, and gives KRATIV the certificate (BIR Form 2307) within the period the BIR requires; the amount withheld counts as paid. The Customer is responsible for its own taxes.\n\n' +
+        'Philippine taxes. Daloy is provided by KRATIV, a Philippine taxpayer, from the Philippines. The fees and the income KRATIV earns from them are covered by the Philippine tax laws (the National Internal Revenue Code, as amended, and the rules of the Bureau of Internal Revenue), including income tax and VAT or percentage tax as they apply. Where the Customer is required by law to withhold creditable withholding tax on its payments to KRATIV, it withholds at the rate the law sets, pays it to the BIR, and gives KRATIV the certificate (BIR Form 2307) within the period the BIR requires; the amount withheld counts as paid once KRATIV receives the certificate. The Customer tells KRATIV, at sign-up and within [[15]] days of any change, whether it is a withholding agent (and its classification, for example a top withholding agent or a government office) and the creditable withholding tax rate(s) it applies to KRATIV\'s fees; statements show the expected amount net of that withholding. Until KRATIV is told, it treats the Customer as not withholding, and an amount withheld without notice and certificate remains due. The Customer is responsible for its own taxes.\n\n' +
         'Fees paid are non-refundable except where these Terms or the law say otherwise.'
     },
     {
