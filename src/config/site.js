@@ -21,86 +21,17 @@ export const PUBLIC_NAV = [
 
 export const HOW_IT_WORKS = {
   title: 'How it works',
-  intro: 'TicketFlow takes a request from the form someone fills in to the last approval, on time and on record. ' +
-    'Your administrators set it up without code; everyone else just fills in a form and approves.',
-  // One step of a ticket's life per section, in order. icon = a name in src/components/shared/Icons.js
+  intro: 'From request to approval in four steps, set up without code.',
+  // Kept short on purpose (user, 1 Nov 2026: the first version was "too detailed" - it is archived in
+  // docs/archive/2026-11/how-it-works-detailed/). icon = a name in src/components/shared/Icons.js
   steps: [
-    {
-      id: 'set-up',
-      icon: 'Document',
-      heading: 'Set up your ticket types',
-      summary: 'Each kind of request - a purchase request, a leave form, an IT ticket - is a ticket type with its own form.',
-      points: [
-        'Custom fields: text, paragraph, date, amount and dropdown',
-        'Choose who may create each type, by role and company',
-        'Private tickets by default, or collaborative for the whole team',
-        'Ticket numbers follow your company code and the year of your country calendar'
-      ]
-    },
-    {
-      id: 'route',
-      icon: 'Workflow',
-      heading: 'Route it through approvals',
-      summary: 'A ticket moves through the approval steps you define, in order, to the people who hold each role.',
-      points: [
-        'Steps approved by any one approver, or by all of them',
-        'Approve, return for changes, reject, cancel and reopen',
-        'Require a comment on the actions that need one',
-        'An approval inbox for each approver, and the full history on every ticket'
-      ]
-    },
-    {
-      id: 'on-time',
-      icon: 'Clock',
-      heading: 'Keep it on time',
-      summary: 'Service levels count business time in your company\'s time zone, with your country\'s weekends and holidays.',
-      points: [
-        'SLAs per step and company SLA rules in business hours or days',
-        'Country calendars and company holidays',
-        'Escalation levels that notify, or hand the ticket to a role, before or after the due time',
-        'Due-today and overdue views on the dashboard'
-      ]
-    },
-    {
-      id: 'informed',
-      icon: 'Bell',
-      heading: 'Keep everyone informed',
-      summary: 'People hear about the tickets that need them, in the app and by email.',
-      points: [
-        'In-app notifications from the header bell',
-        'Workflow emails with your company\'s sender name and reply-to address',
-        'Tags and sharing for the ticket types that use them',
-        'Links between related tickets and to Google Drive documents'
-      ]
-    },
-    {
-      id: 'protect',
-      icon: 'Lock',
-      heading: 'Protect sensitive work',
-      summary: 'Access follows roles, and sensitive tickets stay with the people in their approval chain.',
-      points: [
-        'Restricted tickets and fields, masked for everyone outside the chain',
-        'Sign-in by invitation only, with Google accounts',
-        'Admin-only settings, and automatic sign-out after inactivity',
-        'Configuration export and backup for your administrators'
-      ]
-    },
-    {
-      id: 'report',
-      icon: 'List',
-      heading: 'See where things stand',
-      summary: 'Every ticket is on record, so the numbers are always current.',
-      points: [
-        'A dashboard of your open, pending and overdue tickets',
-        'Paged ticket lists with search and filters',
-        'The standard report, with CSV export',
-        'Dates shown in each person\'s own time zone'
-      ]
-    }
+    { id: 'form', icon: 'Document', heading: 'Build the form', text: 'Each kind of request gets its own form with the fields it needs.' },
+    { id: 'route', icon: 'Users', heading: 'Set the approvers', text: 'The ticket goes step by step to the people in each role.' },
+    { id: 'time', icon: 'Clock', heading: 'Keep it on time', text: 'SLAs count business time and escalate a step that runs late.' },
+    { id: 'done', icon: 'CheckCircle', heading: 'See it done', text: 'Everyone is notified, and every ticket stays on record.' }
   ],
   ctaHeading: 'Find the plan that fits',
-  ctaText: 'Basic, Advanced and Enterprise share the same core ticket loop. Some of the features above come with Advanced or ' +
-    'Enterprise only - the plans page shows which.'
+  ctaText: 'All plans include the core ticket loop; the plans page shows what each one adds.'
 };
 
 /**
