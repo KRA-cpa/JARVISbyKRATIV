@@ -35,7 +35,7 @@ deductions) are **out of scope** - payroll reads the approved export.
 | Who can create | Every employee role of the company ("Employee") |
 | Roles used by steps | **Department Head**, **HR**, **Payroll** - created on adoption if missing; the company assigns people |
 | First step | **Department Head** (a role step). The v10.3 *immediate head* switch (`head_approval`, Advanced) can replace it for Advanced+ companies |
-| Steps | ≤ 3 per type (Basic `steps_per_type` = 3); approver logic `any` |
+| Steps | ≤ 3 per type (Basic / Basic+ `steps_per_type` = 3); approver logic `any` |
 | Comment rules | Required on **return**, **reject** and **cancel**; optional on approve |
 | Attachments | Links (v9.6 attachment links); `require_attachment_on_create` only where stated |
 | Ticket number | `CODE-YYYY-########` (the type's `code`, the year from the company's country calendar) |
@@ -172,7 +172,7 @@ The export carries the ticket's **other fields as columns** (e.g. *Type of overt
 | # | Question | Proposed default |
 |---|---|---|
 | T1 | ~~Basic can adopt 5 types; the payroll set is 9~~ | **Resolved by U9 (PLAN_PlanTiers §2b):** the Payroll pack comes with **Basic+**, Advanced and Enterprise (on / off there); pack types don't count toward the `ticket_types` limit; Basic has no packs |
-| T2 | Leave-type list | As in LV (PH statutory names + common company leaves). **Correction (1 Nov 2026):** Basic can't change dropdown options (light edits refuse dropdown changes, PLAN_PlanTiers §2a) - Basic gets the list as shipped (or the platform team edits it in managed setup); Advanced+ edit it themselves |
+| T2 | Leave-type list | As in LV (PH statutory names + common company leaves). **Correction (1 Nov 2026):** Basic+ can't change dropdown options (light edits refuse dropdown changes, PLAN_PlanTiers §2a) - Basic+ gets the list as shipped (or the platform team edits it in managed setup); Advanced+ edit it themselves |
 | T3 | Step 2 = HR or Payroll per template | As in §3; companies with one HR-payroll team map both roles to the same people |
 | T4 | Leave cancellation as its own template vs "Cancel" on the leave ticket | Own template (LC) while a ticket can't be partly cancelled; revisit if per-date cancel is added |
 | T5 | Proof links required? | Required only for MD; optional elsewhere |
