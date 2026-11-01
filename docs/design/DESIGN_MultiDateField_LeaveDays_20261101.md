@@ -6,7 +6,7 @@ Document: DESIGN_MultiDateField_LeaveDays_20261101.md | Author: Kenneth R. Adven
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Design of the "Dates" custom field (multiple separate dates, with a day count) for payroll-type requests - leave, non-punching authorization and Manual DTR (time in / out per day) - and the selection window for date-type fields | Status: Design - for review; decisions D2-D14 open; not built
 REVISION HISTORY:
-- v2.0.1 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Export: request subtype column (OT subtypes: regular day / rest day / holiday)
+- v2.0.1 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Export: the ticket's other fields as columns (e.g. Type of overtime - a plain dropdown field; no special subtype concept)
 - v2.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: "no sandwich detection, just count the number of days if multiple dates (not date range)... just count dates and report it"; calendar treatment left to the designer: rest days / holidays marked, not pickable in leave mode by default, never change the count. Removed: sandwich rule, count function, worked examples, D1, D5. Templates moved to TEMPLATES_PayrollRequests_20261101.md
 - v1.5.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Scope line (user): payroll rules / pay computation are out of scope; the sandwich detection + leave-day count stay (an extension of the date field). Removed from Manual DTR: breaks, hours worked, total hours; export carries raw times only; D12 closed
 - v1.4.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §4b payroll request modes: non-punching authorization (no time in / no time out / both) and Manual DTR (user); `time` values; payroll export; D11-D14
@@ -171,8 +171,8 @@ Proof (link) [ ... ]                           Proof (link) [ ... ]
 - `missed_punch`: the time(s) for what is missing are required. `time_entries`: both times, valid `HH:mm`, in ≠ out.
 
 **Export:** a CSV of **approved** tickets, **one row per date** - ticket number, employee, company, request type,
-request subtype (the template's subtype dropdown, e.g. type of overtime / leave), date, day kind, part / missing,
-time in, time out, next-day flag, approved at, approver - plus the ticket's count.
+date, day kind, part / missing, time in, time out, next-day flag, approved at, approver, the ticket's count, and the
+ticket's **other fields as columns** (e.g. *Type of overtime*, *Type of leave* - ordinary dropdown fields).
 Filter by company and period (e.g. 1-15 Nov). Raw facts only; payroll / HR systems apply their own rules (D13).
 
 ## §5 Clashes and changes

@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: TEMPLATES_PayrollRequests_20261101.md | Author: Kenneth R. Advento | Version: 1.1.0
+Document: TEMPLATES_PayrollRequests_20261101.md | Author: Kenneth R. Advento | Version: 1.1.1
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Payroll-type request templates - the basis for the owner template library (PLAN_PlanTiers §2a): ticket types, fields, windows, steps, comment rules | Status: Draft for review; T1-T6 open; not seeded
 REVISION HISTORY:
+- v1.1.1 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | The OT subtype is just a ticket field (dropdown) - no special "subtype" concept; the export carries the ticket's fields generically (user)
 - v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Rest day / holiday work merged into OT as subtypes (user: "overtime, rest day/holiday work will be subtypes of overtime"); 9 templates
 - v1.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created; user: "create a file for payroll type request, as basis for the ticket template library" + "multi date field can already be incorporated"
 ===============================================================================
@@ -64,7 +65,7 @@ Steps: **1. Department Head** → **2. HR**. Count shown: "Leave dates · 2.5 da
 
 Steps: **1. Department Head** → **2. HR**.
 
-### OT — Overtime authorization (subtypes: regular day, rest day, holiday)
+### OT — Overtime authorization (regular day, rest day, holiday - via the *Type of overtime* field)
 | Field | Label | Type | Req. | Settings / options |
 |---|---|---|---|---|
 | `ot_type` | Type of overtime | dropdown | ✓ | **Regular day overtime** · **Rest day work** · **Holiday work** · **Rest day + holiday work** |
@@ -72,11 +73,11 @@ Steps: **1. Department Head** → **2. HR**.
 | `reason` | Work to be done | paragraph | ✓ | |
 
 Steps: **1. Department Head** → **2. Payroll**. Filed before the overtime (pre-approval) or up to 7 days after.
-- **One subtype per request.** Overtime on a regular day and work on a rest day are filed as two requests.
-- Each date carries its **calendar kind** (design §2). When it doesn't match the subtype (e.g. *Rest day work* on a
+- **One type per request** (it is one dropdown field). Overtime on a regular day and work on a rest day are filed as two requests.
+- Each date carries its **calendar kind** (design §2). When it doesn't match the *Type of overtime* (e.g. *Rest day work* on a
   date the company calendar marks as a working day), the ticket shows a note to the approver - **not refused**: a
   person's rest day can differ from the company calendar (per-person schedules, design D7).
-- The subtype is in the export (`request subtype` column) - what each subtype pays is payroll's rule.
+- *Type of overtime* reaches payroll like every other field (export, below) - what each type pays is payroll's rule.
 
 ### UT — Undertime
 | Field | Label | Type | Req. | Settings |
@@ -149,7 +150,7 @@ Steps: **1. Payroll** → **2. HR**.
 | PC | Payroll concern | – | – | Payroll → HR | Basic (Restricted variant: Enterprise) |
 
 Export: every template with a Dates field appears in the per-date payroll export (design §4b), approved tickets only.
-The export's **request subtype** column carries the template's subtype dropdown: `ot_type` (OT), `leave_type` (LV).
+The export carries the ticket's **other fields as columns** (e.g. *Type of overtime*, *Type of leave*, *Reason*) - no special subtype handling.
 
 ## §4 Dependencies and clashes
 | Item | Status | Needed by |
