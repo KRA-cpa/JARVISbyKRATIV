@@ -12,7 +12,7 @@ const PublicHeader = () => {
   // review CR6-21: until Firebase answers, show neither button (a signed-in user shouldn't flash "Sign in")
   const { isAuthenticated, loading } = useUser();
   const { pathname } = useLocation();
-  const navClass = path => `px-3 py-2 rounded-lg text-sm font-medium ${pathname === path
+  const navClass = path => `px-2 sm:px-3 py-2 rounded-lg text-sm font-medium ${pathname === path
     ? 'text-blue-700 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-200'
     : 'text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-300'}`;
 
@@ -20,14 +20,17 @@ const PublicHeader = () => {
     <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <div className="flex items-center space-x-8">
+          <div className="flex items-center space-x-3 sm:space-x-8">
             <Link to="/" className="flex items-center space-x-2">
               <Icons.Ticket size={28} className="text-blue-600" />
-              <span className="text-xl font-bold text-gray-900 dark:text-white">TicketFlow</span>
+              <span className="hidden sm:inline text-xl font-bold text-gray-900 dark:text-white">TicketFlow</span>
             </Link>
-            <nav className="flex space-x-4">
+            <nav className="flex space-x-1 sm:space-x-4">
               <Link to="/plans" className={navClass('/plans')}>
                 Plans
+              </Link>
+              <Link to="/privacy" className={navClass('/privacy')}>
+                Privacy
               </Link>
             </nav>
           </div>

@@ -118,6 +118,8 @@ const PlanCatalog = ({ signedIn = false }) => (
         {signedIn
           ? <Link to="/dashboard" className="font-medium text-blue-600 hover:underline dark:text-blue-400">Go to dashboard</Link>
           : <Link to="/login" className="font-medium text-blue-600 hover:underline dark:text-blue-400">Sign in</Link>}
+        {' · '}
+        <Link to="/privacy" className="font-medium text-blue-600 hover:underline dark:text-blue-400">Privacy Policy</Link>
       </p>
     </div>
   </div>
