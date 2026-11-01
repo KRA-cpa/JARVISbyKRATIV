@@ -168,7 +168,7 @@ field gets a **mode** (D11): one calendar, one value shape, one payroll export.
 Non-punching authorization                     Manual DTR
 Date(s) *   [calendar - window §4a]            Dates *   [calendar - window §4a]
  Tue 27 Oct  Missing: (•) Time in               Mon 26 Oct  In [08:02]  Out [17:10]  Break [60]  = 8h 08m
-                      ( ) Time out              Tue 27 Oct  In [21:00]  Out [06:00] (next day)   = 8h 00m*
+                      ( ) Time out              Tue 27 Oct  In [21:00]  Out [06:00]  Break [60]  = 8h 00m*
                       ( ) Both                  * crosses midnight
              Actual time in [07:55]             Total 2 days · 16h 08m
 Reason * [Biometric not working ▾]             Reason * [Field work ▾]
@@ -185,7 +185,7 @@ Proof (link) [ ... ]                           Proof (link) [ ... ]
 { "v": 1, "mode": "time_entries",
   "entries": [
     { "date": "2026-10-26", "time_in": "08:02", "time_out": "17:10", "break_minutes": 60, "day_kind": "working" },
-    { "date": "2026-10-27", "time_in": "21:00", "time_out": "06:00", "next_day_out": true, "day_kind": "working" } ],
+    { "date": "2026-10-27", "time_in": "21:00", "time_out": "06:00", "break_minutes": 60, "next_day_out": true, "day_kind": "working" } ],
   "count": { "days": 2, "minutes": 968, "computed_at": "2026-11-01T03:12:00Z" } }
 ```
 `missed_punch` entries: `{ "date", "missing": "time_in" | "time_out" | "both", "time_in"?, "time_out"?, "day_kind" }`.
