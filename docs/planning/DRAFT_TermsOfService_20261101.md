@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.11.0
+Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.12.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: DRAFT General Terms of Service for Daloy (B2B subscription), aligned with the plan, usage, data and privacy decisions so far | Status: DRAFT - not legal advice, not in effect; for review by counsel; [[...]] = pending decision (§0)
 REVISION HISTORY:
+- v0.12.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.3b late-payment penalty (user: "penalties on overdue subs, unless agreed upon otherwise or waived via credit memo or in writing"); T5
 - v0.11.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §10.2 provider outages (user: "add google status / google downtimes"): not a Service failure, fees due, Status page /status, admin notice after [[1 hour]], discretionary goodwill credit after [[24 h / month]]
 - v0.10.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §7.4a limited access to Customer-owned storage: customer's right, not a Service failure, fees due and payments received / recorded as usual (user: "payments received even if database is unreachable"), notice, 30-day suspension
 - v0.9.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.3a: Customer notifies its withholding agent status + CWT rates at sign-up and on change (user); attestation 3; tax profile in §0a
@@ -34,7 +35,7 @@ REVISION HISTORY:
 | T2 | Who the customer is: organization or company | ✅ **Decided (user):** whichever **signs up** - a company, or an organization (which then covers its companies) |
 | T3 | Acceptance | ✅ **Decided (user):** the Terms **form part of the subscription contract** when the company / organization signs up; accepted at sign-up and recorded (§0a) |
 | T4 | Prices, currency, VAT | Not set (website W2); PHP; prices [[exclusive / inclusive]] of VAT |
-| T5 | Payment terms, late payment | Due [[15]] days after the statement / invoice; [[interest or none]] |
+| T5 | Payment terms, late payment | Due [[15]] days after the statement / invoice. ✅ **Decided (user):** a late-payment **penalty** on overdue amounts, **unless agreed otherwise or waived by credit memo or in writing** (§5.3b); rate [[1% per month]] to confirm; no penalty on good-faith disputed amounts or on withheld tax before the 2307 deadline |
 | T6 | Service levels | **None while the service is a proof of concept** (Google Sheets backend); a separate SLA later |
 | T7 | Liability cap | Fees paid in the **12 months** before the claim |
 | T8 | Data return / deletion after termination | Export available for [[30]] days of read-only access, deleted within [[90]] days (privacy retention) |
@@ -150,6 +151,7 @@ system, in compliance with BIR rules]] *(verify the EOPT Act invoicing requireme
 5.3 Payment is due within [[15]] days ([[T5]]). Fees are [[exclusive]] of VAT and other taxes.
 5.3a **Philippine taxes.** Daloy is provided by KRATIV, a Philippine taxpayer, from the Philippines. The fees and the income KRATIV earns from them are covered by the Philippine tax laws (the National Internal Revenue Code, as amended, and the rules of the Bureau of Internal Revenue), including income tax and VAT or percentage tax as they apply. Where the Customer is required by law to withhold creditable withholding tax on its payments to KRATIV, it withholds at the rate the law sets, pays it to the BIR, and gives KRATIV the certificate (BIR Form 2307) within the period the BIR requires; the amount withheld counts as paid once KRATIV receives the certificate. The Customer tells KRATIV, at sign-up and within [[15]] days of any change, whether it is a withholding agent (and its classification, for example a top withholding agent or a government office) and the creditable withholding tax rate(s) it applies to KRATIV's fees; statements show the expected amount net of that withholding. Until KRATIV is told, it treats the Customer as not withholding, and an amount withheld without notice and certificate remains due. The Customer is responsible for its own taxes. *(verify the current NIRC / BIR
 withholding rules and the 2307 deadline)*
+5.3b **Late payment.** An amount not paid by its due date bears a late-payment penalty of [[1%]] per month (or part of a month) on the overdue amount, from the due date until it is paid, unless the Subscription details or another written agreement says otherwise, or we waive it by credit memo or in writing. No penalty runs on: an amount the Customer disputes in good faith and tells us about, with reasons, before its due date (the undisputed part stays due); or tax the Customer has withheld while the BIR period for giving the certificate (Form 2307) has not yet ended. Penalties appear on the next statement. The late-payment penalty is separate from the grace period and read-only status, which only concern access to the Service. *(verify: stipulated interest in writing - Civil Code art. 1956; reduction of iniquitous penalties - art. 1229)*
 5.4 Fees paid are non-refundable except where these Terms or the law say otherwise.
 
 ### 6. Usage allowances and Usage Add-ons

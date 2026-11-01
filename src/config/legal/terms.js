@@ -13,7 +13,7 @@
 
 export const TERMS_OF_SERVICE = {
   status: 'draft', // 'draft' | 'published'
-  version: '0.11', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
+  version: '0.12', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
   effectiveDate: '',
   lastUpdated: '1 November 2026',
   title: 'General Terms of Service',
@@ -112,6 +112,7 @@ export const TERMS_OF_SERVICE = {
         'compliance with BIR rules]].\n\n' +
         'Payment is due within [[15]] days. Fees are [[exclusive]] of VAT and other taxes.\n\n' +
         'Philippine taxes. Daloy is provided by KRATIV, a Philippine taxpayer, from the Philippines. The fees and the income KRATIV earns from them are covered by the Philippine tax laws (the National Internal Revenue Code, as amended, and the rules of the Bureau of Internal Revenue), including income tax and VAT or percentage tax as they apply. Where the Customer is required by law to withhold creditable withholding tax on its payments to KRATIV, it withholds at the rate the law sets, pays it to the BIR, and gives KRATIV the certificate (BIR Form 2307) within the period the BIR requires; the amount withheld counts as paid once KRATIV receives the certificate. The Customer tells KRATIV, at sign-up and within [[15]] days of any change, whether it is a withholding agent (and its classification, for example a top withholding agent or a government office) and the creditable withholding tax rate(s) it applies to KRATIV\'s fees; statements show the expected amount net of that withholding. Until KRATIV is told, it treats the Customer as not withholding, and an amount withheld without notice and certificate remains due. The Customer is responsible for its own taxes.\n\n' +
+        'Late payment. An amount not paid by its due date bears a late-payment penalty of [[1%]] per month (or part of a month) on the overdue amount, from the due date until it is paid, unless the Subscription details or another written agreement says otherwise, or we waive it by credit memo or in writing. No penalty runs on: an amount the Customer disputes in good faith and tells us about, with reasons, before its due date (the undisputed part stays due); or tax the Customer has withheld while the BIR period for giving the certificate (Form 2307) has not yet ended. Penalties appear on the next statement. The late-payment penalty is separate from the grace period and read-only status, which only concern access to the Service.\n\n' +
         'Fees paid are non-refundable except where these Terms or the law say otherwise.'
     },
     {

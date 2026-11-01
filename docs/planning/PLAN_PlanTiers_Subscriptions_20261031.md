@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_PlanTiers_Subscriptions_20261031.md | Author: Kenneth R. Advento | Version: 1.3.1
+Document: PLAN_PlanTiers_Subscriptions_20261031.md | Author: Kenneth R. Advento | Version: 1.3.2
 Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: AppScript v10.2 - Basic / Advanced / Enterprise plans per company: feature + limit catalogue, server gate, subscription lifecycle (trial end, grace, read-only), invoices without payment, owner template library for Basic, ticket uploader | Status: Approved (session ff4c803f), not built
 REVISION HISTORY:
+- v1.3.2 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2c late-payment penalty (user), shown on Usage & charges
 - v1.3.1 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2c: waivers / deductions as a discount or a credit memo (user)
 - v1.3.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2c: usage visible to company + organization admins (user: "so there will be no bill shock"); what can be measured today; Daloy meters + issues a usage statement, invoices come from a billing / accounting system; O6 = monthly active users; O7-O8
 - v1.2.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | U10 (user): usage above the plan's allowance is billed as add-ons (users per block, tickets above the average) - no forced upgrade; §2c rules, guardrails, build impact; O1-O6 open
@@ -234,6 +235,11 @@ level, at every new block, and when the projection crosses the cap; a **weekly d
   computer-generated invoice must come from a BIR-registered system - confirm with the tax adviser), credit notes,
   payments, collections, 2307 withholding. Daloy's own record stays a *statement*, not an official invoice.
 - Unpaid charges follow the normal grace → read-only rules (U4).
+- **Late-payment penalty** (General Terms §5.3b): [[1%]] per month or part of a month on overdue amounts from the due
+  date, as a line on the next statement; **not** charged when the subscription details / a written agreement say
+  otherwise, when waived (credit memo or in writing), on amounts disputed in good faith before the due date, or on
+  withheld tax before the BIR 2307 deadline. Independent of grace / read-only (those govern access only). The
+  *Usage & charges* page shows overdue amounts and the penalty accruing, so it is never a surprise.
 - **Waivers / deductions** (platform owner, Terms §6.5): given as a **discount** on the invoice or a **credit memo**
   issued to the customer from the billing / accounting system; Daloy's statement shows them and links the memo.
 - **Where it is built:** the cloud server (`PLAN_ServerCore` - the Apps Script feature freeze). Until then: limits run
