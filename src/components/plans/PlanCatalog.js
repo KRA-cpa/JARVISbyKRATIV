@@ -36,7 +36,8 @@ const PlanCatalog = ({ signedIn = false }) => (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Plans</h1>
       <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-        Each company runs on one plan. A higher plan includes everything in the lower ones.
+        Each company runs on one plan, and every plan includes the core flow from request to approval. A higher plan includes
+        everything in the lower ones.
       </p>
     </div>
 
@@ -47,7 +48,7 @@ const PlanCatalog = ({ signedIn = false }) => (
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">{plan.name || PLAN_NAMES[plan.plan]}</h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{PLAN_TAGLINES[plan.plan]}</p>
           <p className="mt-4 text-sm font-medium text-gray-800 dark:text-gray-100">
-            {index === 0 ? 'The core ticket loop' : `Everything in ${PLANS[index - 1].name}, plus ${addedCount(index)} features`}
+            {index === 0 ? 'The core flow' : `Everything in ${PLANS[index - 1].name}, plus ${addedCount(index)} features`}
           </p>
           <dl className="mt-4 space-y-2 border-t border-gray-100 pt-4 text-sm dark:border-gray-700">
             {LIMIT_KEYS.map(key => (

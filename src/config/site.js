@@ -38,17 +38,17 @@ export const PUBLIC_NAV = [
 
 export const HOW_IT_WORKS = {
   title: 'How it works',
-  intro: 'From request to approval in four steps, set up without code.',
+  intro: 'How work flows from request to approval, in four steps, set up without code.',
   // Kept short on purpose (user, 1 Nov 2026: the first version was "too detailed" - it is archived in
   // docs/archive/2026-11/how-it-works-detailed/). icon = a name in src/components/shared/Icons.js
   steps: [
     { id: 'form', icon: 'Document', heading: 'Build the form', text: 'Each kind of request gets its own form with the fields it needs.' },
-    { id: 'route', icon: 'Users', heading: 'Set the approvers', text: 'The ticket goes step by step to the people in each role.' },
+    { id: 'route', icon: 'Users', heading: 'Set the approvers', text: 'The ticket flows step by step to the people in each role.' },
     { id: 'time', icon: 'Clock', heading: 'Keep it on time', text: 'SLAs count business time and escalate a step that runs late.' },
     { id: 'done', icon: 'CheckCircle', heading: 'See it done', text: 'Everyone is notified, and every ticket stays on record.' }
   ],
   ctaHeading: 'Find the plan that fits',
-  ctaText: 'All plans include the core ticket loop; the plans page shows what each one adds.'
+  ctaText: 'All plans include the core flow; the plans page shows what each one adds.'
 };
 
 /**
