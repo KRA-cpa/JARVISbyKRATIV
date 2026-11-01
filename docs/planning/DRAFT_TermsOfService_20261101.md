@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.1.0
+Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.2.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: DRAFT Terms of Service for Daloy (B2B subscription), aligned with the plan, usage, data and privacy decisions so far | Status: DRAFT - not legal advice, not in effect; for review by counsel; [[...]] = pending decision (§0)
 REVISION HISTORY:
+- v0.2.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: "terms will form part of the subscription contract of a company or org once they sign up" - T2 / T3 decided; contract documents + order of precedence; acceptance record (§0a)
 - v0.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | First draft (user: "draft terms and conditions")
 ===============================================================================
 -->
@@ -21,8 +22,8 @@ REVISION HISTORY:
 | # | Decision | Proposed default / source |
 |---|---|---|
 | T1 | Contracting entity (legal name, address, SEC / DTI registration, TIN) | [[KRAtiv Solutions - confirm the registered name]] (also privacy D1) |
-| T2 | Who the customer is: organization or company | The **organization** once organizations exist (billing level, ServerCore O3); until then the company |
-| T3 | Acceptance | Click-through at sign-up / plan start **plus** an order form or statement for paid plans |
+| T2 | Who the customer is: organization or company | ✅ **Decided (user):** whichever **signs up** - a company, or an organization (which then covers its companies) |
+| T3 | Acceptance | ✅ **Decided (user):** the Terms **form part of the subscription contract** when the company / organization signs up; accepted at sign-up and recorded (§0a) |
 | T4 | Prices, currency, VAT | Not set (website W2); PHP; prices [[exclusive / inclusive]] of VAT |
 | T5 | Payment terms, late payment | Due [[15]] days after the statement / invoice; [[interest or none]] |
 | T6 | Service levels | **None while the service is a proof of concept** (Google Sheets backend); a separate SLA later |
@@ -33,16 +34,45 @@ REVISION HISTORY:
 | T11 | Suspension for non-payment | Read-only after the grace period (plan U4: 14 days paid, 7 after a trial) - not deletion |
 | T12 | Language | English; a Filipino translation is for convenience, English prevails |
 
+## §0a Subscription contract and acceptance record (product requirements)
+**Contract documents** (one subscription contract per subscribing company or organization):
+1. the **Subscription details** - plan, period, packs, allowances, add-on prices, billing contact (the order form, or
+   the plan record shown at sign-up and on renewal);
+2. these **Terms of Service**;
+3. the **Data Processing Agreement** (privacy D3);
+4. the **Privacy Policy** (for information; it describes processing, it is not a contract term).
+If they conflict: Subscription details → Data Processing Agreement (for personal data) → Terms.
+
+**Acceptance record** (needed so the contract can be shown later):
+| Recorded | Where (proposal) |
+|---|---|
+| Who accepted (user id, name, email), for which company / organization | `subscription_acceptances` (new) or columns on `company_subscriptions` |
+| When (UTC timestamp), from where (sign-up, renewal, plan change, re-acceptance) | same |
+| Which versions: Terms, DPA, Privacy Policy (version + effective date) | same - a version string per document |
+| The subscription details accepted (plan, period, packs, add-on prices) | a snapshot (JSON) |
+
+- A **material change** of the Terms (§17) asks a company / organization admin to accept the new version at next
+  sign-in; until then the old version applies, and declining before the effective date ends the subscription with a
+  pro-rated refund.
+- The accepted versions are visible on the *Plan & usage* page and printable (the customer's copy of its contract).
+- Platform-managed sign-ups (the platform team sets up a Basic company) still need a customer admin's acceptance on
+  first sign-in before the plan starts [[or a signed order form]].
+
 ---
 
 ## Terms of Service
 
 **Effective date:** [[date]] · **Version:** [[1.0]]
 
-These Terms of Service ("**Terms**") are an agreement between [[legal name]] ("**KRAtiv**", "**we**", "**us**"), with
-address at [[registered address]], and the organization or company that signs up for Daloy ("**Customer**",
-"**you**"). By creating an account, starting a trial or using Daloy, you accept these Terms on behalf of the Customer
-and confirm you have authority to do so.
+These Terms of Service ("**Terms**") are between [[legal name]] ("**KRAtiv**", "**we**", "**us**"), with address at
+[[registered address]], and the company or organization that signs up for Daloy ("**Customer**", "**you**").
+
+**These Terms form part of the Customer's subscription contract.** When the Customer signs up (including a trial), the
+subscription contract is made up of the Subscription details shown and accepted at sign-up (plan, period, packs,
+allowances and prices), these Terms and the Data Processing Agreement. The person who accepts confirms they have
+authority to bind the Customer. If an organization signs up, the contract covers every company it adds to its
+account; an organization admin may accept on behalf of those companies. We keep a record of who accepted which
+versions and when, and the Customer can view it in the Service.
 
 ### 1. Definitions
 - **Service** or **Daloy**: the Daloy ticketing and workflow application, its website, templates and related support.
@@ -184,7 +214,7 @@ law) survive termination.
 
 ### 17. Changes to these Terms
 We may update these Terms. We will give [[30]] days' notice of material changes in the Service or by email to the
-Customer's administrators. If the Customer does not accept a material change, it may end its subscription before the
+Customer's administrators, and ask an administrator to accept the new version. If the Customer does not accept a material change, it may end its subscription before the
 change takes effect and receive a pro-rated refund of prepaid fees.
 
 ### 18. General
@@ -193,9 +223,10 @@ change takes effect and receive a pro-rated refund of prepaid fees.
 - **Notices:** to the Customer's administrators by email or in the Service; to us at [[legal / support address]].
 - **Electronic acceptance** has the same effect as a signature (Electronic Commerce Act, RA 8792) *(verify)*.
 - **Assignment:** neither party may assign these Terms without consent, except to a successor of its business.
-- **Entire agreement:** these Terms, the order form, the Privacy Policy and the Data Processing Agreement are the
-  whole agreement; if they conflict, the order form prevails, then the Data Processing Agreement (for personal data),
-  then these Terms.
+- **Entire agreement:** the subscription contract (the Subscription details, these Terms and the Data Processing
+  Agreement) is the whole agreement; the Privacy Policy describes how we process personal information. If they
+  conflict, the Subscription details prevail, then the Data Processing Agreement (for personal data), then these
+  Terms.
 - **Severability / no waiver:** an invalid clause does not affect the rest; not enforcing a right is not a waiver.
 - **Governing law and disputes:** Philippine law. The parties first try to settle a dispute in good faith for
   [[30]] days; then [[the courts of city]] / [[arbitration in city under RA 9285]] ([[T9]]).
