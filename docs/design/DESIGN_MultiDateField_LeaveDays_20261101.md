@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DESIGN_MultiDateField_LeaveDays_20261101.md | Author: Kenneth R. Advento | Version: 1.1.0
+Document: DESIGN_MultiDateField_LeaveDays_20261101.md | Author: Kenneth R. Advento | Version: 1.2.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Design of the "Dates" custom field (multiple dates, half days) and the leave-day count with the sandwich rule (rest days / holidays between leave days) | Status: Design - for review; decisions D1-D8 open; not built
 REVISION HISTORY:
+- v1.2.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Window = the calendar only SHOWS the allowed days and months (user: "make calendar selection limited, dont greyout") - no disabled days
 - v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §4a selection window (user: "for HR type request, limit calendar selection to next x months") for every date-type field; D9-D10
 - v1.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created; user: "design multiple dates. holiday can be sandwiched or rest day/weekend sandwiched by leaves"
 ===============================================================================
@@ -46,8 +47,10 @@ Leave dates *                                         [ + Add a range ]
 - Below the calendar, a live **summary**: the chosen days, working days, sandwiched days (with why), total. The same
   text is shown to approvers, in emails and on the ticket.
 - Rest days and holidays **can't be picked directly** (default; D4).
-- Days outside the field's **selection window** (§4a) are disabled, and the calendar doesn't page past it
-  ("You can file leave up to 3 months ahead").
+- The calendar **only shows the selection window** (§4a): it opens on the first allowed month, pages only between
+  the first and last allowed months, and in those edge months the days outside the window are **not drawn** (empty
+  cells, nothing to tap) - no greyed or disabled days to explain. A line under the calendar says the range:
+  "Leave can be filed from 2 Oct 2026 to 1 Feb 2027."
 
 ## §2 The value
 Stored per ticket field (Sheets: `custom_field_values.text_value` as JSON; Postgres: `jsonb`), plus the total in
@@ -127,8 +130,12 @@ picked. One setting pair on **every date-type field** - `date`, `date_range` (bo
 - `months_ahead` is **rolling**: the last allowed day = today + N months, same day of month, clamped to the month's
   last day (31 Jan + 1 month → 28 Feb; 1 Nov 2026 + 3 → 1 Feb 2027) (D9).
 - `days_back` = 0 means "today or later" (e.g. vacation leave); the first allowed day = today − N days.
-- **The browser disables** days outside the window; **the server refuses** them on submit (the browser can be
-  bypassed): *"Leave dates: pick days from 2 Oct 2026 to 1 Feb 2027."*
+- **The calendar shows only the window** (user decision, 1 Nov 2026): months outside it can't be reached, and days
+  outside it in the first / last month are left blank - never greyed or disabled. The Add-a-range pickers use the same
+  bounds. Nothing outside the window can be chosen in the page, so the page needs no "not allowed" handling.
+- **The server still checks** the window on submit - a request can be sent without the page (API, uploader, an old
+  browser tab opened yesterday). It is a one-line refusal, not a screen state:
+  *"Leave dates: pick days from 2 Oct 2026 to 1 Feb 2027."*
 - **When it's checked:** on create, and on edit / resubmit **only for days that changed**. A returned ticket keeps its
   original days even if they now fall outside the window (the requester isn't punished for the approver's delay) (D10).
 - `max_days` (§4) and the window are separate: the window limits *which* days, `max_days` limits *how many*.
