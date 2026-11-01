@@ -31,7 +31,8 @@ const HomePage = () => (
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{BRAND_MEANING} · {BRAND_PARENT_LINE}</p>
         <p className="mt-5 text-2xl sm:text-3xl font-semibold text-blue-700 dark:text-blue-300">{BRAND_TAGLINE}</p>
         <p className="mt-3 text-lg text-gray-600 dark:text-gray-300">
-          Ticketing and workflow orchestration for every company: forms, approval chains, SLAs and reports, set up without code.
+          Ticketing and approval workflows, set up without code. Every request follows a clear path to the right people, with
+          deadlines and a full record.
         </p>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
           Plans: {PLAN_ORDER.map(plan => PLAN_NAMES[plan]).join(' · ')}
