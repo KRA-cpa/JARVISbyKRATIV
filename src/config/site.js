@@ -15,6 +15,8 @@ export const BRAND_NAME = 'Daloy';
 export const BRAND_COMPANY = 'KRAtiv';
 export const BRAND_BYLINE = `by ${BRAND_COMPANY}`;
 export const BRAND_PARENT_LINE = `A ${BRAND_COMPANY} Solutions app`;
+/** Copyright holder in the footer (user, 1 Nov 2026). */
+export const BRAND_COPYRIGHT_OWNER = `${BRAND_COMPANY} Solutions / Kenneth Advento`;
 export const BRAND_DESCRIPTOR = 'Ticketing & Workflow Orchestration';
 /** Taglines (user, 1 Nov 2026: calm, not "workaholic"). Alternates: docs/design/daloy-brand/TAGLINES.md.
  * BRAND_MEANING doubles as the pronunciation hint (English speakers default to DAH-loy). */

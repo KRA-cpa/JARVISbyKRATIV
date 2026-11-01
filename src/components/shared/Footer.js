@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { BRAND_NAME, BRAND_PARENT_LINE, BRAND_TAGLINE_LOCAL } from '../../config/site';
+import { BRAND_NAME, BRAND_PARENT_LINE, BRAND_TAGLINE_LOCAL, BRAND_COPYRIGHT_OWNER } from '../../config/site';
 
 /**
  * Footer Component
@@ -25,8 +25,10 @@ const Footer = ({ className = "", publicSite = false }) => {
               {!publicSite && <>{' · '}Developed through <span className="font-medium text-gray-700">Claude.ai and Claude CLI</span></>}
             </p>
             <p className="mt-1">
-              © {new Date().getFullYear()} · All rights reserved ·{' '}
-              <Link to="/privacy" className="font-medium text-blue-600 hover:underline">Privacy Policy</Link>
+              {/* each part stays whole: on phones the line breaks only between parts */}
+              <span className="whitespace-nowrap">© {new Date().getFullYear()} {BRAND_COPYRIGHT_OWNER}</span>
+              {' · '}<span className="whitespace-nowrap">All rights reserved</span>{' · '}
+              <Link to="/privacy" className="whitespace-nowrap font-medium text-blue-600 hover:underline">Privacy Policy</Link>
             </p>
           </div>
         </div>
