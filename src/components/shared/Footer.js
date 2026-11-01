@@ -15,11 +15,13 @@ const Footer = ({ className = "" }) => {
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <div className="text-sm text-gray-500">
-            <p className="font-medium text-gray-700">{BRAND_NAME} · {BRAND_PARENT_LINE}</p>
-            <p className="mt-1 italic text-gray-500">{BRAND_TAGLINE_LOCAL}</p>
-            <p className="mt-1 font-medium">Proof of Concept</p>
+            <p>
+              <span className="font-medium text-gray-700">{BRAND_NAME} · {BRAND_PARENT_LINE}</span>
+              {' · '}<span className="italic">{BRAND_TAGLINE_LOCAL}</span>
+            </p>
             <p className="mt-1">
-              Designed by <span className="font-medium text-gray-700">Kenneth Advento</span>
+              <span className="font-medium">Proof of Concept</span>
+              {' · '}Designed by <span className="font-medium text-gray-700">Kenneth Advento</span>
             </p>
             <p className="mt-1">
               Developed through <span className="font-medium text-gray-700">Claude.ai and Claude CLI</span>
