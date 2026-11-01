@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_ServerCore_OrgSheetBridge_20261101.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: PLAN_ServerCore_OrgSheetBridge_20261101.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Add ORGANIZATIONS above companies (an organization owns its data store - e.g. its own Google Sheet - and onboards one or more companies); business logic moves to the server; Apps Script shrinks to a thin bridge to the organization's Sheet | Status: Draft (session 017zmKf6), decisions O1-O10 open, not built
 REVISION HISTORY:
+- v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: "appscript lives on the cloud now" - no more feature work in the Apps Script backend; admin scope (O0) and organizations are built in the cloud server only; interim rule for the shared Apps Script platform
 - v1.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created; user: "appscript must now then live in server, appscript only to bridge the frontend to their sheet" + "organization is the owner of sheets, so they can onboard multiple companies"
 ===============================================================================
 -->
@@ -22,8 +23,10 @@ Google Sheet** can only get a full separate copy of Daloy, and every release mus
 1. A new level, the **organization**, sits **above companies**. The organization is the customer account: it **owns
    the data store** (for example its own Google Sheet) and **onboards one or more companies** into it (a group of
    companies, or a firm running several client companies).
-2. **The logic lives on the server.** Apps Script stays only as a **bridge** between the server and the
+2. **The logic lives on the server (the cloud).** Apps Script stays only as a **bridge** between the server and the
    organization's Sheet, and nothing else.
+3. **No more feature work in the Apps Script backend** (v10.2 is the last feature release there; fixes only).
+   Organizations, admin scope and everything in this plan are built in the cloud server.
 
 "Company" keeps its meaning (tickets, roles, ticket types, calendar, email settings stay per company).
 
@@ -54,10 +57,13 @@ Users: one identity (Google account) → member of one or more organizations →
 That was fine with one operator. **With two outside customers on the shared platform, customer A's admin can see
 customer B.**
 
-→ **Phase O0 (before onboarding a second outside customer, on Apps Script, now):** scope admin rights to the
-companies of the admin's organization (or, until organizations exist, to the companies where the admin role is held);
-platform-wide actions stay with `PLATFORM_ADMIN_UIDS`. Add a route test: an admin of company X gets "not found" for a
+→ **Built into the cloud server from day one (not patched into Apps Script):** admin rights scoped to the admin's
+organization; platform-wide actions stay with platform admins. Route test: an admin of company X gets "not found" for a
 ticket of company Y (compliance A21 style).
+
+→ **Interim rule while the Apps Script backend is live:** only **one outside customer** on the shared platform, **or**
+no customer user gets a role whose name contains "admin" (the platform team does admin work for them). Lift the rule
+when the cloud server is live.
 
 ## §3 Target architecture
 ```
@@ -104,7 +110,8 @@ request carries `timestamp + HMAC(body)`; the bridge refuses unsigned or > 5-min
 | O7 | Links / copies across organizations | Off by default; on only when both organization admins allow it |
 | O8 | Caching | Server read cache per organization, short TTL, cleared on its own writes. Direct Sheet edits not supported (§7) |
 | O9 | Move between storages | Export / import: Sheet → platform (outgrown), platform → Sheet (customer leaves with its data) |
-| O10 | Order vs the Neon migration | O0 now (Apps Script); organizations in the Postgres schema from Neon Phase 0; the Sheet adapter after Postgres works |
+| O10 | Order vs the Neon migration | Organizations + admin scope in the server and Postgres schema from Neon Phase 0; the Sheet adapter after Postgres works |
+| O11 | Which cloud hosts the server | Vercel functions (sin1) + Neon, as in PLAN_Migration_NeonVercel - **confirm** (alternative: Google Cloud Run, closer to Workspace customers' Google tenancy) |
 
 ## §6 What changes vs today
 | Today (Apps Script v10.2) | Target |
@@ -131,17 +138,17 @@ request carries `timestamp + HMAC(body)`; the bridge refuses unsigned or > 5-min
 ## §8 Phases
 | Phase | Scope | Depends on |
 |---|---|---|
-| **O0** | **Scope admin rights** (§2) on Apps Script + route test | none - **before a second outside customer** |
-| **O1** | Organizations on Apps Script: `organizations` tab, `companies.organization_id`, organization admins, org switcher, plan per organization (O3) | O0; v10.2 deployed |
-| **O2** | Neon migration: handlers on the server, Postgres with `organization_id`, Vercel Cron | PLAN_Migration_NeonVercel |
-| **O3** | Storage adapter interface + per-organization routing; Postgres adapter = the O2 code | O2 |
+| **O1** | Cloud server core: handlers on the server, Postgres with `organizations` + `organization_id`, admin scopes (§2), plan per organization (O3), Vercel Cron | PLAN_Migration_NeonVercel; O11 |
+| **O2** | Organization admin screens: create companies, invite admins, organization switcher (O4) | O1 |
+| **O3** | Storage adapter interface + per-organization routing; Postgres adapter = the O1 code | O1 |
 | **O4** | Bridge v1 (§4) + contract test + Sheet adapter + cache | O3 |
 | **O5** | Pilot: one Workspace organization with 2+ companies on its own Sheet; rewrite onboarding guide §3 for the bridge | O4 |
-| **O6** | Export / import between storages (O9) | O4 |
+| **O6** | Export / import between storages (O9), incl. moving existing Apps Script data to the cloud | O4 |
 
 ## §9 Progress
 | Item | Status |
 |---|---|
 | Plan written | ✅ 1 Nov 2026 |
 | O1-O10 decided | ⏳ |
-| O0 admin scope | ⏳ **priority** |
+| Interim one-customer / no-admin-role rule (§2) | ⏳ in force until O1 is live |
+| O1 cloud server core | ⏳ |

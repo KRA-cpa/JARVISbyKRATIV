@@ -22,8 +22,8 @@ accounts (`name@theircompany.com`).
 > no longer needs a full copy per customer. Until then, this guide describes what works **today**.
 >
 > ⚠️ **Before onboarding a second outside customer on the shared platform:** admin rights are global today (a user
-> with an "admin" role in any company sees every company). Do plan phase **O0** (scope admin rights) first, or give
-> customer admins a non-admin role.
+> with an "admin" role in any company sees every company). Until the cloud server is live (plan §2): only one outside
+> customer on the shared platform, **or** no customer user gets a role whose name contains "admin".
 
 **Good news first:** Workspace accounts *are* Google accounts. Daloy signs people in with Google (Firebase), so their
 staff sign in with the account they already use - no new passwords.
