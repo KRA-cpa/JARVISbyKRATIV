@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: TEMPLATES_PayrollRequests_20261101.md | Author: Kenneth R. Advento | Version: 1.1.1
+Document: TEMPLATES_PayrollRequests_20261101.md | Author: Kenneth R. Advento | Version: 1.1.2
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Payroll-type request templates - the basis for the owner template library (PLAN_PlanTiers §2a): ticket types, fields, windows, steps, comment rules | Status: Draft for review; T1-T6 open; not seeded
 REVISION HISTORY:
+- v1.1.2 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | T2 corrected: Basic light edits can't change dropdown options
 - v1.1.1 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | The OT subtype is just a ticket field (dropdown) - no special "subtype" concept; the export carries the ticket's fields generically (user)
 - v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Rest day / holiday work merged into OT as subtypes (user: "overtime, rest day/holiday work will be subtypes of overtime"); 9 templates
 - v1.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created; user: "create a file for payroll type request, as basis for the ticket template library" + "multi date field can already be incorporated"
@@ -170,7 +171,7 @@ The export carries the ticket's **other fields as columns** (e.g. *Type of overt
 | # | Question | Proposed default |
 |---|---|---|
 | T1 | Basic can adopt 5 types; the payroll set is 9 | Count a **"Payroll pack"** as one adoption slot for Basic, or raise Basic's limit to 8 and drop LC / CS from the core set. Recommendation: **pack = 1 slot** (sells the pack; keeps the limit meaningful for custom types) |
-| T2 | Leave-type list | As in LV (PH statutory names + common company leaves); companies edit the list (Basic light edit: dropdown options) |
+| T2 | Leave-type list | As in LV (PH statutory names + common company leaves). **Correction (1 Nov 2026):** Basic can't change dropdown options (light edits refuse dropdown changes, PLAN_PlanTiers §2a) - Basic gets the list as shipped (or the platform team edits it in managed setup); Advanced+ edit it themselves |
 | T3 | Step 2 = HR or Payroll per template | As in §3; companies with one HR-payroll team map both roles to the same people |
 | T4 | Leave cancellation as its own template vs "Cancel" on the leave ticket | Own template (LC) while a ticket can't be partly cancelled; revisit if per-date cancel is added |
 | T5 | Proof links required? | Required only for MD; optional elsewhere |
