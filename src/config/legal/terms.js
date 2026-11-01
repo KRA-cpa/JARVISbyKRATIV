@@ -13,7 +13,7 @@
 
 export const TERMS_OF_SERVICE = {
   status: 'draft', // 'draft' | 'published'
-  version: '0.7', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
+  version: '0.8', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
   effectiveDate: '',
   lastUpdated: '1 November 2026',
   title: 'General Terms of Service',
@@ -110,8 +110,8 @@ export const TERMS_OF_SERVICE = {
         'Usage Add-ons are billed in arrears.\n\n' +
         'We send a usage statement each month. Official invoices are issued [[through our accounting / billing system, in ' +
         'compliance with BIR rules]].\n\n' +
-        'Payment is due within [[15]] days. Fees are [[exclusive]] of VAT and other taxes; if the Customer must withhold tax, it ' +
-        'gives us the withholding certificate (BIR Form 2307).\n\n' +
+        'Payment is due within [[15]] days. Fees are [[exclusive]] of VAT and other taxes.\n\n' +
+        'Philippine taxes. Daloy is provided by KRATIV, a Philippine taxpayer, from the Philippines. The fees and the income KRATIV earns from them are covered by the Philippine tax laws (the National Internal Revenue Code, as amended, and the rules of the Bureau of Internal Revenue), including income tax and VAT or percentage tax as they apply. Where the Customer is required by law to withhold creditable withholding tax on its payments to KRATIV, it withholds at the rate the law sets, pays it to the BIR, and gives KRATIV the certificate (BIR Form 2307) within the period the BIR requires; the amount withheld counts as paid. The Customer is responsible for its own taxes.\n\n' +
         'Fees paid are non-refundable except where these Terms or the law say otherwise.'
     },
     {

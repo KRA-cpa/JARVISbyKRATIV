@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.7.0
+Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.8.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: DRAFT General Terms of Service for Daloy (B2B subscription), aligned with the plan, usage, data and privacy decisions so far | Status: DRAFT - not legal advice, not in effect; for review by counsel; [[...]] = pending decision (§0)
 REVISION HISTORY:
+- v0.8.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.3a Philippine taxes (user: "include Daloy is covered by Philippine income tax laws")
 - v0.7.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §3a Customer attestations (user: "attestations by customer in terms, like users must be 18 and other stuff"); recorded with the acceptance (§0a)
 - v0.6.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Renamed "General Terms of Service" (user); the DPA is available only to customer admins in the Service (admin page /admin/dpa), prospects on request
 - v0.5.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: "last updated" on both documents; archive every Terms version (/terms/versions, termsArchive.js, docs/archive/legal/terms/); notice of major changes; major change = materially diminishes the Customer's or KRATIV's rights (§17). Text also in src/config/legal/terms.js (/terms)
@@ -142,8 +143,9 @@ on or off. Turning a pack off stops new requests of its types; existing requests
 Add-ons are billed in arrears (§6).
 5.2 We send a **usage statement** each month. Official invoices are issued [[through our accounting / billing
 system, in compliance with BIR rules]] *(verify the EOPT Act invoicing requirements)*.
-5.3 Payment is due within [[15]] days ([[T5]]). Fees are [[exclusive]] of VAT and other taxes; if the Customer must
-withhold tax, it gives us the withholding certificate (BIR Form 2307).
+5.3 Payment is due within [[15]] days ([[T5]]). Fees are [[exclusive]] of VAT and other taxes.
+5.3a **Philippine taxes.** Daloy is provided by KRATIV, a Philippine taxpayer, from the Philippines. The fees and the income KRATIV earns from them are covered by the Philippine tax laws (the National Internal Revenue Code, as amended, and the rules of the Bureau of Internal Revenue), including income tax and VAT or percentage tax as they apply. Where the Customer is required by law to withhold creditable withholding tax on its payments to KRATIV, it withholds at the rate the law sets, pays it to the BIR, and gives KRATIV the certificate (BIR Form 2307) within the period the BIR requires; the amount withheld counts as paid. The Customer is responsible for its own taxes. *(verify the current NIRC / BIR
+withholding rules and the 2307 deadline)*
 5.4 Fees paid are non-refundable except where these Terms or the law say otherwise.
 
 ### 6. Usage allowances and Usage Add-ons
