@@ -4,6 +4,7 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 
 // Configuration
 import DEV_CONFIG from './config/development';
+import { HOW_IT_WORKS_PATH } from './config/site';
 
 // Context Providers
 import { UserProvider, useUser } from './contexts/UserContext';
@@ -24,6 +25,8 @@ import ReportsPage from './pages/ReportsPage';
 import PlansPage from './pages/PlansPage';
 import HomePage from './pages/HomePage';
 import PrivacyPage from './pages/PrivacyPage';
+import HowItWorksPage from './pages/HowItWorksPage';
+import ContactPage from './pages/ContactPage';
 
 // Shared Components
 import LoadingScreen from './components/shared/LoadingScreen';
@@ -145,6 +148,33 @@ const AppRoutes = () => {
               <ProtectedRoute>
                 <ReportsPage />
               </ProtectedRoute>
+            }
+          />
+
+          {/* Public website (docs/planning/PLAN_PlatformWebsite_20261101.md W1) - no sign-in, no API call. The nav label and
+              path live in src/config/site.js; /features opens the same page */}
+          <Route
+            path={HOW_IT_WORKS_PATH}
+            element={
+              <OpenRoute>
+                <HowItWorksPage />
+              </OpenRoute>
+            }
+          />
+          <Route
+            path="/features"
+            element={
+              <OpenRoute>
+                <HowItWorksPage />
+              </OpenRoute>
+            }
+          />
+          <Route
+            path="/contact"
+            element={
+              <OpenRoute>
+                <ContactPage />
+              </OpenRoute>
             }
           />
 

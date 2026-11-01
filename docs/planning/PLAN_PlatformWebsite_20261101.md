@@ -46,6 +46,10 @@ This plan turns that into a small website around the app.
 
 ---
 
+**Built so far (1 Nov 2026, cloud session 017zmKf9):** W1 public pages **How it works** (`/how-it-works`, also `/features` - the nav label is `HOW_IT_WORKS_LABEL` in `src/config/site.js`) and **Contact** (`/contact`, mailto per W5: `REACT_APP_CONTACT_EMAIL`, hidden while unset, plus the DPO address); `PublicHeader` nav How it works · Plans · Contact · Privacy with a phone menu. Privacy is `docs/planning/PLAN_PrivacyPolicy_DPA_20261101.md` (`/privacy`, not `/legal/privacy`). Still open in W1: `PublicFooter` / `PublicLayout`, page meta, sitemap / robots, code split, public 404, terms.
+
+---
+
 ## §1 Principles
 - **Public pages make no signed-in request.** They render from config files. The only public server calls are the ones in §5, and each is on an explicit allow-list in both the proxy and AppScript.
 - **The server still decides.** Any plan or feature text on the site is display copy. Enforcement stays in AppScript (F1), and the `plan-copy` check keeps the copy honest.
