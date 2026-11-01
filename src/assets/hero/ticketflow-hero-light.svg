@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="tf light" width="560" height="280" viewBox="0 0 560 280" role="img" aria-labelledby="tf-t tf-d">
+<title id="tf-t">TicketFlow approval flow</title>
+<desc id="tf-d">Purchase request PR-2026-00000042 moves through Manager, Finance and Done approval steps, then shows Approved</desc>
+<style>
+.tf{--blue:#2563EB;--green:#22C55E;--on-green:#052E16}
+.tf{--bg:#F8FAFC;--card:#FFFFFF;--node:#FFFFFF;--line:#CBD5E1;--track:#E2E8F0;--text:#0F172A;--muted:#64748B}
+@media (prefers-color-scheme:dark){.tf:not(.light){--bg:#0B1220;--card:#131C2E;--node:#131C2E;--line:#3A4A63;--track:#26334A;--text:#E2E8F0;--muted:#94A3B8}}
+.tf.dark{--bg:#0B1220;--card:#131C2E;--node:#131C2E;--line:#3A4A63;--track:#26334A;--text:#E2E8F0;--muted:#94A3B8}
+.tf text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.bg{fill:var(--bg)}
+.track{stroke:var(--track);stroke-width:4;stroke-linecap:round}
+.fill{stroke:var(--green);stroke-width:4;stroke-linecap:round;stroke-dasharray:106;stroke-dashoffset:0}
+.nbase{fill:var(--node);stroke:var(--line);stroke-width:2}
+.num{fill:var(--muted);font-size:15px;font-weight:600;text-anchor:middle}
+.blue{fill:var(--blue)}
+.green{fill:var(--green)}
+.ring{fill:var(--blue);opacity:0;transform-box:fill-box;transform-origin:center}
+.cface{fill:none;stroke:#fff;stroke-width:2}
+.chand{stroke:#fff;stroke-width:2;stroke-linecap:round}
+.hand{transform-box:fill-box;transform-origin:center}
+.check,.pchk{fill:none;stroke:var(--on-green);stroke-linecap:round;stroke-linejoin:round}
+.check{stroke-width:3}
+.pchk{stroke-width:2.5}
+.act{opacity:0}
+.done{opacity:1;transform-box:fill-box;transform-origin:center}
+.lbl{fill:var(--text);font-size:16px;font-weight:600;text-anchor:middle}
+.card{transform:translateX(165px)}
+.cardbg{fill:var(--card);stroke:var(--green);stroke-width:1.5}
+.dot{fill:var(--green)}
+.id{fill:var(--text);font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+.sub{fill:var(--muted);font-size:15px}
+.conn{stroke:var(--line);stroke-width:2;stroke-dasharray:3 4;stroke-linecap:round;opacity:0}
+.pill{transform-box:fill-box;transform-origin:center}
+.pillbg{fill:var(--green)}
+.pilltx{fill:var(--on-green);font-size:17px;font-weight:700}
+.card{animation:card 7s cubic-bezier(.4,0,.2,1) infinite}
+.cardbg{animation:cardline 7s ease infinite}
+.dot{animation:dot 7s ease infinite}
+.conn{animation:conn 7s ease infinite}
+.pill{animation:pill 7s ease infinite}
+.a1{animation:a1 7s ease infinite}
+.a2{animation:a2 7s ease infinite}
+.a3{animation:a3 7s ease infinite}
+.d1{animation:d1 7s ease infinite}
+.d2{animation:d2 7s ease infinite}
+.d3{animation:d3 7s ease infinite}
+.f1{animation:f1 7s cubic-bezier(.4,0,.2,1) infinite}
+.f2{animation:f2 7s cubic-bezier(.4,0,.2,1) infinite}
+.l1{animation:l1 7s ease infinite}
+.l2{animation:l2 7s ease infinite}
+.l3{animation:l3 7s ease infinite}
+.ring{animation:pulse 1.4s ease-out infinite}
+.hand{animation:tick 1.4s steps(8,end) infinite}
+@keyframes card{0%{transform:translateX(-250px);opacity:0}8%{transform:translateX(15px);opacity:1}29%{transform:translateX(15px)}37%{transform:translateX(165px)}57%{transform:translateX(165px)}65%{transform:translateX(315px)}77%{transform:translateX(315px)}85%{transform:translateX(165px)}95%{transform:translateX(165px);opacity:1}99%,100%{transform:translateX(165px);opacity:0}}
+@keyframes cardline{0%,77%{stroke:var(--blue)}83%,100%{stroke:var(--green)}}
+@keyframes dot{0%,77%{fill:var(--blue)}83%,100%{fill:var(--green)}}
+@keyframes conn{0%,6%{opacity:0}10%,76%{opacity:1}80%,100%{opacity:0}}
+@keyframes pill{0%,80%{opacity:0;transform:scale(.6)}85%{opacity:1;transform:scale(1.06)}88%,95%{opacity:1;transform:scale(1)}99%,100%{opacity:0;transform:scale(1)}}
+@keyframes a1{0%,6%{opacity:0}9%,27%{opacity:1}30%,100%{opacity:0}}
+@keyframes a2{0%,35%{opacity:0}38%,55%{opacity:1}58%,100%{opacity:0}}
+@keyframes a3{0%,64%{opacity:0}67%,73%{opacity:1}76%,100%{opacity:0}}
+@keyframes d1{0%,28%{opacity:0;transform:scale(.5)}31%{opacity:1;transform:scale(1.12)}34%,95%{opacity:1;transform:scale(1)}99%,100%{opacity:0;transform:scale(1)}}
+@keyframes d2{0%,56%{opacity:0;transform:scale(.5)}59%{opacity:1;transform:scale(1.12)}62%,95%{opacity:1;transform:scale(1)}99%,100%{opacity:0;transform:scale(1)}}
+@keyframes d3{0%,74%{opacity:0;transform:scale(.5)}77%{opacity:1;transform:scale(1.12)}80%,95%{opacity:1;transform:scale(1)}99%,100%{opacity:0;transform:scale(1)}}
+@keyframes f1{0%,29%{stroke-dashoffset:106;opacity:1}35%,95%{stroke-dashoffset:0;opacity:1}99%,100%{stroke-dashoffset:0;opacity:0}}
+@keyframes f2{0%,57%{stroke-dashoffset:106;opacity:1}63%,95%{stroke-dashoffset:0;opacity:1}99%,100%{stroke-dashoffset:0;opacity:0}}
+@keyframes l1{0%,6%{fill:var(--muted)}9%,95%{fill:var(--text)}99%,100%{fill:var(--muted)}}
+@keyframes l2{0%,35%{fill:var(--muted)}38%,95%{fill:var(--text)}99%,100%{fill:var(--muted)}}
+@keyframes l3{0%,64%{fill:var(--muted)}67%,95%{fill:var(--text)}99%,100%{fill:var(--muted)}}
+@keyframes pulse{0%{transform:scale(1);opacity:.45}100%{transform:scale(1.6);opacity:0}}
+@keyframes tick{to{transform:rotate(360deg)}}
+.still *{animation:none!important}
+@media (prefers-reduced-motion:reduce){.tf *{animation:none!important}}
+</style>
+<rect class="bg" width="560" height="280" rx="20"></rect>
+<line class="track" x1="152" y1="204" x2="258" y2="204"></line>
+<line class="track" x1="302" y1="204" x2="408" y2="204"></line>
+<line class="fill f1" x1="152" y1="204" x2="258" y2="204"></line>
+<line class="fill f2" x1="302" y1="204" x2="408" y2="204"></line>
+<g transform="translate(130 204)"><circle class="nbase" r="22"></circle><text class="num" y="5">1</text><g class="act a1"><circle class="ring" r="22"></circle><circle class="blue" r="22"></circle><circle class="cface" r="9"></circle><line class="chand" x1="0" y1="0" x2="4" y2="2"></line><g class="hand"><rect x="-9" y="-9" width="18" height="18" fill="none"></rect><line class="chand" x1="0" y1="0" x2="0" y2="-6"></line></g></g><g class="done d1"><circle class="green" r="22"></circle><path class="check" d="M-8 0.5l5 5 10-11"></path></g></g>
+<g transform="translate(280 204)"><circle class="nbase" r="22"></circle><text class="num" y="5">2</text><g class="act a2"><circle class="ring" r="22"></circle><circle class="blue" r="22"></circle><circle class="cface" r="9"></circle><line class="chand" x1="0" y1="0" x2="4" y2="2"></line><g class="hand"><rect x="-9" y="-9" width="18" height="18" fill="none"></rect><line class="chand" x1="0" y1="0" x2="0" y2="-6"></line></g></g><g class="done d2"><circle class="green" r="22"></circle><path class="check" d="M-8 0.5l5 5 10-11"></path></g></g>
+<g transform="translate(430 204)"><circle class="nbase" r="22"></circle><text class="num" y="5">3</text><g class="act a3"><circle class="ring" r="22"></circle><circle class="blue" r="22"></circle><circle class="cface" r="9"></circle><line class="chand" x1="0" y1="0" x2="4" y2="2"></line><g class="hand"><rect x="-9" y="-9" width="18" height="18" fill="none"></rect><line class="chand" x1="0" y1="0" x2="0" y2="-6"></line></g></g><g class="done d3"><circle class="green" r="22"></circle><path class="check" d="M-8 0.5l5 5 10-11"></path></g></g>
+<text class="lbl l1" x="130" y="256">Manager</text>
+<text class="lbl l2" x="280" y="256">Finance</text>
+<text class="lbl l3" x="430" y="256">Done</text>
+<g class="card"><line class="conn" x1="115" y1="118" x2="115" y2="176"></line><rect class="cardbg" x="0" y="28" width="230" height="84" rx="14"></rect><circle class="dot" cx="210" cy="54" r="5"></circle><text class="id" x="18" y="60">PR-2026-00000042</text><text class="sub" x="18" y="88">Purchase request</text></g>
+<g class="pill"><rect class="pillbg" x="205" y="131" width="150" height="36" rx="18"></rect><path class="pchk" d="M231 149.5l4 4 8-9"></path><text class="pilltx" x="251" y="155">Approved</text></g>
+</svg>

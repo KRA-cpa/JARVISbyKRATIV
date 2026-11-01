@@ -4,11 +4,18 @@ import PublicHeader from '../components/shared/PublicHeader';
 import Footer from '../components/shared/Footer';
 import Icons from '../components/shared/Icons';
 import { PLAN_ORDER, PLAN_NAMES } from '../config/plans';
+// Hero animation (docs/design/ticketflow-hero/, made in claude.ai): CSS-only SVG, no script; it stops on its final frame
+// when the viewer asks for reduced motion. The app's dark mode is a class (tailwind darkMode: 'class'), so the fixed light
+// / dark variants are swapped with dark: classes rather than the OS-following file.
+import heroLight from '../assets/hero/ticketflow-hero-light.svg';
+import heroDark from '../assets/hero/ticketflow-hero-dark.svg';
+
+const HERO_ALT = 'Purchase request moving through Manager, Finance and Done approval, ending Approved';
 
 /**
  * HomePage - "/" for visitors who aren't signed in (signed-in users go to /dashboard - SmartRedirect in App.js).
- * PLACEHOLDER for the platform website (docs/planning/PLAN_PlatformWebsite_20261101.md W1): brand, one line, and links to
- * /plans and /login. Static: no API call, so no sign-in is needed.
+ * PLACEHOLDER for the platform website (docs/planning/PLAN_PlatformWebsite_20261101.md W1): the hero animation, brand, one
+ * line, and links to /plans and /login. Static: no API call, so no sign-in is needed.
  * Layer: page (imports shared components + config only, per docs/reference/DEPENDENCY_MAPPING.md).
  */
 const HomePage = () => (
@@ -16,8 +23,9 @@ const HomePage = () => (
     <PublicHeader />
     <main className="flex-1 flex items-center">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-        <Icons.Ticket size={48} className="mx-auto text-blue-600" />
-        <h1 className="mt-6 text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">TicketFlow</h1>
+        <img src={heroLight} alt={HERO_ALT} width="560" height="280" className="mx-auto block h-auto w-full max-w-[560px] dark:hidden" />
+        <img src={heroDark} alt={HERO_ALT} width="560" height="280" className="mx-auto hidden h-auto w-full max-w-[560px] dark:block" />
+        <h1 className="mt-8 text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">TicketFlow</h1>
         <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
           Ticketing and workflow orchestration for every company: forms, approval chains, SLAs and reports, set up without code.
         </p>
