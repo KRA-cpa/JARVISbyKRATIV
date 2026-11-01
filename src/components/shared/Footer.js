@@ -24,8 +24,8 @@ const Footer = ({ className = "", publicSite = false }) => {
               {' · '}Designed by <span className="font-medium text-gray-700">Kenneth Advento</span>
               {!publicSite && <>{' · '}Developed through <span className="font-medium text-gray-700">Claude.ai and Claude CLI</span></>}
             </p>
-            <p className="mt-1">
-              {/* each part stays whole: on phones the line breaks only between parts */}
+            <p className="mt-1 text-xs sm:text-sm">
+              {/* smaller on phones (two rows there); each part stays whole: on phones the line breaks only between parts */}
               <span className="whitespace-nowrap">© {new Date().getFullYear()} {BRAND_COPYRIGHT_OWNER}</span>
               {' · '}<span className="whitespace-nowrap">All rights reserved</span>{' · '}
               <Link to="/privacy" className="whitespace-nowrap font-medium text-blue-600 hover:underline">Privacy Policy</Link>
