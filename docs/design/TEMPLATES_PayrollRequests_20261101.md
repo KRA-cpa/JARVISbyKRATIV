@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: TEMPLATES_PayrollRequests_20261101.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: TEMPLATES_PayrollRequests_20261101.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Payroll-type request templates - the basis for the owner template library (PLAN_PlanTiers §2a): ticket types, fields, windows, steps, comment rules | Status: Draft for review; T1-T6 open; not seeded
 REVISION HISTORY:
+- v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Rest day / holiday work merged into OT as subtypes (user: "overtime, rest day/holiday work will be subtypes of overtime"); 9 templates
 - v1.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created; user: "create a file for payroll type request, as basis for the ticket template library" + "multi date field can already be incorporated"
 ===============================================================================
 -->
@@ -63,13 +64,19 @@ Steps: **1. Department Head** → **2. HR**. Count shown: "Leave dates · 2.5 da
 
 Steps: **1. Department Head** → **2. HR**.
 
-### OT — Overtime authorization
-| Field | Label | Type | Req. | Settings |
+### OT — Overtime authorization (subtypes: regular day, rest day, holiday)
+| Field | Label | Type | Req. | Settings / options |
 |---|---|---|---|---|
-| `ot_dates` | Overtime dates and times | **multi_date** `time_entries` | ✓ | labels **OT from / OT to**; rest days / holidays pickable; window **1 / 7** |
+| `ot_type` | Type of overtime | dropdown | ✓ | **Regular day overtime** · **Rest day work** · **Holiday work** · **Rest day + holiday work** |
+| `ot_dates` | Dates and times | **multi_date** `time_entries` | ✓ | labels **From / To**; rest days / holidays pickable; window **1 / 7** |
 | `reason` | Work to be done | paragraph | ✓ | |
 
 Steps: **1. Department Head** → **2. Payroll**. Filed before the overtime (pre-approval) or up to 7 days after.
+- **One subtype per request.** Overtime on a regular day and work on a rest day are filed as two requests.
+- Each date carries its **calendar kind** (design §2). When it doesn't match the subtype (e.g. *Rest day work* on a
+  date the company calendar marks as a working day), the ticket shows a note to the approver - **not refused**: a
+  person's rest day can differ from the company calendar (per-person schedules, design D7).
+- The subtype is in the export (`request subtype` column) - what each subtype pays is payroll's rule.
 
 ### UT — Undertime
 | Field | Label | Type | Req. | Settings |
@@ -96,14 +103,6 @@ Steps: **1. Department Head** → **2. HR**.
 | `reason` | Reason | paragraph | ✓ | |
 
 Steps: **1. Department Head** → **2. HR**.
-
-### RD — Rest day / holiday work authorization
-| Field | Label | Type | Req. | Settings |
-|---|---|---|---|---|
-| `rd_dates` | Dates and times | **multi_date** `time_entries` | ✓ | labels **From / To**; rest days / holidays pickable (the calendar kind is recorded); window **1 / 7** |
-| `reason` | Work to be done | paragraph | ✓ | |
-
-Steps: **1. Department Head** → **2. Payroll**.
 
 ### NP — Non-punching authorization
 | Field | Label | Type | Req. | Settings |
@@ -141,26 +140,26 @@ Steps: **1. Payroll** → **2. HR**.
 |---|---|---|---|---|---|
 | LV | Leave | `leave` | 3 / 30 | Head → HR | Basic |
 | LC | Leave cancellation | `leave` | 3 / 15 | Head → HR | Basic |
-| OT | Overtime authorization | `time_entries` | 1 / 7 | Head → Payroll | Basic |
+| OT | Overtime authorization (regular day · rest day · holiday · rest day + holiday) | `time_entries` | 1 / 7 | Head → Payroll | Basic |
 | UT | Undertime | – (`date` + `time`) | 1 / 7 | Head → HR | Basic |
 | OB | Official business | `time_entries` | 1 / 15 | Head → HR | Basic |
 | CS | Change of schedule | `time_entries` | 1 / 0 | Head → HR | Basic |
-| RD | Rest day / holiday work | `time_entries` | 1 / 7 | Head → Payroll | Basic |
 | NP | Non-punching authorization | `missed_punch` | 0 / 15 | Head → HR | Basic |
 | MD | Manual DTR | `time_entries` | 0 / 15 | Head → HR → Payroll | Basic |
 | PC | Payroll concern | – | – | Payroll → HR | Basic (Restricted variant: Enterprise) |
 
 Export: every template with a Dates field appears in the per-date payroll export (design §4b), approved tickets only.
+The export's **request subtype** column carries the template's subtype dropdown: `ot_type` (OT), `leave_type` (LV).
 
 ## §4 Dependencies and clashes
 | Item | Status | Needed by |
 |---|---|---|
-| `multi_date` field + modes + count | Designed, not built | LV, LC, OT, OB, CS, RD, NP, MD |
+| `multi_date` field + modes + count | Designed, not built | LV, LC, OT, OB, CS, NP, MD |
 | `time` field (stand-alone) | Proposed (assessment), not built | UT |
 | Selection window on date fields | Designed, not built | all except PC |
 | Template library (`is_template_library`, `adoptTemplate`, `template_min_plan`) | v10.2 plan §2a - not built (P1 built: catalogue, gate, limits) | all |
 | Holiday types with `is_working_day` (design D6) | Not built | LV (pick rule), the `day_kind` in exports |
-| **Basic `ticket_types` limit = 5** | v10.2 | A Basic company can adopt only 5 of these 10 → T1 |
+| **Basic `ticket_types` limit = 5** | v10.2 | A Basic company can adopt only 5 of these 9 → T1 |
 | Basic `steps_per_type` = 3 | v10.2 | MD uses exactly 3 |
 | `head_approval` (immediate head) | Advanced, v10.3 | Base templates use the Department Head role instead |
 | Pay-period dropdown (PC) | Dropdown kept by the company | A company payroll calendar later could fill it |
@@ -169,7 +168,7 @@ Export: every template with a Dates field appears in the per-date payroll export
 ## §5 Open decisions
 | # | Question | Proposed default |
 |---|---|---|
-| T1 | Basic can adopt 5 types; the payroll set is 10 | Count a **"Payroll pack"** as one adoption slot for Basic, or raise Basic's limit to 8 and drop LC / CS from the core set. Recommendation: **pack = 1 slot** (sells the pack; keeps the limit meaningful for custom types) |
+| T1 | Basic can adopt 5 types; the payroll set is 9 | Count a **"Payroll pack"** as one adoption slot for Basic, or raise Basic's limit to 8 and drop LC / CS from the core set. Recommendation: **pack = 1 slot** (sells the pack; keeps the limit meaningful for custom types) |
 | T2 | Leave-type list | As in LV (PH statutory names + common company leaves); companies edit the list (Basic light edit: dropdown options) |
 | T3 | Step 2 = HR or Payroll per template | As in §3; companies with one HR-payroll team map both roles to the same people |
 | T4 | Leave cancellation as its own template vs "Cancel" on the leave ticket | Own template (LC) while a ticket can't be partly cancelled; revisit if per-date cancel is added |
