@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_RequesterOnePager_20261101.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: PLAN_RequesterOnePager_20261101.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Daloy "requester one-pager" - a simple single-page site per company where requesters file and track requests, aimed at smaller companies | Status: IDEA / parked (session 017zmKf6), decisions R1-R8 open, not scheduled, not built
 REVISION HISTORY:
+- v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Sample page /r/demo added (user: "create a sample one pager request page")
 - v1.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created so the idea isn't lost; user: "daloy can be wrapped in a simpler one pager site for requester, for smaller companies - create a plan for this so i wont forget it"
 ===============================================================================
 -->
@@ -96,5 +97,6 @@ Not scheduled. Pick it up after v10.2 is deployed and the website (W1) is live; 
 | Item | Status |
 |---|---|
 | Plan written | ✅ 1 Nov 2026 |
+| Sample page `/r/demo` (made-up data, no API, noindex): `src/pages/RequesterDemoPage.js` + `src/config/requesterDemo.js` | ✅ 1 Nov 2026 |
 | R1-R8 decided | ⏳ |
 | R1 built | ⏳ |

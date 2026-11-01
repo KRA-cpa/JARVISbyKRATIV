@@ -27,6 +27,7 @@ import HomePage from './pages/HomePage';
 import PrivacyPage from './pages/PrivacyPage';
 import HowItWorksPage from './pages/HowItWorksPage';
 import ContactPage from './pages/ContactPage';
+import RequesterDemoPage from './pages/RequesterDemoPage';
 
 // Shared Components
 import LoadingScreen from './components/shared/LoadingScreen';
@@ -185,6 +186,15 @@ const AppRoutes = () => {
             element={
               <OpenRoute>
                 <PrivacyPage />
+              </OpenRoute>
+            }
+          />
+          {/* SAMPLE requester one-pager (PLAN_RequesterOnePager): made-up data, no API call, noindex */}
+          <Route
+            path="/r/demo"
+            element={
+              <OpenRoute>
+                <RequesterDemoPage />
               </OpenRoute>
             }
           />
