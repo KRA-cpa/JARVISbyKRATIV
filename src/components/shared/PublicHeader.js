@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useUser } from '../../contexts/UserContext';
 import Icons from './Icons';
+import BrandMark from './BrandMark';
 import { BRAND_NAME, BRAND_BYLINE, PUBLIC_NAV } from '../../config/site';
 
 /**
@@ -43,7 +44,7 @@ const PublicHeader = () => {
         <div className="flex justify-between items-center h-16 gap-3">
           <div className="flex items-center gap-8 min-w-0">
             <Link to="/" className="flex items-center gap-2">
-              <Icons.Ticket size={28} className="text-blue-600" />
+              <BrandMark size={28} />
               <span className="text-xl font-bold text-gray-900 dark:text-white">{BRAND_NAME}</span>
               <span className="hidden sm:inline text-xs text-gray-500 dark:text-gray-400 self-end pb-1">{BRAND_BYLINE}</span>
             </Link>

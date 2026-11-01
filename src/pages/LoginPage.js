@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import { clearSessionNotice, takeSessionNotice } from '../utils/sessionGuard';
 import Icons from '../components/shared/Icons';
+import BrandMark from '../components/shared/BrandMark';
 import LoadingScreen from '../components/shared/LoadingScreen';
 import { BRAND_NAME, BRAND_PARENT_LINE, BRAND_DESCRIPTOR } from '../config/site';
 
@@ -51,7 +52,7 @@ const LoginPage = () => {
         {/* Header */}
         <div className="text-center">
           <div className="flex justify-center">
-            <Icons.Ticket size={48} className="text-blue-600" />
+            <BrandMark size={56} />
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
             {BRAND_NAME}
