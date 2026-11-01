@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: TEMPLATES_PayrollRequests_20261101.md | Author: Kenneth R. Advento | Version: 1.1.2
+Document: TEMPLATES_PayrollRequests_20261101.md | Author: Kenneth R. Advento | Version: 1.2.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Payroll-type request templates - the basis for the owner template library (PLAN_PlanTiers §2a): ticket types, fields, windows, steps, comment rules | Status: Draft for review; T1-T6 open; not seeded
 REVISION HISTORY:
+- v1.2.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Plans U9: Payroll pack = Basic+ and up (on / off on Advanced / Enterprise); T1 resolved; min plan Basic → Basic+
 - v1.1.2 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | T2 corrected: Basic light edits can't change dropdown options
 - v1.1.1 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | The OT subtype is just a ticket field (dropdown) - no special "subtype" concept; the export carries the ticket's fields generically (user)
 - v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Rest day / holiday work merged into OT as subtypes (user: "overtime, rest day/holiday work will be subtypes of overtime"); 9 templates
@@ -38,7 +39,7 @@ deductions) are **out of scope** - payroll reads the approved export.
 | Comment rules | Required on **return**, **reject** and **cancel**; optional on approve |
 | Attachments | Links (v9.6 attachment links); `require_attachment_on_create` only where stated |
 | Ticket number | `CODE-YYYY-########` (the type's `code`, the year from the company's country calendar) |
-| Conditions | **None** in the base templates (keeps `template_min_plan` = Basic). Optional Advanced variants are listed per template |
+| Conditions | **None** in the base templates (keeps `template_min_plan` = Basic+, the lowest plan with the pack). Optional Advanced variants are listed per template |
 | Field types | `text`, `paragraph`, `dropdown`, `amount`, `date` exist today. **`multi_date`** (design) and **`time`** (assessment, 1 Nov) are new - see §4 |
 
 Window notation: **`ahead / back`** = `months_ahead` / `days_back` (design §4a). Rolling, company time zone; the
@@ -140,15 +141,15 @@ Steps: **1. Payroll** → **2. HR**.
 ## §3 Summary
 | Code | Template | Dates field mode | Window | Steps | Min plan |
 |---|---|---|---|---|---|
-| LV | Leave | `leave` | 3 / 30 | Head → HR | Basic |
-| LC | Leave cancellation | `leave` | 3 / 15 | Head → HR | Basic |
-| OT | Overtime authorization (regular day · rest day · holiday · rest day + holiday) | `time_entries` | 1 / 7 | Head → Payroll | Basic |
-| UT | Undertime | – (`date` + `time`) | 1 / 7 | Head → HR | Basic |
-| OB | Official business | `time_entries` | 1 / 15 | Head → HR | Basic |
-| CS | Change of schedule | `time_entries` | 1 / 0 | Head → HR | Basic |
-| NP | Non-punching authorization | `missed_punch` | 0 / 15 | Head → HR | Basic |
-| MD | Manual DTR | `time_entries` | 0 / 15 | Head → HR → Payroll | Basic |
-| PC | Payroll concern | – | – | Payroll → HR | Basic (Restricted variant: Enterprise) |
+| LV | Leave | `leave` | 3 / 30 | Head → HR | Basic+ |
+| LC | Leave cancellation | `leave` | 3 / 15 | Head → HR | Basic+ |
+| OT | Overtime authorization (regular day · rest day · holiday · rest day + holiday) | `time_entries` | 1 / 7 | Head → Payroll | Basic+ |
+| UT | Undertime | – (`date` + `time`) | 1 / 7 | Head → HR | Basic+ |
+| OB | Official business | `time_entries` | 1 / 15 | Head → HR | Basic+ |
+| CS | Change of schedule | `time_entries` | 1 / 0 | Head → HR | Basic+ |
+| NP | Non-punching authorization | `missed_punch` | 0 / 15 | Head → HR | Basic+ |
+| MD | Manual DTR | `time_entries` | 0 / 15 | Head → HR → Payroll | Basic+ |
+| PC | Payroll concern | – | – | Payroll → HR | Basic+ (Restricted variant: Enterprise) |
 
 Export: every template with a Dates field appears in the per-date payroll export (design §4b), approved tickets only.
 The export carries the ticket's **other fields as columns** (e.g. *Type of overtime*, *Type of leave*, *Reason*) - no special subtype handling.
@@ -161,7 +162,7 @@ The export carries the ticket's **other fields as columns** (e.g. *Type of overt
 | Selection window on date fields | Designed, not built | all except PC |
 | Template library (`is_template_library`, `adoptTemplate`, `template_min_plan`) | v10.2 plan §2a - not built (P1 built: catalogue, gate, limits) | all |
 | Holiday types with `is_working_day` (design D6) | Not built | LV (pick rule), the `day_kind` in exports |
-| **Basic `ticket_types` limit = 5** | v10.2 | A Basic company can adopt only 5 of these 9 → T1 |
+| Plans | U9 (PLAN_PlanTiers §2b) | Payroll pack = Basic+ and up; min plan of the base templates = **Basic+** |
 | Basic `steps_per_type` = 3 | v10.2 | MD uses exactly 3 |
 | `head_approval` (immediate head) | Advanced, v10.3 | Base templates use the Department Head role instead |
 | Pay-period dropdown (PC) | Dropdown kept by the company | A company payroll calendar later could fill it |
@@ -170,7 +171,7 @@ The export carries the ticket's **other fields as columns** (e.g. *Type of overt
 ## §5 Open decisions
 | # | Question | Proposed default |
 |---|---|---|
-| T1 | Basic can adopt 5 types; the payroll set is 9 | Count a **"Payroll pack"** as one adoption slot for Basic, or raise Basic's limit to 8 and drop LC / CS from the core set. Recommendation: **pack = 1 slot** (sells the pack; keeps the limit meaningful for custom types) |
+| T1 | ~~Basic can adopt 5 types; the payroll set is 9~~ | **Resolved by U9 (PLAN_PlanTiers §2b):** the Payroll pack comes with **Basic+**, Advanced and Enterprise (on / off there); pack types don't count toward the `ticket_types` limit; Basic has no packs |
 | T2 | Leave-type list | As in LV (PH statutory names + common company leaves). **Correction (1 Nov 2026):** Basic can't change dropdown options (light edits refuse dropdown changes, PLAN_PlanTiers §2a) - Basic gets the list as shipped (or the platform team edits it in managed setup); Advanced+ edit it themselves |
 | T3 | Step 2 = HR or Payroll per template | As in §3; companies with one HR-payroll team map both roles to the same people |
 | T4 | Leave cancellation as its own template vs "Cancel" on the leave ticket | Own template (LC) while a ticket can't be partly cancelled; revisit if per-date cancel is added |

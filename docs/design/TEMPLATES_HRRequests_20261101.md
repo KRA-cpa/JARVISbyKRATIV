@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: TEMPLATES_HRRequests_20261101.md | Author: Kenneth R. Advento | Version: 1.1.0
+Document: TEMPLATES_HRRequests_20261101.md | Author: Kenneth R. Advento | Version: 1.2.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: HR pack - request templates for the owner template library (PLAN_PlanTiers §2a), starting with the Certificate of Employment (CoE) request | Status: Draft for review; H1-H5 open; not seeded
 REVISION HISTORY:
+- v1.2.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Plans U9: HR pack = Basic+ and up (on / off on Advanced / Enterprise); H1 resolved; min plan Basic → Basic+
 - v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Routing (user): Compensation / Company Benefit → Payroll → HR; others → HR (1 or 2 levels). "Company Housing Plan" → "Company Benefit". Basic shape = two types (CE + CB), Advanced shape = one type with conditions; H6
 - v1.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created; user: "HR Pack - Certificate of employment requests" (CoE type list from the user's current system screenshot)
 ===============================================================================
@@ -17,7 +18,7 @@ REVISION HISTORY:
 The **HR pack** groups HR service requests for the owner template library, next to the payroll pack
 (`docs/design/TEMPLATES_PayrollRequests_20261101.md`). The **conventions** of the payroll pack §1 apply here too
 (private visibility, Employee role creates, ≤ 3 steps, comments required on return / reject / cancel, link
-attachments, no conditions in base templates so Basic can adopt them, `CODE-YYYY-########` numbers).
+attachments, no conditions in base templates so Basic+ can adopt them, `CODE-YYYY-########` numbers).
 
 Field types used here all exist today (`dropdown`, `text`, `paragraph`, `date`) - **nothing new to build** for CE.
 
@@ -36,7 +37,7 @@ options (PLAN_PlanTiers §2a light edits). So the library ships the same request
 
 | Shape | For | Ticket types |
 |---|---|---|
-| **A. Two types** (base, no conditions) | **Basic** and up | **CE** - Certificate of Employment (5 types) and **CB** - CoE with Compensation / Benefit (2 types) |
+| **A. Two types** (base, no conditions) | **Basic+** and up | **CE** - Certificate of Employment (5 types) and **CB** - CoE with Compensation / Benefit (2 types) |
 | **B. One type with conditions** | **Advanced** and up | **CE** with all 7 types; the Payroll step runs only for Compensation / Company Benefit |
 
 Both shapes route exactly as the table above. The requester sees two tiles in shape A ("Certificate of Employment",
@@ -56,7 +57,7 @@ Both shapes route exactly as the table above. The requester sees two tiles in sh
 | `notes` | Other details | paragraph | – | e.g. salary breakdown needed, embassy format |
 
 In shape A each type shows only its own fields (CE hides `benefit`; CB hides `related_request` and `correct_name` -
-`is_hidden`, a Basic light edit). Shape B shows all of them with help text (H3).
+`is_hidden`, a light edit on Basic+ (no `type_builder`)). Shape B shows all of them with help text (H3).
 
 ### Steps
 | Type | Steps | Library variants (H6) |
@@ -72,7 +73,7 @@ notified (bell, email per the company's settings). Printed copies: the completio
 | Variant | Plan | What changes |
 |---|---|---|
 | Restricted for compensation / benefit | Enterprise (`restricted`) | `confidential_mode` on **CB** (or on shape B): pay and benefit details visible only to the requester and the chain |
-| Soft copy only | – | Companies that never print hide `copies` (Basic light edit) |
+| Soft copy only | – | Companies that never print hide `copies` (light edit) |
 
 **Privacy note:** CoE with Compensation puts salary on a ticket. On Basic / Advanced the type stays `private`
 (requester, the people on the ticket, the step roles, admins); the Restricted variant narrows it further. A side
@@ -82,8 +83,8 @@ plain CoEs. The PDF lives wherever HR stores it (a link), not in Daloy.
 ## §2 Summary
 | Code | Template | Shape | New field types | Window | Steps | Min plan |
 |---|---|---|---|---|---|---|
-| CE | Certificate of Employment | A | none | needed by 1 / 0 | HR (→ HR Head) | Basic |
-| CB | CoE with Compensation / Company Benefit | A | none | needed by 1 / 0 | Payroll → HR | Basic (Restricted: Enterprise) |
+| CE | Certificate of Employment | A | none | needed by 1 / 0 | HR (→ HR Head) | Basic+ |
+| CB | CoE with Compensation / Company Benefit | A | none | needed by 1 / 0 | Payroll → HR | Basic+ (Restricted: Enterprise) |
 | CE | Certificate of Employment (all 7 types, conditional) | B | none | needed by 1 / 0 | Payroll if comp / benefit → HR (→ HR Head) | Advanced |
 
 *(More HR pack templates - e.g. ID replacement, employee data update, 201 file request, clearance - can be added here.)*
@@ -91,7 +92,7 @@ plain CoEs. The PDF lives wherever HR stores it (a link), not in Daloy.
 ## §3 Open decisions
 | # | Question | Proposed default |
 |---|---|---|
-| H1 | Does the HR pack count as one adoption slot on Basic (like the payroll pack, payroll T1)? | Yes - one slot per pack |
+| H1 | ~~Does the HR pack count as one adoption slot on Basic?~~ | **Resolved by U9 (PLAN_PlanTiers §2b):** the HR pack comes with **Basic+**, Advanced and Enterprise (on / off there); pack types don't count toward the `ticket_types` limit; Basic has no packs |
 | H2 | *Requirement for*: free text (as in the current system) or a dropdown (Bank / loan · Visa / travel · Pag-IBIG / SSS / government · New employment · School · Other)? | **Text** for v1 (matches the current system; a dropdown + "Other" needs conditional fields to ask "specify") |
 | H3 | Conditional fields (show *Correct name* only for *Correction of Name*) | Not available today (only dependent dropdown options, Advanced) - help text instead; a "show field when" setting is a candidate feature |
 | H4 | Who signs: HR Head role, or a named signatory per CoE type? | HR Head role; companies map it to the signatory (CB: the HR step signs) |

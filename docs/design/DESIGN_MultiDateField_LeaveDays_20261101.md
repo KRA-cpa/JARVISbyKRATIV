@@ -180,7 +180,7 @@ Filter by company and period (e.g. 1-15 Nov). Raw facts only; payroll / HR syste
 |---|---|
 | Field types | New type key `multi_date` (label "Dates"); fix `daterange` / `date_range` naming at the same time (one name + alias) |
 | **Plans** (`PLAN_FEATURE_TIERS` + `src/config/plans.js`) | D2 - must change both or `check:api-contract` fails |
-| Template library | The payroll templates must be usable by Basic (D2) |
+| Template library | The payroll pack comes with Basic+ and up (PLAN_PlanTiers U9 / §2b); `multi_date` must be available from Basic+ at least (D2) |
 | **Holiday types** (v10.1) | `companyHolidayDays` treats every holiday type as a day off. A PH **special working day** is a working day → a type list with `is_working_day` (D6), so `day_kind` and the leave-mode pick rule are right |
 | Rest days per person | v1 uses the company's country weekend; per-person schedules later (D7) |
 | Conditional routing | Uses `number_value` (the count) with the existing `greater_than` etc.; the routing reader must read `number_value` for `multi_date` |

@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_PlanTiers_Subscriptions_20261031.md | Author: Kenneth R. Advento | Version: 1.0.0
-Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 31 October 2026 UTC+8 (Philippine Standard Time)
+Document: PLAN_PlanTiers_Subscriptions_20261031.md | Author: Kenneth R. Advento | Version: 1.1.0
+Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: AppScript v10.2 - Basic / Advanced / Enterprise plans per company: feature + limit catalogue, server gate, subscription lifecycle (trial end, grace, read-only), invoices without payment, owner template library for Basic, ticket uploader | Status: Approved (session ff4c803f), not built
 REVISION HISTORY:
+- v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | U9 (user, session 017zmKf6): four plans - Basic, **Basic+** (Basic + Payroll pack + HR pack), Advanced, Enterprise; packs on / off per company / organization on Advanced and Enterprise; §2b packs + build impact (P1 was built with three plans)
 - v1.0.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created from plan ~/.claude/plans/create-a-plan-how-soft-comet.md Part B (session ff4c803f)
 ===============================================================================
 -->
@@ -33,6 +34,7 @@ There is no tier, plan or feature-flag concept in the code today. The closest pa
 | U6 | Ticket uploader: **Advanced = own tickets, Enterprise = on behalf** |
 | U7 | **Settable trial end** |
 | U8 | Per-user display time zone is **Advanced and up** (built in v10.1, gated here) |
+| U9 | *(1 Nov 2026)* **Four plans:** Basic · **Basic+** (= Basic + **Payroll pack** + **HR pack**) · Advanced · Enterprise. Advanced and Enterprise include both packs and can **turn each pack on or off** for a company (and, once organizations exist, an organization) that doesn't need it - §2b |
 
 **Version line:** v10.0 → v10.1 calendars / zones → **v10.2 = this plan** → v10.3 head approval / delegation / bulk → v10.4 comments and the rest. The Advanced features in v10.3 / v10.4 ship already gated.
 
@@ -120,6 +122,47 @@ Keys are stable strings (`conditional_routing`, `sla_escalation`, `restricted`, 
 - **Screen:** Tickets → **Upload tickets** (`<PlanGate feature="bulk_upload">`), with the on-behalf switch behind `bulk_upload_on_behalf`.
 
 ---
+
+## §2b Packs (U9)
+A **pack** is a set of owner templates for one business area, sold as a feature:
+| Pack | Templates | Source |
+|---|---|---|
+| **Payroll pack** (`payroll_pack`) | Leave, Leave cancellation, Overtime (regular / rest day / holiday), Undertime, Official business, Change of schedule, Non-punching authorization, Manual DTR, Payroll concern | `docs/design/TEMPLATES_PayrollRequests_20261101.md` |
+| **HR pack** (`hr_pack`) | Certificate of Employment (CE + CB, or one conditional CE on Advanced+), more to come | `docs/design/TEMPLATES_HRRequests_20261101.md` |
+
+| | Basic | **Basic+** | Advanced | Enterprise |
+|---|---|---|---|---|
+| Payroll pack | – | ✓ always on | ✓ **on / off** | ✓ **on / off** |
+| HR pack | – | ✓ always on | ✓ **on / off** | ✓ **on / off** |
+| Everything else | Basic column of §2 | **same as Basic** | §2 | §2 |
+| Limits | 25 / 5 / 3 / 500 | 25 / 5 / 3 / 500 **+ pack types don't count** toward `ticket_types` (P2) | §2 | §2 |
+
+**Rules (proposed)**
+- **P1 - Toggle:** a company setting per pack (`pack_payroll`, `pack_hr`: on / off), default **on**, editable by the
+  company admin on Advanced / Enterprise. With organizations (`PLAN_ServerCore_OrgSheetBridge_20261101.md`), the
+  organization setting is the default for its companies and a company can turn a pack **off** but not on when the
+  organization has it off.
+- **P2 - Limits:** pack ticket types **don't count** toward the `ticket_types` limit (the pack is what Basic+ pays
+  for). Other limits unchanged; `tickets_per_month` for Basic+ = open (P4).
+- **P3 - Turning a pack off:** its templates can't be adopted; adopted pack ticket types are **deactivated for new
+  tickets** (existing tickets stay readable, in reports and exports, and can finish their workflow); turning it on
+  again reactivates them. No data is deleted.
+- **P4 - Basic+ ticket volume:** payroll / HR requests add volume (25 users × several a month). Proposed: Basic+
+  `tickets_per_month` = **1,000** (Basic 500) - to confirm.
+- **P5 - Shapes:** Basic+ gets the pack templates in their **no-condition shape** (e.g. HR CE + CB as two types);
+  Advanced+ may adopt the conditional shape.
+- **P6 - Packs on Basic as add-ons:** not offered - Basic+ *is* Basic with the packs.
+
+**Build impact (P1 of this plan was built with three plans)**
+| Where | Change |
+|---|---|
+| `PLAN_ORDER`, `PLAN_FEATURE_TIERS`, `PLAN_LIMITS`, `normalizePlan` (AppScript v10.2) | add `basic_plus` between basic and advanced; feature keys `payroll_pack`, `hr_pack` in `basic_plus` (inherited upward) |
+| `src/config/plans.js` + `/plans` page | four columns; `npm run check:api-contract` (plan-copy) must pass |
+| `company_subscriptions.plan` | accepts `basic_plus`; existing rows unchanged |
+| Gate | `requireFeature(company, 'payroll_pack')` **and** the company toggle; adoption refuses an off pack; ticket creation refuses a deactivated pack type |
+| `ticket_types` | a `pack` column (`payroll` / `hr` / empty) so the limit and the toggle know which types belong to a pack |
+| Template library | `template_min_plan` = `basic_plus` for pack templates; conditional shapes = `advanced` |
+| Tests | `ROUTES_TEST_v10.2.js`: Basic refused a pack, Basic+ allowed, Advanced toggle off → adoption refused + creation refused + old ticket readable; limit ignores pack types |
 
 ## §3 Schema (v10.2 rebuild apply via `ensureTableSheet`; `rowFromRecord`; `requireColumns`)
 - **`company_subscriptions`:** `id`, `company_id`, `plan` (`basic|advanced|enterprise`), `status` (`trial|active|converted|cancelled`), `period_start`, `period_end`, `trial_end` (for trial rows `period_end` = `trial_end`), `trial_extended_count`, `grace_days` (14 paid / 7 trial), `scheduled_plan`, `scheduled_reason`, `feature_overrides` (json), `limit_overrides` (json), `billing_reference`, `notes`, plus audit columns.
