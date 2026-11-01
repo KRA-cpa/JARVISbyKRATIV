@@ -13,7 +13,7 @@
 
 export const TERMS_OF_SERVICE = {
   status: 'draft', // 'draft' | 'published'
-  version: '0.10', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
+  version: '0.11', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
   effectiveDate: '',
   lastUpdated: '1 November 2026',
   title: 'General Terms of Service',
@@ -178,7 +178,8 @@ export const TERMS_OF_SERVICE = {
       heading: 'Third-party services',
       body: 'The Service relies on providers such as Google (Workspace, Sheets, Apps Script, Firebase sign-in), Vercel (hosting) ' +
         'and [[others]]. Their services are subject to their own terms. We choose providers with appropriate safeguards and remain ' +
-        'responsible to the Customer for the parts of the Service we provide.'
+        'responsible to the Customer for the parts of the Service we provide.\n\n' +
+        'Provider outages. When Google (including Google Workspace, Google Sheets, Apps Script and Firebase) or another provider has an outage or planned maintenance, the parts of the Service that depend on it may not work. This is not a failure of the Service and is excluded from any service level, and fees for the period remain due. We show the providers\' status pages on our Status page (/status), and we notify the Customer\'s administrators of a provider outage that stops the Service for more than [[1 hour]]. For a provider outage that makes the Service unavailable for more than [[24 hours in a month]], we may give a goodwill credit by discount or credit memo, at our discretion (Waivers and credits).'
     },
     {
       id: 'ip',

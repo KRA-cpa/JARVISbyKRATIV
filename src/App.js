@@ -29,6 +29,7 @@ import HowItWorksPage from './pages/HowItWorksPage';
 import ContactPage from './pages/ContactPage';
 import RequesterDemoPage from './pages/RequesterDemoPage';
 import TermsPage, { TermsVersionsPage, TermsArchivedPage } from './pages/TermsPage';
+import StatusPage from './pages/StatusPage';
 
 // Shared Components
 import LoadingScreen from './components/shared/LoadingScreen';
@@ -193,6 +194,8 @@ const AppRoutes = () => {
               </OpenRoute>
             }
           />
+          {/* Provider status (Google, Firebase, Vercel) - public, no API (General Terms §10.2) */}
+          <Route path="/status" element={<OpenRoute><StatusPage /></OpenRoute>} />
           {/* Data Processing Agreement - company / organization admins only (part of the subscription contract) */}
           <Route path="/admin/dpa" element={<ProtectedRoute requireAdmin={true}><Suspense fallback={<LoadingScreen />}><DpaPage /></Suspense></ProtectedRoute>} />
           {/* General Terms of Service (DRAFT_TermsOfService): current, draft, version history, archived versions - public, no API */}

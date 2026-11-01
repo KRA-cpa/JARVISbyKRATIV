@@ -44,6 +44,7 @@ const Footer = ({ className = "", publicSite = false }) => {
               {' · '}<span className="whitespace-nowrap">All rights reserved</span>{' · '}
               <Link to="/privacy" className="whitespace-nowrap font-medium text-blue-600 hover:underline">Privacy Policy</Link>
               {' · '}<Link to="/terms" className="whitespace-nowrap font-medium text-blue-600 hover:underline">Terms</Link>
+              {' · '}<Link to="/status" className="whitespace-nowrap font-medium text-blue-600 hover:underline">Status</Link>
             </p>
           </div>
         </div>

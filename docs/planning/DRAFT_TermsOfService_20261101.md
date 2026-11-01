@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.10.0
+Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.11.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: DRAFT General Terms of Service for Daloy (B2B subscription), aligned with the plan, usage, data and privacy decisions so far | Status: DRAFT - not legal advice, not in effect; for review by counsel; [[...]] = pending decision (§0)
 REVISION HISTORY:
+- v0.11.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §10.2 provider outages (user: "add google status / google downtimes"): not a Service failure, fees due, Status page /status, admin notice after [[1 hour]], discretionary goodwill credit after [[24 h / month]]
 - v0.10.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §7.4a limited access to Customer-owned storage: customer's right, not a Service failure, fees due and payments received / recorded as usual (user: "payments received even if database is unreachable"), notice, 30-day suspension
 - v0.9.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.3a: Customer notifies its withholding agent status + CWT rates at sign-up and on change (user); attestation 3; tax profile in §0a
 - v0.8.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.3a Philippine taxes (user: "include Daloy is covered by Philippine income tax laws")
@@ -209,6 +210,7 @@ consent; use the Service to send spam; or put information in the Service that th
 The Service relies on providers such as Google (Workspace, Sheets, Apps Script, Firebase sign-in), Vercel (hosting)
 and [[others - privacy D6]]. Their services are subject to their own terms. We choose providers with appropriate
 safeguards and remain responsible to the Customer for the parts of the Service we provide.
+10.2 **Provider outages.** When Google (including Google Workspace, Google Sheets, Apps Script and Firebase) or another provider has an outage or planned maintenance, the parts of the Service that depend on it may not work. This is not a failure of the Service and is excluded from any service level, and fees for the period remain due. We show the providers' status pages on our Status page (/status), and we notify the Customer's administrators of a provider outage that stops the Service for more than [[1 hour]]. For a provider outage that makes the Service unavailable for more than [[24 hours in a month]], we may give a goodwill credit by discount or credit memo, at our discretion (Waivers and credits).
 
 ### 11. Intellectual property
 11.1 We own the Service, the Daloy name and logo, and the templates as provided. The Customer receives a

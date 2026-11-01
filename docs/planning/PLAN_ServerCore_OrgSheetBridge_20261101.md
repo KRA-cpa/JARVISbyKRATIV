@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_ServerCore_OrgSheetBridge_20261101.md | Author: Kenneth R. Advento | Version: 1.5.0
+Document: PLAN_ServerCore_OrgSheetBridge_20261101.md | Author: Kenneth R. Advento | Version: 1.6.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Add ORGANIZATIONS above companies (an organization owns its data store - e.g. its own Google Sheet - and onboards one or more companies); business logic moves to the server; Apps Script shrinks to a thin bridge to the organization's Sheet | Status: Draft (session 017zmKf6), decisions O1-O10 open, not built
 REVISION HISTORY:
+- v1.6.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §6b provider (Google) outages: classify vs store unavailable, /status page, banner + notice, billing unaffected, goodwill credits
 - v1.5.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §6a store unavailable: billing / payments always in the platform store (received even when the org store is unreachable), unavailable state + banner, recovery digest, health history, 30-day suspension
 - v1.4.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5a O11 analysis (Vercel + Neon vs Cloud Run + Cloud SQL vs split) - recommendation only, NOT decided (user)
 - v1.3.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | O1 decided: Apps Script bridge, set up by COPYING a template in the organization's Workspace (no ownership transfer: blocked across domains, and a web app keeps running as its deployer); §4a set-up + health
@@ -210,6 +211,24 @@ so moving to Cloud Run later is a container file + a thin HTTP wrapper, not a re
   support.
 - **After [[30]] days unavailable:** platform admin may suspend the subscription (Terms §7.4a), then normal
   termination; the organization keeps its store, KRATIV deletes only its own data.
+
+## §6b Google (and other provider) outages (General Terms §10.2)
+- **Two different causes, one symptom** (the bridge / Firebase / Sheets stop answering): **(1) the organization limited
+  access** (§6a, the customer's doing) or **(2) a provider outage** (nobody's doing). The health history records which:
+  when several organizations' bridges, Firebase sign-in or the shared Sheet fail at the same time, or Google's status
+  feeds report an incident, it is classed as a **provider outage**; a single organization's bridge failing alone is
+  classed as **store unavailable** (§6a).
+- **Status sources:** the public `/status` page links the providers' dashboards (Google Workspace Status Dashboard,
+  Google Cloud Status, Firebase Status, Vercel Status) and Daloy's own health. Later: read the providers' machine
+  feeds where they offer one (e.g. Google Cloud's public incidents feed) to show a live "Google reports an incident"
+  banner - check each feed's availability and terms first.
+- **Banner + notice:** during a detected provider outage the app shows "Google services are having an outage -
+  Daloy can't save changes right now" (with the status link); after [[1 hour]] the admins of affected organizations get
+  a notice; a summary when it ends.
+- **Billing:** unaffected (platform store); fees remain due. Goodwill credits for long outages are a platform-admin
+  decision (Terms Waivers and credits), issued as a discount or credit memo; the health history gives the hours.
+- **Apps Script quotas** (daily run time, mail) exhausted is treated like a provider outage for the user, but the
+  platform team is alerted separately (it is a capacity problem, not Google's incident).
 
 ## §7 Honest limits (tell customers)
 - **The server sees the data while it works on it.** Their Sheet holds the data at rest in their tenant; Daloy still

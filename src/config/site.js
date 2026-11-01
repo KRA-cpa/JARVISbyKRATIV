@@ -56,6 +56,29 @@ export const HOW_IT_WORKS = {
  * Create React App inlines it at build time). While it isn't set, the sales buttons are hidden (compliance F4: no fake
  * form) and the page says so. Privacy questions go to the DPO address published in src/config/legal/privacy.js.
  */
+/**
+ * Status page (/status, General Terms §10.2 "Provider outages"; user, 1 Nov 2026: "add google status / google downtimes").
+ * Daloy depends on these providers; their own status dashboards are the source of truth for their outages.
+ */
+export const STATUS = {
+  title: 'Service status',
+  intro: `${BRAND_NAME} runs on Google and Vercel. If ${BRAND_NAME} is slow or can't save, check the provider status pages ` +
+    'below - an outage there affects us too. Your administrator is notified of longer outages.',
+  providers: [
+    { name: 'Google Workspace Status Dashboard', url: 'https://www.google.com/appsstatus/dashboard/',
+      affects: 'Google Sheets and Apps Script (where data is stored), Gmail (email notifications), your Google sign-in' },
+    { name: 'Google Cloud Status', url: 'https://status.cloud.google.com/',
+      affects: 'Google platform services behind Apps Script and Firebase' },
+    { name: 'Firebase Status', url: 'https://status.firebase.google.com/',
+      affects: 'Signing in to ' + BRAND_NAME + ' (Firebase Authentication)' },
+    { name: 'Vercel Status', url: 'https://www.vercel-status.com/',
+      affects: `The ${BRAND_NAME} website and app hosting, and the server that connects the app to its data` }
+  ],
+  ownStore: 'If your organization keeps its data in its own Google Sheet, its administrator can also check that the Daloy ' +
+    'bridge in your Google Workspace is still deployed and shared.',
+  terms: 'Provider outages are covered by the General Terms of Service ("Provider outages").'
+};
+
 export const CONTACT = {
   title: 'Contact us',
   intro: `Questions about ${BRAND_NAME}, or ready to try it with your team? Write to us and we will get back to you.`,
