@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_ServerCore_OrgSheetBridge_20261101.md | Author: Kenneth R. Advento | Version: 1.3.0
+Document: PLAN_ServerCore_OrgSheetBridge_20261101.md | Author: Kenneth R. Advento | Version: 1.4.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Add ORGANIZATIONS above companies (an organization owns its data store - e.g. its own Google Sheet - and onboards one or more companies); business logic moves to the server; Apps Script shrinks to a thin bridge to the organization's Sheet | Status: Draft (session 017zmKf6), decisions O1-O10 open, not built
 REVISION HISTORY:
+- v1.4.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5a O11 analysis (Vercel + Neon vs Cloud Run + Cloud SQL vs split) - recommendation only, NOT decided (user)
 - v1.3.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | O1 decided: Apps Script bridge, set up by COPYING a template in the organization's Workspace (no ownership transfer: blocked across domains, and a web app keeps running as its deployer); §4a set-up + health
 - v1.2.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: "appscript only needed to write and read to the org's Google sheet db" - bridge = read / write only; sendMail and nextSequence removed (mail and numbering on the server)
 - v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: "appscript lives on the cloud now" - no more feature work in the Apps Script backend; admin scope (O0) and organizations are built in the cloud server only; interim rule for the shared Apps Script platform
@@ -148,7 +149,38 @@ stays the same). The server supports the current and the previous `BRIDGE_VERSIO
 | O8 | Caching | Server read cache per organization, short TTL, cleared on its own writes. Direct Sheet edits not supported (§7) |
 | O9 | Move between storages | Export / import: Sheet → platform (outgrown), platform → Sheet (customer leaves with its data) |
 | O10 | Order vs the Neon migration | Organizations + admin scope in the server and Postgres schema from Neon Phase 0; the Sheet adapter after Postgres works |
-| O11 | Which cloud hosts the server | Vercel functions (sin1) + Neon, as in PLAN_Migration_NeonVercel - **confirm** (alternative: Google Cloud Run, closer to Workspace customers' Google tenancy) |
+| O11 | Which cloud hosts the server | ⏳ **Not decided** (user, 1 Nov 2026). Analysis + recommendation in §5a: Vercel + Neon now, portable handlers, revisit on the listed triggers |
+
+## §5a O11 analysis - which cloud (recommendation only, not decided)
+| | **A. Vercel + Neon** (PLAN_Migration_NeonVercel) | **B. Google Cloud Run + Cloud SQL** | **C. Split: site on Vercel, server on Cloud Run** |
+|---|---|---|---|
+| Fits what exists | ✅ Site + proxy (`api/appscript-proxy.js`) already on Vercel | ❌ New platform for the server (Firebase is already Google - small plus) | ⚠️ Two platforms to deploy, watch and pay |
+| Ops effort | Lowest: git push deploys; no containers | Medium: containers, IAM, Secret Manager, Cloud Scheduler, database set-up | Highest |
+| Long jobs (bulk upload, SLA runs, slow bridge calls) | ⚠️ Function time limits - batch / chunk work (e.g. a 2,000-row upload to a Sheet organization) | ✅ Requests up to 60 min | ✅ server side |
+| Scheduled jobs | ✅ Vercel Cron (frequent runs need the paid plan) | ✅ Cloud Scheduler | ✅ |
+| Database | Neon: serverless Postgres, scales to zero, branches; AWS Singapore | Cloud SQL: managed Postgres, always-on monthly minimum (Neon also usable from Cloud Run) | Either |
+| Cost at today's size | Low; **Hobby plan forbids commercial use → Pro needed before paying customers** | Low server cost; Cloud SQL minimum is the main line | Highest (two bills) |
+| Latency for PH users | Singapore functions + Singapore DB | Singapore region | Same |
+| Latency to the Sheet bridge | Apps Script run time (0.3-2 s) dominates; a few ms of network don't matter | "Closer to Google" saves ms on a call that takes seconds - **not a real advantage** | – |
+| Customer IT perception | Fine for most; unfamiliar to some | ✅ "Runs on Google Cloud" is an easy yes for Workspace-heavy IT - **B's main real argument** | Mixed |
+| Lock-in | Low if handlers stay plain Node | Low (containers) | Low |
+| Billing / consoles | Vercel + Neon + Firebase separately | One Google bill and console with Firebase | Split |
+
+**Recommendation (not a decision):** **A now**, with the handlers in `api/_lib/` kept plain Node (no Vercel imports),
+so moving to Cloud Run later is a container file + a thin HTTP wrapper, not a rewrite.
+1. Shortest path: the proxy, deploys and migration plan already target Vercel; B adds weeks of set-up first.
+2. B's latency argument doesn't survive the numbers: Apps Script itself is the slow part.
+3. B's real advantages (long jobs, one Google bill, IT comfort) matter later; chunking covers A's only real gap.
+
+**Revisit (move to B) if any of these happens:**
+- A customer contract / IT policy **requires Google Cloud** (or data staying with Google).
+- Long jobs keep hitting Vercel limits even with chunking (e.g. large uploads to Sheet organizations).
+- Vercel usage cost passes what a small Cloud Run set-up would cost (compare current price lists at that time).
+
+**Do now, whichever wins:**
+- Check the Vercel plan: move from Hobby to **Pro** before taking paying customers (Hobby terms: non-commercial only).
+- Add "plain Node handlers - no Vercel imports in `api/_lib/`" to `npm run check:code-rules`, so portability is
+  enforced, not hoped for.
 
 ## §6 What changes vs today
 | Today (Apps Script v10.2) | Target |
