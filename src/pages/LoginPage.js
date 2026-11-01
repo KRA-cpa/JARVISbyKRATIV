@@ -5,7 +5,7 @@ import { clearSessionNotice, takeSessionNotice } from '../utils/sessionGuard';
 import Icons from '../components/shared/Icons';
 import BrandMark from '../components/shared/BrandMark';
 import LoadingScreen from '../components/shared/LoadingScreen';
-import { BRAND_NAME, BRAND_PARENT_LINE, BRAND_DESCRIPTOR } from '../config/site';
+import { BRAND_NAME, BRAND_PARENT_LINE, BRAND_DESCRIPTOR, BRAND_TAGLINE } from '../config/site';
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -60,7 +60,10 @@ const LoginPage = () => {
           <p className="mt-1 text-xs text-gray-500">
             {BRAND_PARENT_LINE}
           </p>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-3 text-lg font-semibold text-blue-700">
+            {BRAND_TAGLINE}
+          </p>
+          <p className="mt-1 text-sm text-gray-600">
             {BRAND_DESCRIPTOR}
           </p>
           <p className="mt-1 text-sm text-gray-500">

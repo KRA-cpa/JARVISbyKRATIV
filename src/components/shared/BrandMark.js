@@ -2,7 +2,7 @@ import React from 'react';
 
 /**
  * BrandMark - the Daloy logo mark: a "D" with a stream running through it (daloy = "flow"). Chosen 1 Nov 2026 over a
- * flow-path and a waves mark (docs/design/daloy-logo/). The same drawing is public/favicon.svg and the PNG app icons.
+ * flow-path and a waves mark (docs/design/daloy-brand/). The same drawing is public/favicon.svg and the PNG app icons.
  * Fixed brand colours (not theme colours) so the mark looks the same in light and dark mode.
  * Layer: shared component (no imports beyond React).
  */

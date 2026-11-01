@@ -16,6 +16,11 @@ export const BRAND_COMPANY = 'KRAtiv';
 export const BRAND_BYLINE = `by ${BRAND_COMPANY}`;
 export const BRAND_PARENT_LINE = `A ${BRAND_COMPANY} Solutions app`;
 export const BRAND_DESCRIPTOR = 'Ticketing & Workflow Orchestration';
+/** Taglines (user, 1 Nov 2026: calm, not "workaholic"). Alternates: docs/design/daloy-brand/TAGLINES.md.
+ * BRAND_MEANING doubles as the pronunciation hint (English speakers default to DAH-loy). */
+export const BRAND_TAGLINE = 'Less chasing, more flow.';
+export const BRAND_TAGLINE_LOCAL = 'Magaan ang daloy.';
+export const BRAND_MEANING = 'da-LOY · Tagalog for "flow"';
 
 /** The "how it works" page. Rename the nav label here; /features opens the same page (App.js). */
 export const HOW_IT_WORKS_PATH = '/how-it-works';
