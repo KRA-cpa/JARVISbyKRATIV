@@ -2,11 +2,12 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_PrivacyPolicy_DPA_20261101.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: PLAN_PrivacyPolicy_DPA_20261101.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Plan for a Privacy Policy (privacy notice) and the supporting compliance work under the Philippine Data Privacy Act of 2012 (RA 10173), its IRR and NPC issuances, for TicketFlow / JARVIS | Status: Draft (session 41700a8e), decisions D1-D10 open, nothing built
 REVISION HISTORY:
 - v1.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created on request ("create plan for Privacy Policy that is PH DPA compliant"); follows docs/planning/PLAN_PlatformWebsite_20261101.md W7 (legal text from the business / counsel)
+- v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | D2: DPO email `jarvis.dpo@blueknight.xyz`; the proposed draft (L2 starting text) is in `src/config/legal/privacy.js`, shown on previews and on the public `/privacy/draft` (marked DRAFT, noindex), production `/privacy` = placeholder + link to it
 ===============================================================================
 -->
 
@@ -32,7 +33,7 @@ A privacy policy only holds if the system does what it says. So this plan has tw
 | # | Question | Proposed default |
 |---|---|---|
 | D1 | Legal entity that publishes the policy (name, address, TIN / SEC or DTI registration) | The business that owns TicketFlow - **to be supplied** |
-| D2 | DPO (name or title, email, address) | Appoint one before publishing (required for PICs - IRR Sec. 26(a); NPC Advisory 2017-01 on DPO designation *(verify)*); a role mailbox `dpo@<domain>`, not a personal address |
+| D2 | DPO (name or title, email, address) | **Email decided (1 Nov 2026): `jarvis.dpo@blueknight.xyz`** (a role mailbox). Still open: the DPO's name or title and mailing address; the appointment itself (required for PICs - IRR Sec. 26(a); NPC Advisory 2017-01 on DPO designation *(verify)*) |
 | D3 | Customer contracts: TicketFlow as **processor (PIP)** for the companies' ticket data | Yes (§2) - a Data Processing Agreement (DPA-contract) with every customer company, signed with the plan / invoice |
 | D4 | NPC registration of the data processing system | Assess against the registration thresholds (§7); register if any applies or if customers require it |
 | D5 | Retention periods | §5 table (defaults per category) |

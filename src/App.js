@@ -23,6 +23,7 @@ import TicketsPage from './pages/TicketsPage';
 import ReportsPage from './pages/ReportsPage';
 import PlansPage from './pages/PlansPage';
 import HomePage from './pages/HomePage';
+import PrivacyPage from './pages/PrivacyPage';
 
 // Shared Components
 import LoadingScreen from './components/shared/LoadingScreen';
@@ -144,6 +145,26 @@ const AppRoutes = () => {
               <ProtectedRoute>
                 <ReportsPage />
               </ProtectedRoute>
+            }
+          />
+
+          {/* Privacy Policy - public (no sign-in, no API call); placeholder until the approved text is in
+              (docs/planning/PLAN_PrivacyPolicy_DPA_20261101.md) */}
+          <Route
+            path="/privacy"
+            element={
+              <OpenRoute>
+                <PrivacyPage />
+              </OpenRoute>
+            }
+          />
+          {/* the proposed draft, linked from /privacy while the policy isn't published (marked DRAFT, noindex) */}
+          <Route
+            path="/privacy/draft"
+            element={
+              <OpenRoute>
+                <PrivacyPage draft />
+              </OpenRoute>
             }
           />
 

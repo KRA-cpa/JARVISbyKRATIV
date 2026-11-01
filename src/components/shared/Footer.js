@@ -1,10 +1,12 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 /**
  * Footer Component
  *
  * Copyright masthead for all pages
- * Displays proof of concept attribution and copyright notice
+ * Displays proof of concept attribution and copyright notice, and the Privacy Policy link (public /privacy - every page
+ * links to it, docs/planning/PLAN_PrivacyPolicy_DPA_20261101.md §3)
  */
 const Footer = ({ className = "" }) => {
   return (
@@ -20,6 +22,9 @@ const Footer = ({ className = "" }) => {
               Developed through <span className="font-medium text-gray-700">Claude.ai and Claude CLI</span>
             </p>
             <p className="mt-1">Copyright © 2025. All rights reserved.</p>
+            <p className="mt-2">
+              <Link to="/privacy" className="font-medium text-blue-600 hover:underline">Privacy Policy</Link>
+            </p>
           </div>
         </div>
       </div>
