@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DESIGN_MultiDateField_LeaveDays_20261101.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: DESIGN_MultiDateField_LeaveDays_20261101.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Design of the "Dates" custom field (multiple dates, half days) and the leave-day count with the sandwich rule (rest days / holidays between leave days) | Status: Design - for review; decisions D1-D8 open; not built
 REVISION HISTORY:
+- v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §4a selection window (user: "for HR type request, limit calendar selection to next x months") for every date-type field; D9-D10
 - v1.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created; user: "design multiple dates. holiday can be sandwiched or rest day/weekend sandwiched by leaves"
 ===============================================================================
 -->
@@ -45,6 +46,8 @@ Leave dates *                                         [ + Add a range ]
 - Below the calendar, a live **summary**: the chosen days, working days, sandwiched days (with why), total. The same
   text is shown to approvers, in emails and on the ticket.
 - Rest days and holidays **can't be picked directly** (default; D4).
+- Days outside the field's **selection window** (§4a) are disabled, and the calendar doesn't page past it
+  ("You can file leave up to 3 months ahead").
 
 ## §2 The value
 Stored per ticket field (Sheets: `custom_field_values.text_value` as JSON; Postgres: `jsonb`), plus the total in
@@ -107,8 +110,35 @@ one saved (a shared module: `src/utils/leaveDays.js` now, `api/_lib/` copy-free 
 | `sandwich_rule` | `off` / `rest_days` / `holidays` / `both` | `off` (D1) |
 | `non_working_pick` | `refuse` / `allow_counted` / `allow_not_counted` | `refuse` |
 | `max_days` | number or empty | empty |
-| `allow_past` | yes / no | yes (sick leave is filed after) |
+| `allow_past` | yes / no | yes (sick leave is filed after) - superseded by `days_back` in §4a |
 | `count_label` | text | "Leave days" |
+
+## §4a Selection window (all date-type fields)
+For HR requests (leave, overtime, schedule changes) the company limits **how far ahead** (and how far back) a day can be
+picked. One setting pair on **every date-type field** - `date`, `date_range` (both ends) and `multi_date` (every day):
+
+| Setting | Values | Default (new field) | HR leave template |
+|---|---|---|---|
+| `months_ahead` | 1-24, or empty = no limit | empty | **3** |
+| `days_back` | 0-365, or empty = no limit | empty | **30** (sick leave filed after) |
+
+**Rules**
+- "Today" = the day in the **company's** time zone (v10.1 `companyClock`), not the browser's or the server's.
+- `months_ahead` is **rolling**: the last allowed day = today + N months, same day of month, clamped to the month's
+  last day (31 Jan + 1 month → 28 Feb; 1 Nov 2026 + 3 → 1 Feb 2027) (D9).
+- `days_back` = 0 means "today or later" (e.g. vacation leave); the first allowed day = today − N days.
+- **The browser disables** days outside the window; **the server refuses** them on submit (the browser can be
+  bypassed): *"Leave dates: pick days from 2 Oct 2026 to 1 Feb 2027."*
+- **When it's checked:** on create, and on edit / resubmit **only for days that changed**. A returned ticket keeps its
+  original days even if they now fall outside the window (the requester isn't punished for the approver's delay) (D10).
+- `max_days` (§4) and the window are separate: the window limits *which* days, `max_days` limits *how many*.
+
+**Worked examples** (today = Sun 1 Nov 2026, company zone Asia/Manila)
+| Field | Window | Allowed |
+|---|---|---|
+| Leave dates (`multi_date`) | 3 months ahead, 30 days back | 2 Oct 2026 - 1 Feb 2027 |
+| Vacation (`date_range`) | 3 ahead, 0 back | 1 Nov 2026 - 1 Feb 2027 (both ends) |
+| Overtime date (`date`) | no ahead limit, 7 back | 25 Oct 2026 onward |
 
 ## §5 Clashes and changes
 | Area | What changes |
@@ -123,6 +153,8 @@ one saved (a shared module: `src/utils/leaveDays.js` now, `api/_lib/` copy-free 
 | Ticket uploader | One cell: `2026-11-06; 2026-11-09 am` (`;` between days, optional `am` / `pm`); the server counts |
 | Restricted fields, config transfer | Type-agnostic; pass through |
 | Emails / notifications | Use the summary text |
+| Existing `date` / `date_range` fields | Gain the window settings (empty = no limit, so nothing changes for existing fields) |
+| Ticket uploader | Rows with days outside the window are refused per row; Enterprise **on behalf** uploads may bypass the window (historic imports) - D10 |
 | SLA / escalation | None |
 | Apps Script freeze (PLAN_ServerCore §Context.3) | New type = feature work → D8 |
 | Postgres schema | `value_json jsonb` + `value_number numeric` on field values (plan it in Neon Phase 0) |
@@ -144,9 +176,13 @@ one saved (a shared module: `src/utils/leaveDays.js` now, `api/_lib/` copy-free 
 | D6 | Holiday types that are working days | Add a type list with `is_working_day` (PH: `special_working` = working); default all other types = day off |
 | D7 | Per-person rest days | Later (needs work schedules) |
 | D8 | Build on Apps Script v10.2 or only the cloud server | Ask: leave requests may be needed by the first customers before the cloud server is live |
+| D9 | "Next X months" = rolling (today + X months) or whole calendar months (to the end of the X-th month)? | **Rolling**, clamped to month-end (§4a) |
+| D10 | Window on returned / resubmitted tickets and on uploads | Only changed days are checked; on-behalf uploads (Enterprise) may bypass |
 
 ## §8 Tests (when built)
 - `countLeaveDays` unit tests: the 9 worked examples + duplicates, unsorted input, a range across months / years,
   a holiday on a weekend (counted once), `non_working_pick` variants, `max_days`.
 - Route test: the server recomputes and ignores a client-sent `count`.
+- Window tests: the 3 §4a examples; month-end clamp (31 Jan + 1); company zone at 23:30 Manila = next day vs UTC;
+  a returned ticket keeping an out-of-window day; a changed day refused.
 - Time zone test (TZ=UTC and Asia/Manila, as v10.1): day strings never shift.
