@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DESIGN_MultiDateField_LeaveDays_20261101.md | Author: Kenneth R. Advento | Version: 1.5.0
+Document: DESIGN_MultiDateField_LeaveDays_20261101.md | Author: Kenneth R. Advento | Version: 2.0.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
-Purpose: Design of the "Dates" custom field (multiple dates) for payroll-type requests - leave (half days, leave-day count with the sandwich rule), non-punching authorization and Manual DTR (time in / out per day) | Status: Design - for review; decisions D1-D14 open; not built
+Purpose: Design of the "Dates" custom field (multiple separate dates, with a day count) for payroll-type requests - leave, non-punching authorization and Manual DTR (time in / out per day) - and the selection window for date-type fields | Status: Design - for review; decisions D2-D14 open; not built
 REVISION HISTORY:
+- v2.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: "no sandwich detection, just count the number of days if multiple dates (not date range)... just count dates and report it"; calendar treatment left to the designer: rest days / holidays marked, not pickable in leave mode by default, never change the count. Removed: sandwich rule, count function, worked examples, D1, D5. Templates moved to TEMPLATES_PayrollRequests_20261101.md
 - v1.5.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Scope line (user): payroll rules / pay computation are out of scope; the sandwich detection + leave-day count stay (an extension of the date field). Removed from Manual DTR: breaks, hours worked, total hours; export carries raw times only; D12 closed
 - v1.4.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §4b payroll request modes: non-punching authorization (no time in / no time out / both) and Manual DTR (user); `time` values; payroll export; D11-D14
 - v1.3.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Window is for PAYROLL-type requests, not "HR" (user correction); template renamed; later option: back limit = last payroll cut-off
@@ -15,159 +16,125 @@ REVISION HISTORY:
 ===============================================================================
 -->
 
-# DESIGN — "Dates" field for payroll-type requests: leave (sandwich rule), non-punching, Manual DTR
+# DESIGN — "Dates" field (multiple dates + day count) for payroll-type requests: leave, non-punching, Manual DTR
 
 ## Context
 Field types today: text, paragraph, date, date range (Advanced, and its name differs between the form builder
 `daterange` and the server `date_range` - see the field-type assessment, 1 Nov 2026), amount, dropdown. There is no
-way to pick **several separate days** (Mon, Wed, Fri) or **half days**, and nothing counts **leave days** against the
-company calendar.
+way to pick **several separate days** (Mon, Wed, Fri) or **half days**, and no time field.
 
-Leave policies (common in the Philippines and the region) often have a **sandwich rule**: a rest day (weekend) or a
-holiday that sits **between two leave days** counts as leave too. Example: leave on Friday and Monday → Saturday and
-Sunday are "sandwiched" → 4 days, not 2.
+**Scope line (user, 1 Nov 2026):** Daloy captures, checks and routes the request. **Payroll and leave rules are out of
+scope** - sandwich rules, hours worked, breaks, premiums, deductions, leave balances. The Dates field only **counts the
+dates chosen and reports the count**. The count is for the Dates field only, **not for date range fields**.
 
-v10.1 already has what the count needs: the company's country calendar (`weekend_days`), country holidays and
-company add / remove days (`companyHolidayDays`, `isBusinessDay`).
-
-**Scope line (user, 1 Nov 2026):** Daloy captures, checks and routes the request. **Payroll rules and pay computation
-are out of scope** - hours worked, breaks, overtime / night / rest-day / holiday premiums, deductions, leave balances.
-The **sandwich detection and the leave-day count are in scope**: they are an extension of the date selection (which
-days the request covers, read against the company calendar), not a payroll rule.
+The request templates built on this field: `docs/design/TEMPLATES_PayrollRequests_20261101.md`.
 
 ## §1 What the requester sees
 ```
-Leave dates *                                         [ + Add a range ]
+Leave dates *
  ┌──────────── November 2026 ────────────┐
  │ Su  Mo  Tu  We  Th  Fr  Sa             │   tap a day = whole day
- │  1   2   3   4   5  [6]  7             │   tap again = AM → PM → off
- │  8  [9] 10  11  12  13  14             │   grey = rest day, red dot = holiday (name on hover / long-press)
+ │  1   2   3   4   5  [6]  7             │   tap again = AM → PM → off (if half days are on)
+ │  8  [9] 10  11  12  13  14             │   rest days in lighter text, holidays with a dot + name
  │ ...                                    │
  └────────────────────────────────────────┘
- Fri 6 Nov · Mon 9 Nov
- Working days 2 · Sandwiched 2 (Sat 7, Sun 8 - rest days) · Leave days 4
+ Fri 6 Nov · Mon 9 Nov — 2 days
+ Leave can be filed from 2 Oct 2026 to 1 Feb 2027.
 ```
-- A **calendar** (month view, swipe for the next month) with the company's rest days and holidays marked.
-- **Tap** a working day = whole day; tap again = **AM** half, again = **PM** half, again = removed (when half days are
-  on for the field, D3).
-- **Add a range** fills every working day between two dates (rest days / holidays are not selected, they may then
-  count as sandwiched).
-- Below the calendar, a live **summary**: the chosen days, working days, sandwiched days (with why), total. The same
-  text is shown to approvers, in emails and on the ticket.
-- Rest days and holidays **can't be picked directly** (default; D4).
-- The calendar **only shows the selection window** (§4a): it opens on the first allowed month, pages only between
-  the first and last allowed months, and in those edge months the days outside the window are **not drawn** (empty
-  cells, nothing to tap) - no greyed or disabled days to explain. A line under the calendar says the range:
-  "Leave can be filed from 2 Oct 2026 to 1 Feb 2027."
+- A **calendar** (month view) with the company's rest days and holidays **marked for information** (v10.1 country
+  calendar + company holidays). The marks never change the count.
+- **Tap** a day = whole day; tap again = **AM** half, again = **PM** half, again = removed (half days: D3).
+- Under the calendar: the chosen dates and the **count** ("2 days", "2.5 days"). The same line is shown to approvers,
+  in emails, on the ticket and in reports.
+- The calendar **only shows the selection window** (§4a): it pages only between the first and last allowed months,
+  and days outside the window are not drawn (no greyed / disabled days).
+
+### Rest days and holidays (designer's call - user: "bahala ka na")
+| Mode | Can a rest day / holiday be picked? | Why |
+|---|---|---|
+| `leave` | **No** by default (not tappable; the field setting `non_working_pick` can allow it) | Leave on a day off is almost always a mistake; refusing it keeps the count meaningful without any counting rules |
+| `missed_punch`, `time_entries` | **Yes** | People do work rest days and holidays |
+
+- The **count is always the number of chosen dates** (half day = 0.5). Rest days / holidays are never added or
+  subtracted.
+- The value records each date's **calendar kind** (`working` / `rest_day` / `holiday`) as a fact for the reader
+  (approver, payroll). Daloy draws no conclusion from it.
 
 ## §2 The value
-Stored per ticket field (Sheets: `custom_field_values.text_value` as JSON; Postgres: `jsonb`), plus the total in
-`number_value` so reports, sorting and **conditional routing** ("leave days > 5 → HR") work with the existing numeric
-comparison:
+Stored per ticket field (Sheets: `custom_field_values.text_value` as JSON; Postgres: `jsonb`). The **count** goes in
+`number_value`, so reports, sorting and **conditional routing** ("more than 5 days → second approver") work with the
+existing numeric comparison.
 ```json
-{
-  "v": 1,
-  "entries": [ { "date": "2026-11-06", "part": "full" }, { "date": "2026-11-09", "part": "full" } ],
-  "count": {
-    "working": 2, "sandwiched": [ { "date": "2026-11-07", "kind": "rest_day" }, { "date": "2026-11-08", "kind": "rest_day" } ],
-    "total": 4, "rule": "both", "calendar": "PH", "computed_at": "2026-11-01T03:12:00Z"
-  }
-}
+{ "v": 1, "mode": "leave",
+  "entries": [ { "date": "2026-11-06", "part": "full", "day_kind": "working" },
+               { "date": "2026-11-09", "part": "am",   "day_kind": "working" } ],
+  "count": 1.5 }
 ```
-- `date` = a calendar day `yyyy-MM-dd` in the **company's** calendar, **no time, no zone conversion** (compliance F3 v3:
-  a day is a day). Never stored as a Sheets Date cell (avoids the midnight / zone shift).
-- `part` = `full` | `am` | `pm` (0.5 each).
-- `count` is computed **by the server** (§3) and saved with the value - a snapshot. A later holiday change does not
-  rewrite past tickets; returning / editing the ticket recomputes it.
+- `date` = a calendar day `yyyy-MM-dd` in the **company's** calendar, **no time, no zone conversion** (compliance F3 v3).
+  Never stored as a Sheets Date cell (avoids the midnight / zone shift).
+- `part` = `full` | `am` | `pm` (leave mode only).
+- `count` = Σ (`full` = 1, `am` / `pm` = 0.5) in leave mode; the number of dates in the other modes. **The server
+  recomputes it on submit** and ignores a count sent by the browser.
+- `day_kind` = from the company calendar at submit time (a snapshot; a later holiday change doesn't rewrite it).
 
-## §3 The count (one pure function, server-authoritative)
-`countLeaveDays(entries, calendar, policy) → { working, sandwiched[], total }`
-- `calendar` = `{ restDays: weekday numbers (country weekend_days), holidays: Set of yyyy-MM-dd (companyHolidayDays) }`.
-- `policy` = the field's settings (§4).
-
-**Steps**
-1. Drop duplicates, sort by date. Refuse a rest day / holiday entry unless D4 allows it (then it counts per D4).
-2. **Working days:** each entry on a working day = 1 (`full`) or 0.5 (`am` / `pm`).
-3. **Sandwich:** for each pair of **consecutive chosen dates** A < B where **every day strictly between them is a
-   non-working day** (rest day or holiday, at least one), those days are *sandwiched* - **if the absence is
-   unbroken**:
-   - A must be off in the **afternoon** (`full` or `pm`), and
-   - B must be off in the **morning** (`full` or `am`).
-   - Then each gap day counts 1 **when its kind is covered by the rule** (`rest_days`, `holidays`, `both`); a gap day
-     that is both (a holiday on a Sunday) counts once, kind `holiday`.
-4. `total = working + count(sandwiched)`.
-
-The browser runs the **same function** for the live summary; the server recomputes on submit and its result is the
-one saved (a shared module: `src/utils/leaveDays.js` now, `api/_lib/` copy-free import in the cloud server).
-
-**Worked examples** (Philippine calendar; weekend Sat-Sun; 2026 dates)
-| # | Chosen | Between | Rule | Count |
-|---|---|---|---|---|
-| 1 | Fri 6 Nov, Mon 9 Nov | Sat 7, Sun 8 (rest) | off | **2** |
-| 2 | same | same | rest_days or both | 2 + 2 = **4** |
-| 3 | Fri 27 Nov, Tue 1 Dec | Sat 28, Sun 29 (rest), Mon 30 Nov (Bonifacio Day, holiday) | both | 2 + 3 = **5** |
-| 4 | same | same | holidays | 2 + 1 = **3** (only Mon 30) |
-| 5 | same | same | rest_days | 2 + 2 = **4** (only Sat, Sun) |
-| 6 | Thu 24 Dec (full), Mon 28 Dec (**PM**) | Fri 25 (Christmas), Sat 26, Sun 27 | both | 1 + 0.5 = **1.5** - Monday morning worked, absence broken, no sandwich |
-| 7 | Thu 24 Dec (**PM**), Mon 28 Dec (**AM**) | same | both | 0.5 + 0.5 + 3 = **4** - unbroken |
-| 8 | Mon 2 Nov, Wed 4 Nov | Tue 3 (working, not chosen) | both | **2** - a working day in the gap is never sandwiched |
-| 9 | Wed 30 Dec only | Thu 31 Dec, Fri 1 Jan holidays after it | both | **1** - a holiday next to only one side isn't sandwiched |
+## §3 (removed in v2.0)
+The sandwich rule and the leave-day count function were removed (user, 1 Nov 2026). The count is §2's plain sum.
 
 ## §4 Field settings (form builder)
 | Setting | Values | Default |
 |---|---|---|
 | Label, required, help text | as other fields | – |
-| `half_days` | on / off | on |
-| `sandwich_rule` | `off` / `rest_days` / `holidays` / `both` | `off` (D1) |
-| `non_working_pick` | `refuse` / `allow_counted` / `allow_not_counted` | `refuse` |
+| `mode` | `leave` / `missed_punch` / `time_entries` (§4b) | `leave` |
+| `half_days` (leave mode) | on / off | on (D3) |
+| `non_working_pick` (leave mode) | `refuse` / `allow` | `refuse` (D4) |
 | `max_days` | number or empty | empty |
-| `allow_past` | yes / no | yes (sick leave is filed after) - superseded by `days_back` in §4a |
-| `count_label` | text | "Leave days" |
+| `count_label` | text | "days" |
+| Window `months_ahead` / `days_back` | §4a | none |
 
 ## §4a Selection window (all date-type fields)
 For **payroll-type requests** - anything that changes pay for a day: leave, overtime, undertime, schedule / shift
-changes, official business - the company limits **how far ahead** (and how far back) a day can be picked, so requests
-land in a payroll period that is still open. One setting pair on **every date-type field** - `date`, `date_range` (both ends) and `multi_date` (every day):
+changes, official business, non-punching, Manual DTR - the company limits **how far ahead** (and how far back) a day
+can be picked, so requests land in a payroll period that is still open. One setting pair on **every date-type
+field** - `date`, `date_range` (both ends) and `multi_date` (every day):
 
-| Setting | Values | Default (new field) | Payroll leave template |
-|---|---|---|---|
-| `months_ahead` | 1-24, or empty = no limit | empty | **3** |
-| `days_back` | 0-365, or empty = no limit | empty | **30** (sick leave filed after) |
+| Setting | Values | Default (new field) |
+|---|---|---|
+| `months_ahead` | 0-24, or empty = no limit | empty |
+| `days_back` | 0-365, or empty = no limit | empty |
+
+(Per-template values: `TEMPLATES_PayrollRequests_20261101.md`.)
 
 **Rules**
 - "Today" = the day in the **company's** time zone (v10.1 `companyClock`), not the browser's or the server's.
 - `months_ahead` is **rolling**: the last allowed day = today + N months, same day of month, clamped to the month's
-  last day (31 Jan + 1 month → 28 Feb; 1 Nov 2026 + 3 → 1 Feb 2027) (D9).
-- `days_back` = 0 means "today or later" (e.g. vacation leave); the first allowed day = today − N days.
-- **The calendar shows only the window** (user decision, 1 Nov 2026): months outside it can't be reached, and days
-  outside it in the first / last month are left blank - never greyed or disabled. The Add-a-range pickers use the same
-  bounds. Nothing outside the window can be chosen in the page, so the page needs no "not allowed" handling.
-- **The server still checks** the window on submit - a request can be sent without the page (API, uploader, an old
-  browser tab opened yesterday). It is a one-line refusal, not a screen state:
+  last day (31 Jan + 1 month → 28 Feb; 1 Nov 2026 + 3 → 1 Feb 2027) (D9). 0 = today is the last day.
+- `days_back` = 0 means "today or later"; the first allowed day = today − N days.
+- **The calendar shows only the window** (user decision): months outside it can't be reached, and days outside it in
+  the first / last month are left blank - never greyed or disabled.
+- **The server still checks** the window on submit (API, uploader, a tab opened yesterday): a one-line refusal,
   *"Leave dates: pick days from 2 Oct 2026 to 1 Feb 2027."*
-- **When it's checked:** on create, and on edit / resubmit **only for days that changed**. A returned ticket keeps its
-  original days even if they now fall outside the window (the requester isn't punished for the approver's delay) (D10).
-- `max_days` (§4) and the window are separate: the window limits *which* days, `max_days` limits *how many*.
-- **Later option (payroll cut-off):** instead of a fixed `days_back`, the back limit = the start of the **first open
-  payroll period** (needs a company payroll calendar: semi-monthly 1-15 / 16-end is the PH norm). Not in v1.
+- **When it's checked:** on create, and on edit / resubmit **only for days that changed** (D10).
+- `max_days` and the window are separate: the window limits *which* days, `max_days` limits *how many*.
+- **Later option (payroll cut-off):** the back limit = the start of the **first open payroll period** (needs a
+  company payroll calendar; semi-monthly 1-15 / 16-end is the PH norm). Not in v1.
 
 **Worked examples** (today = Sun 1 Nov 2026, company zone Asia/Manila)
 | Field | Window | Allowed |
 |---|---|---|
 | Leave dates (`multi_date`) | 3 months ahead, 30 days back | 2 Oct 2026 - 1 Feb 2027 |
 | Vacation (`date_range`) | 3 ahead, 0 back | 1 Nov 2026 - 1 Feb 2027 (both ends) |
-| Overtime date (`date`) | no ahead limit, 7 back | 25 Oct 2026 onward |
+| Missed punch (`multi_date`, `missed_punch`) | 0 ahead, 15 back | 17 Oct - 1 Nov 2026 |
 
-## §4b Payroll request modes: leave, non-punching authorization, Manual DTR
-Payroll requests all pick **days** and some need **times per day**. Today's fields hold one value each, so a Manual DTR
-(several days, each with its own time in / out) can't be built from them. Instead of a generic "table" field, the Dates
-field gets a **mode** (D11): one calendar, one value shape, one payroll export.
+## §4b Modes: leave, non-punching authorization, Manual DTR
+Payroll requests all pick **days**, and two of them need **times per day**. Today's fields hold one value each, so a
+Manual DTR (several days, each with its own time in / out) can't be built from them. The Dates field gets a **mode**
+(D11): one calendar, one value shape, one export.
 
-| Mode | Request it serves | Per chosen day |
-|---|---|---|
-| `leave` | Leave (vacation, sick, emergency...) | `part`: full / am / pm (§1-§3) |
-| `missed_punch` | **Non-punching authorization** (forgot / couldn't punch) | `missing`: **time_in** / **time_out** / **both**, plus the actual time(s) for what was missed |
-| `time_entries` | **Manual DTR** (no biometric, field work, system down) | `time_in`, `time_out` (both required) |
+| Mode | Request | Per chosen date | Count |
+|---|---|---|---|
+| `leave` | Leave (vacation, sick, emergency...) | `part`: full / am / pm | Σ days (half = 0.5) |
+| `missed_punch` | **Non-punching authorization** | `missing`: **time_in** / **time_out** / **both** + the actual time(s) for what was missed | number of dates |
+| `time_entries` | **Manual DTR** | `time_in`, `time_out` (both required) | number of dates |
 
 **Requester view**
 ```
@@ -175,105 +142,85 @@ Non-punching authorization                     Manual DTR
 Date(s) *   [calendar - window §4a]            Dates *   [calendar - window §4a]
  Tue 27 Oct  Missing: (•) Time in               Mon 26 Oct  In [08:02]  Out [17:10]
                       ( ) Time out              Tue 27 Oct  In [21:00]  Out [06:00]  (out next day)
-                      ( ) Both                  2 days
+                      ( ) Both                  — 2 days
              Actual time in [07:55]
+ — 1 day
 Reason * [Biometric not working ▾]             Reason * [Field work ▾]
 Proof (link) [ ... ]                           Proof (link) [ ... ]
 ```
-- Each day picked on the calendar gets its own row under it; removing the day removes the row.
-- **Times** are wall-clock `HH:mm` in the **company's** zone - no conversion (compliance F3 v3: the punch happened at
-  that local time). An out-time earlier than the in-time means **the next day** (night shift); the row says so.
-- Rest days and holidays **can be picked** in these two modes (people do work them). The value records the day's
-  calendar kind (working / rest day / holiday) as a fact from the company calendar - what that means for pay is
-  payroll's business.
-- **No hours, breaks or hour totals** are computed: the request carries the times as the requester states them.
+- Each date picked gets its own row; removing the date removes the row.
+- **Times** are wall-clock `HH:mm` in the **company's** zone, no conversion. An out-time earlier than the in-time is
+  flagged **next day** (night shift).
+- **No hours, breaks or durations** are computed - the times are carried as the requester states them.
 
-**Value** (same JSON envelope as §2; `mode` added; `number_value` = the headline number)
+**Value**
 ```json
 { "v": 1, "mode": "time_entries",
   "entries": [
     { "date": "2026-10-26", "time_in": "08:02", "time_out": "17:10", "day_kind": "working" },
     { "date": "2026-10-27", "time_in": "21:00", "time_out": "06:00", "next_day_out": true, "day_kind": "working" } ],
-  "count": { "days": 2 } }
+  "count": 2 }
 ```
 `missed_punch` entries: `{ "date", "missing": "time_in" | "time_out" | "both", "time_in"?, "time_out"?, "day_kind" }`.
-`number_value`: leave = leave days (§3, incl. sandwiched days per the field's rule); missed_punch and time_entries =
-number of days.
 
 **Server checks (on submit)**
-- Every chosen day is inside the window (§4a). **Default window for both modes: 0 months ahead** (a punch can't be
-  missed in the future) and a short back limit (template: 15 days; later the payroll cut-off, §4a).
-- A day that is **today**: the times must not be later than the current company time.
-- `missed_punch`: the time(s) for what is missing are required (`time_in` for time_in, both for both).
-- `time_entries`: both times required and valid `HH:mm`; in ≠ out (an out earlier than in = next day). No duration rules.
-- One row per day (no duplicate dates in one request). Overlap with other tickets (leave on the same day, another
-  DTR) = later (§6).
+- Every date is inside the window (§4a); no duplicate dates; `max_days` if set.
+- Leave mode: no rest day / holiday unless `non_working_pick` = `allow`.
+- A date that is **today**: times must not be later than the current company time.
+- `missed_punch`: the time(s) for what is missing are required. `time_entries`: both times, valid `HH:mm`, in ≠ out.
 
-**Templates** (owner template library; all plans per D2)
-| Template | Mode | Window | Other fields |
-|---|---|---|---|
-| Leave | `leave` | 3 ahead / 30 back | Type of leave, note |
-| Non-punching authorization | `missed_punch` | 0 ahead / 15 back | Reason (dropdown: biometric down, forgot, field work, other), proof link |
-| Manual DTR | `time_entries` | 0 ahead / 15 back | Reason (dropdown), proof link |
-
-**Payroll export** (the reason these are tickets): a CSV of **approved** tickets, **one row per day** - ticket number,
-employee, company, request type, date, day kind, part / missing, time in, time out, next-day flag, sandwiched flag,
-approved at, approver. **Raw facts only** - payroll computes hours and pay from them.
-Filter by company and period (e.g. 1-15 Nov). It reuses the report / CSV path; a scheduled export to the payroll
-system is later (D13).
+**Export:** a CSV of **approved** tickets, **one row per date** - ticket number, employee, company, request type,
+date, day kind, part / missing, time in, time out, next-day flag, approved at, approver - plus the ticket's count.
+Filter by company and period (e.g. 1-15 Nov). Raw facts only; payroll / HR systems apply their own rules (D13).
 
 ## §5 Clashes and changes
 | Area | What changes |
 |---|---|
 | Field types | New type key `multi_date` (label "Dates"); fix `daterange` / `date_range` naming at the same time (one name + alias) |
 | **Plans** (`PLAN_FEATURE_TIERS` + `src/config/plans.js`) | D2 - must change both or `check:api-contract` fails |
-| Template library | A Leave template using `multi_date` must be usable by Basic (D2) |
-| **Holiday types** (v10.1) | `companyHolidayDays` treats every `country_holidays.type` as a day off. A **special working day** (PH) is a working day → add a `is_working_day` rule per type (D6) before counts are trusted |
-| Rest days per person | v1 uses the company's country weekend. Shift workers with other rest days need a per-person schedule (D7, later) |
-| Conditional routing | Works through `number_value` (total) with the existing `greater_than` etc.; the routing reader must use `number_value` for `multi_date` |
-| Reports / CSV | Show the summary text ("Fri 6 Nov, Mon 9 Nov · 4 days"); a numeric "leave days" column from `number_value` |
-| Ticket uploader | One cell: `2026-11-06; 2026-11-09 am` (`;` between days, optional `am` / `pm`); the server counts |
+| Template library | The payroll templates must be usable by Basic (D2) |
+| **Holiday types** (v10.1) | `companyHolidayDays` treats every holiday type as a day off. A PH **special working day** is a working day → a type list with `is_working_day` (D6), so `day_kind` and the leave-mode pick rule are right |
+| Rest days per person | v1 uses the company's country weekend; per-person schedules later (D7) |
+| Conditional routing | Uses `number_value` (the count) with the existing `greater_than` etc.; the routing reader must read `number_value` for `multi_date` |
+| Reports / CSV | Summary text ("Fri 6 Nov, Mon 9 Nov (AM) · 1.5 days"); a numeric count column; the per-date export (§4b) |
+| Ticket uploader | One cell: `2026-11-06; 2026-11-09 am` (`;` between dates, optional `am` / `pm`); times as `2026-10-27 21:00-06:00`; rows outside the window refused (on-behalf uploads may bypass, D10) |
 | Restricted fields, config transfer | Type-agnostic; pass through |
 | Emails / notifications | Use the summary text |
-| `time` values (§4b) | No time field type exists today; times live inside the Dates value as `HH:mm` text. A stand-alone `time` field (assessment, 1 Nov) can reuse the same rules |
-| Biometric / timekeeping systems | Not integrated: Daloy holds the approved correction, payroll / timekeeping reads the export (D13) |
-| Existing `date` / `date_range` fields | Gain the window settings (empty = no limit, so nothing changes for existing fields) |
-| Ticket uploader | Rows with days outside the window are refused per row; Enterprise **on behalf** uploads may bypass the window (historic imports) - D10 |
+| `time` values | No time field type exists today; times live inside the Dates value as `HH:mm`. A stand-alone `time` field (needed by some templates) reuses the same rules |
+| Biometric / timekeeping, payroll | Not integrated: they read the export (D13) |
+| Existing `date` / `date_range` fields | Gain the window settings (empty = no limit, nothing changes); no count |
 | SLA / escalation | None |
 | Apps Script freeze (PLAN_ServerCore §Context.3) | New type = feature work → D8 |
-| Postgres schema | `value_json jsonb` + `value_number numeric` on field values (plan it in Neon Phase 0) |
+| Postgres schema | `value_json jsonb` + `value_number numeric` on field values (Neon Phase 0) |
 
-## §6 Out of scope (later)
-- **Leave balances** (credits per person per year) - a payroll / HR-system concern; Daloy's leave-day total can be exported to it.
-- Overlap check ("you already have leave on 6 Nov" across tickets).
-- Team calendar ("who is off this week").
-- Per-person rest days / shifts (D7).
+## §6 Out of scope
+- **Payroll and leave rules:** sandwich rules, hours, breaks, premiums, deductions, leave balances.
+- Later: overlap check across tickets ("you already filed 6 Nov"), team "who's off" calendar, per-person rest days (D7).
 
 ## §7 Open decisions (proposed defaults)
 | # | Question | Proposed default |
 |---|---|---|
-| D1 | Default sandwich rule for a new field | `off` - the company opts in (policies differ; the law doesn't require it) |
-| D2 | Plan tier for `multi_date` + the count + sandwich | **All plans** (leave is a core small-company request; the requester one-pager targets Basic). Avoids the `date_range` trap |
-| D3 | Half days | On by default, AM / PM |
-| D4 | Picking a rest day / holiday | Refused by default; field setting can allow it |
-| D5 | Where the count runs before the cloud server exists | Shared pure function; server copy in Apps Script only if D8 allows |
-| D6 | Holiday types that are working days | Add a type list with `is_working_day` (PH: `special_working` = working); default all other types = day off |
+| D2 | Plan tier for `multi_date` (and `time`) | **All plans** (leave / DTR are core small-company requests; the requester one-pager targets Basic). Avoids the `date_range` trap |
+| D3 | Half days in leave mode | On by default, AM / PM |
+| D4 | Picking a rest day / holiday in leave mode | Refused by default; field setting can allow it |
+| D6 | Holiday types that are working days | Type list with `is_working_day` (PH: special working day = working) |
 | D7 | Per-person rest days | Later (needs work schedules) |
-| D8 | Build on Apps Script v10.2 or only the cloud server | Ask: leave requests may be needed by the first customers before the cloud server is live |
-| D9 | "Next X months" = rolling (today + X months) or whole calendar months (to the end of the X-th month)? | **Rolling**, clamped to month-end (§4a) |
-| D10 | Window on returned / resubmitted tickets and on uploads | Only changed days are checked; on-behalf uploads (Enterprise) may bypass |
-| D11 | One Dates field with modes (leave / missed_punch / time_entries) or separate field types | **One field with modes** - one calendar, one value shape, one payroll export |
-| D12 | ~~Breaks in Manual DTR~~ | **Closed:** out of scope (payroll rule) |
-| D13 | Payroll export | CSV of approved tickets, one row per day, by company + period; scheduled / API export later |
-| D14 | May an approver correct a time before approving? | No in v1 - return it to the requester (keeps the requester's statement and the audit trail clean) |
+| D8 | Build on Apps Script v10.2 or only the cloud server | Ask: these requests may be needed by the first customers before the cloud server is live |
+| D9 | "Next X months" rolling or to the end of the X-th month | **Rolling**, clamped to month-end |
+| D10 | Window on resubmitted tickets and uploads | Only changed dates are checked; on-behalf uploads (Enterprise) may bypass |
+| D11 | One Dates field with modes, or separate field types | **One field with modes** |
+| D12 | ~~Breaks in Manual DTR~~ | **Closed:** out of scope |
+| D13 | Export | CSV of approved tickets, one row per date, by company + period; scheduled / API export later |
+| D14 | May an approver correct a time before approving? | No in v1 - return it to the requester |
 
 ## §8 Tests (when built)
-- `countLeaveDays` unit tests: the 9 worked examples + duplicates, unsorted input, a range across months / years,
-  a holiday on a weekend (counted once), `non_working_pick` variants, `max_days`.
-- Route test: the server recomputes and ignores a client-sent `count`.
-- Payroll modes: missing = time_out needs time_out only; both needs both; night shift (21:00 → 06:00) flagged next
-  day; today with a future time refused; rest day / holiday kind recorded; no hours computed anywhere; export rows =
-  one per day, approved only.
-- Window tests: the 3 §4a examples; month-end clamp (31 Jan + 1); company zone at 23:30 Manila = next day vs UTC;
-  a returned ticket keeping an out-of-window day; a changed day refused.
-- Time zone test (TZ=UTC and Asia/Manila, as v10.1): day strings never shift.
+- Count: full + AM + PM = 2; three dates in missed_punch = 3; duplicates refused; unsorted input sorted; the
+  browser-sent count is ignored.
+- Leave mode: a holiday / rest day refused by default, allowed with `non_working_pick` = `allow`, count unchanged
+  either way.
+- Modes: missing = time_out needs time_out only; both needs both; 21:00 → 06:00 flagged next day; today with a
+  future time refused; `day_kind` recorded; no durations computed anywhere.
+- Window: the §4a examples; month-end clamp (31 Jan + 1); 23:30 Manila = next day vs UTC; a resubmitted ticket keeping
+  an out-of-window date; a changed date refused.
+- Time zones (TZ=UTC and Asia/Manila, as v10.1): day strings never shift.
+- Export: one row per date, approved tickets only.
