@@ -15,7 +15,12 @@ export const PRIVACY_POLICY = {
   status: 'draft', // 'draft' | 'published'
   version: '',
   effectiveDate: '',
+  lastUpdated: '1 November 2026', // change on every text change (user, 1 Nov 2026: "add last updated")
   title: 'Privacy Policy',
+  draftPath: '/privacy/draft',
+  // Notice of a MAJOR change before it takes effect (user, 1 Nov 2026). null = none. When set, /privacy shows an
+  // "Upcoming change" box and every page footer links to it: { version, noticeDate, effectiveDate, summary: [...], path }
+  pendingChange: null,
   // What production shows while status is 'draft'
   placeholderIntro: 'Our Privacy Policy is being prepared in line with the Philippine Data Privacy Act of 2012 (Republic Act No. 10173). ' +
     'It will be published here before we collect personal information beyond what is needed to sign in to the app.',
@@ -28,7 +33,7 @@ export const PRIVACY_POLICY = {
     {
       id: 'who-we-are',
       heading: 'Who we are and how to contact our Data Protection Officer',
-      body: 'This Privacy Policy explains how [[legal name of the company that operates Daloy]] ("Daloy", "we", "us"), ' +
+      body: 'This Privacy Policy explains how KRATIV Solutions [[placeholder - confirm the registered name]] ("Daloy", "we", "us"), ' +
         'with address at [[registered business address]], collects, uses, shares and protects personal information when you visit ' +
         'our website or use the Daloy application.\n\n' +
         'Our Data Protection Officer (DPO) can be reached at jarvis.dpo@blueknight.xyz or by mail at [[DPO mailing address]]. ' +
@@ -145,8 +150,14 @@ export const PRIVACY_POLICY = {
     {
       id: 'changes',
       heading: 'Changes to this policy',
-      body: 'We may update this policy. The version and effective date at the top show the latest one. For important changes, we ' +
-        'will tell you in the application or by email [[at least 15 days]] before they take effect.'
+      body: 'We may update this policy. The "Last updated" date at the top shows when it last changed.\n\n' +
+        'A major change is one that materially diminishes the rights of our customers or users, or of KRATIV Solutions, under this ' +
+        'policy - for example using personal information for a new purpose, sharing it with a new kind of recipient, or keeping it ' +
+        'longer. We give notice of a major change at least [[30]] days before it takes effect: on this page (an "Upcoming change" ' +
+        'notice with a summary and the effective date), in the footer of every page, and by email or in the application to the ' +
+        'administrators of each customer, who pass it on to their users where needed.\n\n' +
+        'Other changes (clarifications, corrections, new contact details, changes required by law) take effect when published; the ' +
+        '"Last updated" date shows them. Earlier versions are kept and available on request.'
     }
   ]
 };

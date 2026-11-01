@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.4.0
+Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.5.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: DRAFT Terms of Service for Daloy (B2B subscription), aligned with the plan, usage, data and privacy decisions so far | Status: DRAFT - not legal advice, not in effect; for review by counsel; [[...]] = pending decision (§0)
 REVISION HISTORY:
+- v0.5.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: "last updated" on both documents; archive every Terms version (/terms/versions, termsArchive.js, docs/archive/legal/terms/); notice of major changes; major change = materially diminishes the Customer's or KRATIV's rights (§17). Text also in src/config/legal/terms.js (/terms)
 - v0.4.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: entity placeholder "KRATIV Solutions"; venue = courts of Mandaluyong City, Metro Manila (no arbitration); waivers / deductions given as a discount or by a credit memo issued to the Customer
 - v0.3.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §6.5 waivers and credits (user: "platform owner can waive limitations on customer billing and usage"); T13
 - v0.2.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: "terms will form part of the subscription contract of a company or org once they sign up" - T2 / T3 decided; contract documents + order of precedence; acceptance record (§0a)
@@ -32,7 +33,7 @@ REVISION HISTORY:
 | T7 | Liability cap | Fees paid in the **12 months** before the claim |
 | T8 | Data return / deletion after termination | Export available for [[30]] days of read-only access, deleted within [[90]] days (privacy retention) |
 | T9 | Governing law and venue | ✅ **Decided (user):** Philippine law; the courts of **Mandaluyong City, Metro Manila** |
-| T10 | Changes to the Terms | [[30]] days' notice for material changes; continued use = acceptance |
+| T10 | Changes to the Terms | ✅ **Decided (user):** major change = materially diminishes the Customer's or KRATIV's rights; notice on the page, every footer and to admins, [[30]] days ahead, admins re-accept; other changes take effect when published (§17) |
 | T11 | Suspension for non-payment | Read-only after the grace period (plan U4: 14 days paid, 7 after a trial) - not deletion |
 | T12 | Language | English; a Filipino translation is for convenience, English prevails |
 | T13 | Waivers by the platform owner (limits, fees, add-ons, credits) | ✅ Allowed at our discretion (§6.5): recorded, time-limited, no precedent; amounts given as a **discount** on the invoice or a **credit memo** to the customer (user); uses the platform admin overrides (plan U2, `setSubscriptionOverrides`) |
@@ -226,9 +227,16 @@ Data is then deleted within [[90]] days, except records we must keep by law (for
 law) survive termination.
 
 ### 17. Changes to these Terms
-We may update these Terms. We will give [[30]] days' notice of material changes in the Service or by email to the
-Customer's administrators, and ask an administrator to accept the new version. If the Customer does not accept a material change, it may end its subscription before the
-change takes effect and receive a pro-rated refund of prepaid fees.
+17.1 We may update these Terms. The "Last updated" date shows when they last changed, and every version is kept
+unchanged in the version history (`/terms/versions`; archive rule in `src/config/legal/termsArchive.js`).
+17.2 A **major change** is one that **materially diminishes the rights of the Customer or of KRATIV** under these
+Terms (user, 1 Nov 2026). We give notice of a major change at least [[30]] days before it takes effect: on the Terms
+page ("Upcoming change" notice with a summary and the effective date), in the footer of every page, and in the
+Service or by email to the Customer's administrators, and we ask an administrator to accept the new version (§0a).
+17.3 If the Customer does not accept a major change, it may end its subscription before the change takes effect and
+receive a pro-rated refund of prepaid fees; until then the earlier version applies.
+17.4 Other changes (clarifications, corrections, new features, changes required by law) take effect when published;
+the "Last updated" date and the version history show them.
 
 ### 18. General
 - **Force majeure:** neither party is liable for delay caused by events beyond its reasonable control (Civil Code,

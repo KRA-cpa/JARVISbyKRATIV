@@ -28,6 +28,7 @@ import PrivacyPage from './pages/PrivacyPage';
 import HowItWorksPage from './pages/HowItWorksPage';
 import ContactPage from './pages/ContactPage';
 import RequesterDemoPage from './pages/RequesterDemoPage';
+import TermsPage, { TermsVersionsPage, TermsArchivedPage } from './pages/TermsPage';
 
 // Shared Components
 import LoadingScreen from './components/shared/LoadingScreen';
@@ -189,6 +190,11 @@ const AppRoutes = () => {
               </OpenRoute>
             }
           />
+          {/* Terms of Service (DRAFT_TermsOfService): current, draft, version history, archived versions - public, no API */}
+          <Route path="/terms" element={<OpenRoute><TermsPage /></OpenRoute>} />
+          <Route path="/terms/draft" element={<OpenRoute><TermsPage draft /></OpenRoute>} />
+          <Route path="/terms/versions" element={<OpenRoute><TermsVersionsPage /></OpenRoute>} />
+          <Route path="/terms/v/:version" element={<OpenRoute><TermsArchivedPage /></OpenRoute>} />
           {/* SAMPLE requester one-pager (PLAN_RequesterOnePager): made-up data, no API call, noindex */}
           <Route
             path="/r/demo"
