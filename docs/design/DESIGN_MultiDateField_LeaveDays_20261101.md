@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DESIGN_MultiDateField_LeaveDays_20261101.md | Author: Kenneth R. Advento | Version: 1.2.0
+Document: DESIGN_MultiDateField_LeaveDays_20261101.md | Author: Kenneth R. Advento | Version: 1.3.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Design of the "Dates" custom field (multiple dates, half days) and the leave-day count with the sandwich rule (rest days / holidays between leave days) | Status: Design - for review; decisions D1-D8 open; not built
 REVISION HISTORY:
+- v1.3.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Window is for PAYROLL-type requests, not "HR" (user correction); template renamed; later option: back limit = last payroll cut-off
 - v1.2.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Window = the calendar only SHOWS the allowed days and months (user: "make calendar selection limited, dont greyout") - no disabled days
 - v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §4a selection window (user: "for HR type request, limit calendar selection to next x months") for every date-type field; D9-D10
 - v1.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created; user: "design multiple dates. holiday can be sandwiched or rest day/weekend sandwiched by leaves"
@@ -117,10 +118,11 @@ one saved (a shared module: `src/utils/leaveDays.js` now, `api/_lib/` copy-free 
 | `count_label` | text | "Leave days" |
 
 ## §4a Selection window (all date-type fields)
-For HR requests (leave, overtime, schedule changes) the company limits **how far ahead** (and how far back) a day can be
-picked. One setting pair on **every date-type field** - `date`, `date_range` (both ends) and `multi_date` (every day):
+For **payroll-type requests** - anything that changes pay for a day: leave, overtime, undertime, schedule / shift
+changes, official business - the company limits **how far ahead** (and how far back) a day can be picked, so requests
+land in a payroll period that is still open. One setting pair on **every date-type field** - `date`, `date_range` (both ends) and `multi_date` (every day):
 
-| Setting | Values | Default (new field) | HR leave template |
+| Setting | Values | Default (new field) | Payroll leave template |
 |---|---|---|---|
 | `months_ahead` | 1-24, or empty = no limit | empty | **3** |
 | `days_back` | 0-365, or empty = no limit | empty | **30** (sick leave filed after) |
@@ -139,6 +141,8 @@ picked. One setting pair on **every date-type field** - `date`, `date_range` (bo
 - **When it's checked:** on create, and on edit / resubmit **only for days that changed**. A returned ticket keeps its
   original days even if they now fall outside the window (the requester isn't punished for the approver's delay) (D10).
 - `max_days` (§4) and the window are separate: the window limits *which* days, `max_days` limits *how many*.
+- **Later option (payroll cut-off):** instead of a fixed `days_back`, the back limit = the start of the **first open
+  payroll period** (needs a company payroll calendar: semi-monthly 1-15 / 16-end is the PH norm). Not in v1.
 
 **Worked examples** (today = Sun 1 Nov 2026, company zone Asia/Manila)
 | Field | Window | Allowed |
