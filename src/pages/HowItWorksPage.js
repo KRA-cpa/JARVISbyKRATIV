@@ -68,7 +68,7 @@ const HowItWorksPage = () => {
           </section>
         </div>
       </main>
-      <Footer />
+      <Footer publicSite />
     </div>
   );
 };

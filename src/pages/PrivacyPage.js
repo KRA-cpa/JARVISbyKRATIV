@@ -110,7 +110,7 @@ const PrivacyPage = ({ draft = false }) => {
           )}
         </article>
       </main>
-      <Footer />
+      <Footer publicSite />
     </div>
   );
 };

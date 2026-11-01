@@ -80,7 +80,7 @@ const ContactPage = () => {
           </div>
         </div>
       </main>
-      <Footer />
+      <Footer publicSite />
     </div>
   );
 };

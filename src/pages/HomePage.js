@@ -56,7 +56,7 @@ const HomePage = () => (
       </div>
       </div>
     </main>
-    <Footer />
+    <Footer publicSite />
   </div>
 );
 

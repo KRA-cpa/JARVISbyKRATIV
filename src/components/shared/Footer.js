@@ -5,11 +5,11 @@ import { BRAND_NAME, BRAND_PARENT_LINE, BRAND_TAGLINE_LOCAL } from '../../config
 /**
  * Footer Component
  *
- * Copyright masthead for all pages
- * Displays proof of concept attribution and copyright notice, and the Privacy Policy link (public /privacy - every page
- * links to it, docs/planning/PLAN_PrivacyPolicy_DPA_20261101.md §3)
+ * Copyright masthead for all pages, three lines: brand + local tagline; Proof of Concept + designer (+ the build credit,
+ * signed-in pages only - `publicSite` hides it on the website); copyright year + Privacy Policy link (every page links to
+ * /privacy, docs/planning/PLAN_PrivacyPolicy_DPA_20261101.md §3). The year is the current one, so it never goes stale.
  */
-const Footer = ({ className = "" }) => {
+const Footer = ({ className = "", publicSite = false }) => {
   return (
     <footer className={`bg-white border-t border-gray-200 ${className}`}>
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
@@ -22,12 +22,10 @@ const Footer = ({ className = "" }) => {
             <p className="mt-1">
               <span className="font-medium">Proof of Concept</span>
               {' · '}Designed by <span className="font-medium text-gray-700">Kenneth Advento</span>
+              {!publicSite && <>{' · '}Developed through <span className="font-medium text-gray-700">Claude.ai and Claude CLI</span></>}
             </p>
             <p className="mt-1">
-              Developed through <span className="font-medium text-gray-700">Claude.ai and Claude CLI</span>
-            </p>
-            <p className="mt-1">Copyright © 2025. All rights reserved.</p>
-            <p className="mt-2">
+              © {new Date().getFullYear()} · All rights reserved ·{' '}
               <Link to="/privacy" className="font-medium text-blue-600 hover:underline">Privacy Policy</Link>
             </p>
           </div>
