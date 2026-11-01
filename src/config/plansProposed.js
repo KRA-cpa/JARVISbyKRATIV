@@ -40,7 +40,25 @@ export const PROPOSED_PACK_GROUP = {
 /** Basic+ limits: Basic's, with more tickets per month (proposal P4, to confirm). Pack ticket types don't count (P2). */
 export const PROPOSED_BASIC_PLUS_LIMITS = { users: 25, ticket_types: 5, steps_per_type: 3, tickets_per_month: 1000, upload_rows: 0 };
 
+/**
+ * Usage add-ons (PLAN_PlanTiers U10 / §2c, proposal O1): users and tickets per month are ALLOWANCES - going over is billed
+ * in blocks instead of forcing an upgrade. Ticket types: extra = paid custom type; steps / upload rows stay hard limits.
+ */
+export const PROPOSED_ALLOWANCE_KEYS = ['users', 'tickets_per_month'];
+export const PROPOSED_ADDON_BLOCKS = {
+  basic: { users: 5, tickets_per_month: 250 },
+  basic_plus: { users: 5, tickets_per_month: 250 },
+  advanced: { users: 5, tickets_per_month: 1000 },
+  // Enterprise tickets: 50,000 / month is today's storage ceiling (Sheets) - no ticket blocks until Postgres (§2c)
+  enterprise: { users: 5, tickets_per_month: null }
+};
+
 export const PROPOSED_NOTES = [
+  'Users and tickets per month are allowances, not hard limits: above them you keep working and pay add-on blocks, ' +
+    'without changing plan. Tickets are counted on a 3-month average, so one busy month (payroll cut-off, year-end) isn\'t ' +
+    'charged on its own. You can choose to stop at the allowance or set a monthly spending cap instead.',
+  'No surprises: your administrators see usage, a month-end estimate and every counted user and ticket at any time, with ' +
+    'alerts at 80% and 100%. Add-on prices will be published per plan.',
   'Pack request types don\'t count toward the ticket types limit.',
   'Turning a pack off stops new requests of its types; existing requests stay readable and can finish.'
 ];

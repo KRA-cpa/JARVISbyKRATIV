@@ -7,7 +7,7 @@ import {
 } from '../../config/plans';
 import {
   PROPOSED_PLAN_ORDER, PROPOSED_PLAN_NAMES, PROPOSED_PLAN_TAGLINES, PROPOSED_ADDED_FEATURES, PROPOSED_PACK_GROUP,
-  PROPOSED_BASIC_PLUS_LIMITS, PROPOSED_NOTES
+  PROPOSED_BASIC_PLUS_LIMITS, PROPOSED_NOTES, PROPOSED_ALLOWANCE_KEYS, PROPOSED_ADDON_BLOCKS
 } from '../../config/plansProposed';
 
 /**
@@ -83,14 +83,26 @@ const PlanCatalog = ({ signedIn = false, proposed = false }) => {
           <p className="mt-4 text-sm font-medium text-gray-800 dark:text-gray-100">
             {index === 0 ? 'The core flow' : `Everything in ${PLANS[index - 1].name}, plus ${addedCount(index)} features`}
           </p>
-          <dl className="mt-4 space-y-2 border-t border-gray-100 pt-4 text-sm dark:border-gray-700">
+          {proposed && <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Included</p>}
+          <dl className={`${proposed ? 'mt-2' : 'mt-4'} space-y-2 border-t border-gray-100 pt-4 text-sm dark:border-gray-700`}>
             {LIMIT_KEYS.map(key => (
               <div key={key} className="flex justify-between gap-4">
-                <dt className="text-gray-600 dark:text-gray-400">{PLAN_LIMIT_LABELS[key] || key}</dt>
+                <dt className="text-gray-600 dark:text-gray-400">
+                  {PLAN_LIMIT_LABELS[key] || key}
+                  {proposed && PROPOSED_ALLOWANCE_KEYS.includes(key) && <span className="text-teal-700 dark:text-teal-300"> *</span>}
+                </dt>
                 <dd className="font-semibold tabular-nums text-gray-900 dark:text-white">{formatPlanLimit(plan.limits[key])}</dd>
               </div>
             ))}
           </dl>
+          {proposed && PROPOSED_ADDON_BLOCKS[plan.plan] && (
+            <p className="mt-4 rounded-md bg-teal-50 px-3 py-2 text-xs text-teal-900 dark:bg-teal-900/30 dark:text-teal-100">
+              <span className="font-semibold">* Need more?</span> Add users in blocks of {PROPOSED_ADDON_BLOCKS[plan.plan].users}
+              {PROPOSED_ADDON_BLOCKS[plan.plan].tickets_per_month
+                ? <> and tickets in blocks of {formatPlanLimit(PROPOSED_ADDON_BLOCKS[plan.plan].tickets_per_month)} - billed only when used.</>
+                : <> - billed only when used. For more tickets, talk to us.</>}
+            </p>
+          )}
         </div>
       ))}
     </section>
