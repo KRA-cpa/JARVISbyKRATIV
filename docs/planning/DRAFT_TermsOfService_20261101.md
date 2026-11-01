@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.9.0
+Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.10.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: DRAFT General Terms of Service for Daloy (B2B subscription), aligned with the plan, usage, data and privacy decisions so far | Status: DRAFT - not legal advice, not in effect; for review by counsel; [[...]] = pending decision (§0)
 REVISION HISTORY:
+- v0.10.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §7.4a limited access to Customer-owned storage: customer's right, not a Service failure, fees due and payments received / recorded as usual (user: "payments received even if database is unreachable"), notice, 30-day suspension
 - v0.9.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.3a: Customer notifies its withholding agent status + CWT rates at sign-up and on change (user); attestation 3; tax profile in §0a
 - v0.8.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.3a Philippine taxes (user: "include Daloy is covered by Philippine income tax laws")
 - v0.7.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §3a Customer attestations (user: "attestations by customer in terms, like users must be 18 and other stuff"); recorded with the acceptance (§0a)
@@ -186,6 +187,7 @@ Daloy bridge in its Google Workspace: (a) the Customer is responsible for its Go
 access to the Sheet and the bridge, and Google's terms; (b) the Customer and its Users must **not edit the Sheet
 directly** - direct edits bypass the Service's permissions, audit log and locks, and we are not responsible for data
 changed or lost that way; (c) the Service still processes Customer Data while it works on it.
+7.4a **Limited access to Customer-owned storage.** The Customer may limit or end the Service's access to its own data store at any time - for example by removing or changing the bridge, removing sharing, making the Sheet read-only, or a Workspace setting that blocks the bridge. This is the Customer's right and not a breach. While access is limited: the parts of the Service that need the data store do not work (new requests, approvals, notifications, escalations and exports may stop or be delayed), and this is not a failure of the Service and is excluded from any service level; fees and Usage Add-ons for the period remain due, and statements, invoices, payments and credit memos are issued, received and recorded as usual, because subscription, billing and payment records are kept by KRATIV outside the Customer's data store; we notify the Customer's administrators promptly when the data store stops answering; and the Customer answers requests from data subjects about data in its own data store directly, with our help for the data we hold. When access is restored, the Service checks the data store and resumes; overdue escalations are sent as a summary. If access is not restored within [[30]] days, we may suspend the subscription and later end it under Term and termination; the Customer keeps its data store, and we delete only the data we hold, under the retention rules.
 7.5 **Export.** The Customer can export its data (reports, CSV exports) while its account is active or read-only.
 7.6 **Aggregated information.** We may use anonymous, aggregated usage information (that identifies no Customer or
 person) to run and improve the Service.

@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_ServerCore_OrgSheetBridge_20261101.md | Author: Kenneth R. Advento | Version: 1.4.0
+Document: PLAN_ServerCore_OrgSheetBridge_20261101.md | Author: Kenneth R. Advento | Version: 1.5.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Add ORGANIZATIONS above companies (an organization owns its data store - e.g. its own Google Sheet - and onboards one or more companies); business logic moves to the server; Apps Script shrinks to a thin bridge to the organization's Sheet | Status: Draft (session 017zmKf6), decisions O1-O10 open, not built
 REVISION HISTORY:
+- v1.5.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §6a store unavailable: billing / payments always in the platform store (received even when the org store is unreachable), unavailable state + banner, recovery digest, health history, 30-day suspension
 - v1.4.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5a O11 analysis (Vercel + Neon vs Cloud Run + Cloud SQL vs split) - recommendation only, NOT decided (user)
 - v1.3.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | O1 decided: Apps Script bridge, set up by COPYING a template in the organization's Workspace (no ownership transfer: blocked across domains, and a web app keeps running as its deployer); §4a set-up + health
 - v1.2.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: "appscript only needed to write and read to the org's Google sheet db" - bridge = read / write only; sendMail and nextSequence removed (mail and numbering on the server)
@@ -193,6 +194,22 @@ so moving to Cloud Run later is a container file + a thin HTTP wrapper, not a re
 | Triggers in the script | Vercel Cron |
 | Mail from the script owner's Gmail | Server mail provider for all organizations (verified sending domain; sender name / Reply-To per company) |
 | Release = paste into each copy | Release = deploy the server once |
+
+## §6a When an organization limits access to its data store (General Terms §7.4a)
+- **Billing never depends on the bridge:** subscriptions, usage counters, statements, invoices, payments and credit
+  memos are KRATIV's records and live in the **platform store** for every organization - payments are received and
+  recorded even while the organization's Sheet / database is unreachable (user, 1 Nov 2026). The bridge carries only
+  Customer Data.
+- **Organization state `store_unavailable`:** set when bridge health checks fail (§4a); one banner for the whole
+  organization ("Your organization's data store isn't reachable - contact your administrator") instead of scattered
+  errors; writes are refused (fail closed, no silent queue); KRATIV-side data (sign-in, logs, usage, billing) unaffected.
+- **Read-only store** (protected tabs, view-only sharing): reads served, writes refused with the same banner.
+- **Recovery:** `ping` + `ensureSchema` + cache flush, then resume; escalations that became due while unavailable are
+  sent as **one digest** per admin, not a burst.
+- **Health history** per organization (down at / back at / reason) - evidence for "not a Service failure" and for
+  support.
+- **After [[30]] days unavailable:** platform admin may suspend the subscription (Terms §7.4a), then normal
+  termination; the organization keeps its store, KRATIV deletes only its own data.
 
 ## §7 Honest limits (tell customers)
 - **The server sees the data while it works on it.** Their Sheet holds the data at rest in their tenant; Daloy still

@@ -13,7 +13,7 @@
 
 export const TERMS_OF_SERVICE = {
   status: 'draft', // 'draft' | 'published'
-  version: '0.9', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
+  version: '0.10', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
   effectiveDate: '',
   lastUpdated: '1 November 2026',
   title: 'General Terms of Service',
@@ -151,6 +151,7 @@ export const TERMS_OF_SERVICE = {
         'bridge, and Google\'s terms; the Customer and its Users must not edit the Sheet directly - direct edits bypass the ' +
         'Service\'s permissions, audit log and locks, and we are not responsible for data changed or lost that way; and the ' +
         'Service still processes Customer Data while it works on it.\n\n' +
+        'Limited access to Customer-owned storage. The Customer may limit or end the Service\'s access to its own data store at any time - for example by removing or changing the bridge, removing sharing, making the Sheet read-only, or a Workspace setting that blocks the bridge. This is the Customer\'s right and not a breach. While access is limited: the parts of the Service that need the data store do not work (new requests, approvals, notifications, escalations and exports may stop or be delayed), and this is not a failure of the Service and is excluded from any service level; fees and Usage Add-ons for the period remain due, and statements, invoices, payments and credit memos are issued, received and recorded as usual, because subscription, billing and payment records are kept by KRATIV outside the Customer\'s data store; we notify the Customer\'s administrators promptly when the data store stops answering; and the Customer answers requests from data subjects about data in its own data store directly, with our help for the data we hold. When access is restored, the Service checks the data store and resumes; overdue escalations are sent as a summary. If access is not restored within [[30]] days, we may suspend the subscription and later end it under Term and termination; the Customer keeps its data store, and we delete only the data we hold, under the retention rules.\n\n' +
         'Export. The Customer can export its data (reports, CSV exports) while its account is active or read-only.\n\n' +
         'Aggregated information. We may use anonymous, aggregated usage information (that identifies no Customer or person) to ' +
         'run and improve the Service.'
