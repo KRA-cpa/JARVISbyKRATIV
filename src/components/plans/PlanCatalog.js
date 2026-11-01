@@ -5,6 +5,10 @@ import {
   PLAN_ORDER, PLAN_NAMES, PLAN_TAGLINES, CORE_FEATURES, PLAN_FEATURE_GROUPS, PLAN_LIMIT_LABELS, PLAN_CATALOG_COPY,
   formatPlanLimit
 } from '../../config/plans';
+import {
+  PROPOSED_PLAN_ORDER, PROPOSED_PLAN_NAMES, PROPOSED_PLAN_TAGLINES, PROPOSED_ADDED_FEATURES, PROPOSED_PACK_GROUP,
+  PROPOSED_BASIC_PLUS_LIMITS, PROPOSED_NOTES
+} from '../../config/plansProposed';
 
 /**
  * PlanCatalog - the Basic / Advanced / Enterprise catalogue (AppScript v10.2) for the public /plans page. Static: it renders
@@ -13,25 +17,54 @@ import {
  * the server catalogue differ. A company's own plan + usage is shown on Company -> Plan & usage (v10.2 P5), not here.
  * Layer: feature component (shared + config only, per docs/reference/DEPENDENCY_MAPPING.md). Mounted by PlansPage.
  * @param {boolean} signedIn - shows Sign in (visitors) or Go to dashboard (signed-in users) in the closing line
+ * @param {boolean} proposed - the PROPOSED four-plan line-up (src/config/plansProposed.js, PLAN_PlanTiers U9), shown on
+ *   preview builds only (PlansPage); the default is the live catalogue copy
  */
 
 const PLAN_ACCENTS = {
   basic: 'border-gray-300 dark:border-gray-600',
   advanced: 'border-blue-500 dark:border-blue-400',
+  basic_plus: 'border-teal-500 dark:border-teal-400',
   enterprise: 'border-purple-500 dark:border-purple-400'
 };
 
 const byKey = Object.fromEntries(PLAN_CATALOG_COPY.plans.map(p => [p.plan, p]));
-const PLANS = PLAN_ORDER.filter(key => byKey[key]).map(key => ({ ...byKey[key], features: new Set(byKey[key].features) }));
 const LIMIT_KEYS = PLAN_CATALOG_COPY.limit_keys;
+
+/** The live catalogue: plans from the copy of the server catalogue. */
+const LIVE = {
+  plans: PLAN_ORDER.filter(key => byKey[key]).map(key => ({ ...byKey[key], features: new Set(byKey[key].features) })),
+  taglines: PLAN_TAGLINES,
+  groups: PLAN_FEATURE_GROUPS,
+  notes: []
+};
+
+/** The proposed line-up: the live plans + Basic+ (Basic + packs); Advanced and up add the pack on / off switch. */
+const PROPOSED = (() => {
+  let running = [];
+  const plans = PROPOSED_PLAN_ORDER.map(key => {
+    const live = byKey[key];
+    const liveAdded = live ? live.features.filter(f => !running.includes(f)) : [];
+    running = running.concat(PROPOSED_ADDED_FEATURES[key] || [], liveAdded);
+    return {
+      plan: key,
+      name: PROPOSED_PLAN_NAMES[key],
+      features: new Set(running),
+      limits: live ? { ...live.limits } : { ...PROPOSED_BASIC_PLUS_LIMITS }
+    };
+  });
+  return { plans, taglines: PROPOSED_PLAN_TAGLINES, groups: [PROPOSED_PACK_GROUP, ...PLAN_FEATURE_GROUPS], notes: PROPOSED_NOTES };
+})();
 
 const Mark = ({ on }) => (on
   ? <span className="inline-flex text-green-600 dark:text-green-400" aria-label="Included"><Icons.CheckCircle size={18} /></span>
   : <span className="text-gray-300 dark:text-gray-600" aria-label="Not included">—</span>);
 
-const addedCount = index => (index === 0 ? 0 : PLANS[index].features.size - PLANS[index - 1].features.size);
-
-const PlanCatalog = ({ signedIn = false }) => (
+const PlanCatalog = ({ signedIn = false, proposed = false }) => {
+  const { plans: PLANS, taglines, groups, notes } = proposed ? PROPOSED : LIVE;
+  const addedCount = index => (index === 0 ? 0 : PLANS[index].features.size - PLANS[index - 1].features.size);
+  const gridCols = PLANS.length === 4 ? 'md:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-3';
+  return (
   <div className="space-y-8">
     <div>
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Plans</h1>
@@ -41,12 +74,12 @@ const PlanCatalog = ({ signedIn = false }) => (
       </p>
     </div>
 
-    <section aria-label="Plans" className="grid grid-cols-1 gap-6 md:grid-cols-3">
+    <section aria-label="Plans" className={`grid grid-cols-1 gap-6 ${gridCols}`}>
       {PLANS.map((plan, index) => (
         <div key={plan.plan}
           className={`flex flex-col rounded-xl border-2 bg-white p-6 shadow-sm dark:bg-gray-800 ${PLAN_ACCENTS[plan.plan] || PLAN_ACCENTS.basic}`}>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">{plan.name || PLAN_NAMES[plan.plan]}</h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{PLAN_TAGLINES[plan.plan]}</p>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{taglines[plan.plan]}</p>
           <p className="mt-4 text-sm font-medium text-gray-800 dark:text-gray-100">
             {index === 0 ? 'The core flow' : `Everything in ${PLANS[index - 1].name}, plus ${addedCount(index)} features`}
           </p>
@@ -88,7 +121,7 @@ const PlanCatalog = ({ signedIn = false }) => (
                 {PLANS.map(plan => <td key={plan.plan} className="px-4 py-2.5 text-center"><Mark on /></td>)}
               </tr>
             ))}
-            {PLAN_FEATURE_GROUPS.map(group => (
+            {groups.map(group => (
               <React.Fragment key={group.area}>
                 <tr className="bg-gray-50 dark:bg-gray-900/40">
                   <th scope="colgroup" colSpan={PLANS.length + 1} className="px-6 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -109,6 +142,7 @@ const PlanCatalog = ({ signedIn = false }) => (
     </section>
 
     <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400">
+      {notes.map(note => <p key={note}>{note}</p>)}
       <p>
         Trials last {PLAN_CATALOG_COPY.trial_default_days} days unless the platform team sets another end date. When a period ends without a
         renewal, the company keeps its plan for a grace period ({PLAN_CATALOG_COPY.grace_days.paid} days; {PLAN_CATALOG_COPY.grace_days.trial} after a trial),
@@ -124,6 +158,7 @@ const PlanCatalog = ({ signedIn = false }) => (
       </p>
     </div>
   </div>
-);
+  );
+};
 
 export default PlanCatalog;
