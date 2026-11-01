@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import { useCompanies, useRoles, useDropdownLists, useTickets, useUsers, useTicketTypes, useUserProfileTypes, useRoleTypes } from '../hooks/useAPI';
 import Header from '../components/shared/Header';
@@ -406,6 +406,16 @@ const AdminPage = () => {
               </div>
             </div>
           </div>
+
+          {/* Contract documents - the DPA is shown only here, to admins (user, 1 Nov 2026) */}
+          {activeTab === 'overview' && (
+            <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-white px-4 py-3 text-sm shadow">
+              <span className="font-medium text-gray-700">Your subscription contract:</span>
+              <Link to="/admin/dpa" className="font-medium text-blue-600 hover:underline">Data Processing Agreement</Link>
+              <Link to="/terms" className="font-medium text-blue-600 hover:underline">General Terms of Service</Link>
+              <Link to="/privacy" className="font-medium text-blue-600 hover:underline">Privacy Policy</Link>
+            </div>
+          )}
 
           {/* System Overview Controls - Above Stats */}
           {activeTab === 'overview' && (

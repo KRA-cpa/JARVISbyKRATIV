@@ -2,10 +2,12 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.5.0
+Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.7.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
-Purpose: DRAFT Terms of Service for Daloy (B2B subscription), aligned with the plan, usage, data and privacy decisions so far | Status: DRAFT - not legal advice, not in effect; for review by counsel; [[...]] = pending decision (§0)
+Purpose: DRAFT General Terms of Service for Daloy (B2B subscription), aligned with the plan, usage, data and privacy decisions so far | Status: DRAFT - not legal advice, not in effect; for review by counsel; [[...]] = pending decision (§0)
 REVISION HISTORY:
+- v0.7.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §3a Customer attestations (user: "attestations by customer in terms, like users must be 18 and other stuff"); recorded with the acceptance (§0a)
+- v0.6.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Renamed "General Terms of Service" (user); the DPA is available only to customer admins in the Service (admin page /admin/dpa), prospects on request
 - v0.5.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: "last updated" on both documents; archive every Terms version (/terms/versions, termsArchive.js, docs/archive/legal/terms/); notice of major changes; major change = materially diminishes the Customer's or KRATIV's rights (§17). Text also in src/config/legal/terms.js (/terms)
 - v0.4.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: entity placeholder "KRATIV Solutions"; venue = courts of Mandaluyong City, Metro Manila (no arbitration); waivers / deductions given as a discount or by a credit memo issued to the Customer
 - v0.3.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §6.5 waivers and credits (user: "platform owner can waive limitations on customer billing and usage"); T13
@@ -14,7 +16,7 @@ REVISION HISTORY:
 ===============================================================================
 -->
 
-# DRAFT — Daloy Terms of Service
+# DRAFT — Daloy General Terms of Service
 
 > **Draft, not legal advice, not in effect.** Written from the product decisions in this repo for review by a
 > Philippine lawyer. `[[...]]` marks a pending decision. Legal references marked *(verify)* must be checked against
@@ -42,8 +44,9 @@ REVISION HISTORY:
 **Contract documents** (one subscription contract per subscribing company or organization):
 1. the **Subscription details** - plan, period, packs, allowances, add-on prices, billing contact (the order form, or
    the plan record shown at sign-up and on renewal);
-2. these **Terms of Service**;
-3. the **Data Processing Agreement** (privacy D3);
+2. these **General Terms of Service**;
+3. the **Data Processing Agreement** (privacy D3) - shown **only to the customer's company / organization admins**, on
+   the admin page (`/admin/dpa`); prospects receive it on request;
 4. the **Privacy Policy** (for information; it describes processing, it is not a contract term).
 If they conflict: Subscription details → Data Processing Agreement (for personal data) → Terms.
 
@@ -53,6 +56,7 @@ If they conflict: Subscription details → Data Processing Agreement (for person
 | Who accepted (user id, name, email), for which company / organization | `subscription_acceptances` (new) or columns on `company_subscriptions` |
 | When (UTC timestamp), from where (sign-up, renewal, plan change, re-acceptance) | same |
 | Which versions: Terms, DPA, Privacy Policy (version + effective date) | same - a version string per document |
+| The attestations confirmed (§3a) - the list as shown, ticked by the accepting admin | same |
 | The subscription details accepted (plan, period, packs, add-on prices) | a snapshot (JSON) |
 | Waivers / overrides granted later (what, scope, from - to, by which platform admin, reason) | the override record (`setSubscriptionOverrides`) + an audit-log entry; shown to the customer on *Plan & usage* |
 
@@ -65,11 +69,11 @@ If they conflict: Subscription details → Data Processing Agreement (for person
 
 ---
 
-## Terms of Service
+## General Terms of Service
 
 **Effective date:** [[date]] · **Version:** [[1.0]]
 
-These Terms of Service ("**Terms**") are between **KRATIV Solutions** [[placeholder - confirm the registered name]]
+These General Terms of Service ("**Terms**") are between **KRATIV Solutions** [[placeholder - confirm the registered name]]
 ("**KRATIV**", "**we**", "**us**"), with address at
 [[registered address]], and the company or organization that signs up for Daloy ("**Customer**", "**you**").
 
@@ -108,7 +112,22 @@ without notice and a fair alternative or refund for the remaining period.
 3.1 The Customer names at least one administrator, controls who is invited, and assigns roles.
 3.2 Users sign in with Google accounts. The Customer is responsible for its Users' accounts, for keeping access
 current (removing people who leave) and for everything done under its Users' accounts.
-3.3 Users must be at least 18 years old and use the Service for the Customer's business.
+3.3 Users must be at least 18 years old (§3a).
+
+### 3a. Customer attestations
+By accepting these Terms - at sign-up, and again each time it renews, changes Plan or accepts a new version - the
+Customer confirms that:
+1. The Customer is a business, government office or other organization (not an individual consumer), validly existing and, where the law requires, registered (for example with the SEC, DTI or BIR).
+2. The person accepting these Terms is authorized to bind the Customer, and for an organization, each company it adds.
+3. The information given at sign-up and for billing (names, addresses, TIN, VAT status, contacts) is true and complete, and the Customer keeps it up to date.
+4. Every User is at least 18 years old and uses the Service for the Customer's business.
+5. The Customer has a lawful basis and has given the required notices for the personal information it and its Users put into the Service, including sensitive personal information (Data Privacy Act), and has the right to share the rest of the Customer Data.
+6. The Customer's use of the Service, its templates and its exports (for example leave, overtime and payroll requests) complies with the laws that apply to it, including labor, tax and data privacy laws; the Customer remains responsible for its own policies and decisions.
+7. The Customer keeps its administrator list and User access current and removes people who should no longer have access.
+8. The Customer will not use the Service in breach of the Acceptable use section, and is not barred by law or sanctions from using it.
+
+If any of these stops being true, the Customer tells us promptly. A materially false attestation is a material
+breach of these Terms.
 
 ### 4. Plans, trials and changes of Plan
 4.1 **Trials.** We may offer a trial for a set period. A trial ends on its end date; without a paid Plan the account

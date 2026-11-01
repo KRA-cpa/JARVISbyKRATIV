@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
@@ -35,6 +35,9 @@ import LoadingScreen from './components/shared/LoadingScreen';
 import ErrorBoundary from './components/shared/ErrorBoundary';
 import ErrorBoundary130, { useError130Detection } from './components/shared/ErrorBoundary130';
 import DevPanel from './components/shared/DevPanel';
+
+// Admin-only, code-split: visitors and non-admins never load the DPA (user, 1 Nov 2026)
+const DpaPage = lazy(() => import('./pages/DpaPage'));
 
 // Smart Redirect Component for Root Route
 const SmartRedirect = () => {
@@ -190,7 +193,9 @@ const AppRoutes = () => {
               </OpenRoute>
             }
           />
-          {/* Terms of Service (DRAFT_TermsOfService): current, draft, version history, archived versions - public, no API */}
+          {/* Data Processing Agreement - company / organization admins only (part of the subscription contract) */}
+          <Route path="/admin/dpa" element={<ProtectedRoute requireAdmin={true}><Suspense fallback={<LoadingScreen />}><DpaPage /></Suspense></ProtectedRoute>} />
+          {/* General Terms of Service (DRAFT_TermsOfService): current, draft, version history, archived versions - public, no API */}
           <Route path="/terms" element={<OpenRoute><TermsPage /></OpenRoute>} />
           <Route path="/terms/draft" element={<OpenRoute><TermsPage draft /></OpenRoute>} />
           <Route path="/terms/versions" element={<OpenRoute><TermsVersionsPage /></OpenRoute>} />

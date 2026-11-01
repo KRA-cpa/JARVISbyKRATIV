@@ -42,7 +42,7 @@ export const TermsVersionsPage = ({ notFound = '' }) => {
       {isAuthenticated && !loading ? <Header user={user} userRole={userRoles?.[0]?.name} /> : <PublicHeader />}
       <main className="flex-1">
         <article className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Terms of Service - version history</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">General Terms of Service - version history</h1>
           {notFound && <p className="mt-4 text-sm text-red-700 dark:text-red-300">Version {notFound} was not found.</p>}
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
             Every version is kept unchanged. The version a customer accepted is recorded with its subscription.
@@ -70,7 +70,7 @@ export const TermsVersionsPage = ({ notFound = '' }) => {
             </tbody>
           </table>
           <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-            Drafts 0.1-0.4 were working drafts, never shown or in effect; their history is in the project records.
+            Earlier drafts (0.1-0.6) were never in effect; their snapshots and history are in the project records.
           </p>
         </article>
       </main>

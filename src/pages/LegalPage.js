@@ -6,7 +6,7 @@ import PublicHeader from '../components/shared/PublicHeader';
 import Footer from '../components/shared/Footer';
 
 /**
- * LegalPage - renders one legal document (Privacy Policy, Terms of Service) from its config object
+ * LegalPage - renders one legal document (Privacy Policy, General Terms of Service) from its config object
  * (src/config/legal/*.js). PUBLIC, no API call. Used by PrivacyPage and TermsPage.
  *   - status 'draft': the proposed text (marked DRAFT, open decisions highlighted) on Vercel previews and local
  *     development, and on the document's draftPath; production shows the "being prepared" placeholder with a link to
@@ -75,8 +75,9 @@ const VersionLine = ({ doc, archived }) => {
  * @param {object} doc - the document config (title, status, version, lastUpdated, sections, ...)
  * @param {boolean} draft - true on the draft path: show the draft text in every build
  * @param {boolean} archived - a frozen earlier version: always shown, marked archived
+ * @param {boolean} publicSite - footer variant (false inside the signed-in app, e.g. the admin-only DPA)
  */
-const LegalPage = ({ doc, draft = false, archived = false }) => {
+const LegalPage = ({ doc, draft = false, archived = false, publicSite = true }) => {
   const { user, userRoles, isAuthenticated, loading } = useUser();
   const published = doc.status === 'published';
   const showText = archived || published || (doc.status === 'draft' && (IS_PREVIEW_BUILD || draft));
@@ -156,7 +157,7 @@ const LegalPage = ({ doc, draft = false, archived = false }) => {
           )}
         </article>
       </main>
-      <Footer publicSite />
+      <Footer publicSite={publicSite} />
     </div>
   );
 };

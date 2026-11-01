@@ -34,7 +34,7 @@ A privacy policy only holds if the system does what it says. So this plan has tw
 |---|---|---|
 | D1 | Legal entity that publishes the policy (name, address, TIN / SEC or DTI registration) | The business that owns TicketFlow - **to be supplied** |
 | D2 | DPO (name or title, email, address) | **Email decided (1 Nov 2026): `jarvis.dpo@blueknight.xyz`** (a role mailbox). Still open: the DPO's name or title and mailing address; the appointment itself (required for PICs - IRR Sec. 26(a); NPC Advisory 2017-01 on DPO designation *(verify)*) |
-| D3 | Customer contracts: TicketFlow as **processor (PIP)** for the companies' ticket data | Yes (§2) - a Data Processing Agreement (DPA-contract) with every customer company, signed with the plan / invoice |
+| D3 | Customer contracts: TicketFlow as **processor (PIP)** for the companies' ticket data | Yes (§2) - a Data Processing Agreement (DPA-contract) with every customer company, signed with the plan / invoice. **1 Nov 2026:** draft v0.1 in `src/config/legal/dpa.js`; part of the subscription contract (General Terms of Service); shown **only to company / organization admins** at `/admin/dpa` (user) |
 | D4 | NPC registration of the data processing system | Assess against the registration thresholds (§7); register if any applies or if customers require it |
 | D5 | Retention periods | §5 table (defaults per category) |
 | D6 | Hosting / cross-border | Disclose Google (Sheets, Apps Script, Firebase, Gmail), Vercel; data may be stored outside the Philippines (§4) |

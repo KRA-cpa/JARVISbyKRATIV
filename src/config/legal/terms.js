@@ -1,5 +1,5 @@
 /**
- * Terms of Service content for the public /terms page.
+ * General Terms of Service content for the public /terms page.
  * Source: docs/planning/DRAFT_TermsOfService_20261101.md (v0.4 - its §0 holds the open decisions T1-T13 and the
  * acceptance-record requirements; change the text in both places together). PROPOSED DRAFT: not legal advice, not in
  * effect, to be reviewed by counsel. `[[...]]` marks a pending decision; the page highlights it.
@@ -13,16 +13,16 @@
 
 export const TERMS_OF_SERVICE = {
   status: 'draft', // 'draft' | 'published'
-  version: '0.5', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
+  version: '0.7', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
   effectiveDate: '',
   lastUpdated: '1 November 2026',
-  title: 'Terms of Service',
+  title: 'General Terms of Service',
   draftPath: '/terms/draft',
   historyPath: '/terms/versions',
   // Notice of a MAJOR change (Terms §17: [[30]] days ahead; admins re-accept): null = none. When set, /terms shows an
   // "Upcoming change" box and every page footer links to it: { version, noticeDate, effectiveDate, summary: [...], path }
   pendingChange: null,
-  placeholderIntro: 'Our Terms of Service are being prepared. They will form part of the subscription contract of every company ' +
+  placeholderIntro: 'Our General Terms of Service are being prepared. They will form part of the subscription contract of every company ' +
     'or organization that signs up for Daloy, and will be published here before paid plans start.',
   placeholderContact: 'For a question about subscribing in the meantime, use the Contact page or ask the administrator of your organization.',
   draftNotice: 'DRAFT for review - not in effect. This proposed text still has to be reviewed by counsel. Highlighted items are ' +
@@ -31,7 +31,7 @@ export const TERMS_OF_SERVICE = {
     {
       id: 'agreement',
       heading: 'The agreement',
-      body: 'These Terms of Service ("Terms") are between KRATIV Solutions [[placeholder - confirm the registered name]] ' +
+      body: 'These General Terms of Service ("Terms") are between KRATIV Solutions [[placeholder - confirm the registered name]] ' +
         '("KRATIV", "we", "us"), with address at [[registered address]], and the company or organization that signs up for Daloy ' +
         '("Customer", "you").\n\n' +
         'These Terms form part of the Customer\'s subscription contract. When the Customer signs up (including a trial), the ' +
@@ -39,7 +39,8 @@ export const TERMS_OF_SERVICE = {
         'allowances and prices), these Terms and the Data Processing Agreement. The person who accepts confirms they have ' +
         'authority to bind the Customer. If an organization signs up, the contract covers every company it adds to its account; ' +
         'an organization admin may accept on behalf of those companies. We keep a record of who accepted which versions and ' +
-        'when, and the Customer can view it in the Service.'
+        'when, and the Customer can view it in the Service. The Data Processing Agreement is available to the ' +
+        'Customer\'s administrators on the admin page of the Service, and to prospective customers on request.'
     },
     {
       id: 'definitions',
@@ -74,7 +75,23 @@ export const TERMS_OF_SERVICE = {
       body: 'The Customer names at least one administrator, controls who is invited, and assigns roles.\n\n' +
         'Users sign in with Google accounts. The Customer is responsible for its Users\' accounts, for keeping access current ' +
         '(removing people who leave) and for everything done under its Users\' accounts.\n\n' +
-        'Users must be at least 18 years old and use the Service for the Customer\'s business.'
+        'Users must be at least 18 years old (see Customer attestations).'
+    },
+    {
+      id: 'attestations',
+      heading: 'Customer attestations',
+      body: 'By accepting these Terms - at sign-up, and again each time it renews, changes Plan or accepts a new version - the ' +
+        'Customer confirms that:\n\n' +
+        '- The Customer is a business, government office or other organization (not an individual consumer), validly existing and, where the law requires, registered (for example with the SEC, DTI or BIR).\n' +
+        '- The person accepting these Terms is authorized to bind the Customer, and for an organization, each company it adds.\n' +
+        '- The information given at sign-up and for billing (names, addresses, TIN, VAT status, contacts) is true and complete, and the Customer keeps it up to date.\n' +
+        '- Every User is at least 18 years old and uses the Service for the Customer\'s business.\n' +
+        '- The Customer has a lawful basis and has given the required notices for the personal information it and its Users put into the Service, including sensitive personal information (Data Privacy Act), and has the right to share the rest of the Customer Data.\n' +
+        '- The Customer\'s use of the Service, its templates and its exports (for example leave, overtime and payroll requests) complies with the laws that apply to it, including labor, tax and data privacy laws; the Customer remains responsible for its own policies and decisions.\n' +
+        '- The Customer keeps its administrator list and User access current and removes people who should no longer have access.\n' +
+        '- The Customer will not use the Service in breach of the Acceptable use section, and is not barred by law or sanctions from using it.' +
+        '\n\nIf any of these stops being true, the Customer tells us promptly. A materially false attestation is a material ' +
+        'breach of these Terms.'
     },
     {
       id: 'plans',
