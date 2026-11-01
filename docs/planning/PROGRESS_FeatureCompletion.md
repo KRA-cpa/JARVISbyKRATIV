@@ -2,7 +2,7 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PROGRESS_FeatureCompletion.md | Author: Kenneth R. Advento | Version: 1.5.0
+Document: PROGRESS_FeatureCompletion.md | Author: Kenneth R. Advento | Version: 1.6.0
 Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Living record of how complete JARVISbyERP is - against the original spec and against the full roadmap - recalculated at every version close | Status: Active (living document, not dated)
 REVISION HISTORY:
@@ -12,12 +12,13 @@ REVISION HISTORY:
 - v1.3.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Scope +14 (session ff4c803f): country calendars + time zones (v10.1, 4) and plans + subscriptions (v10.2, 10); roadmap total 140 → 154; version line v10.1-v10.4; figures recalculated
 - v1.4.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §4 milestone rows for v10.0 M1-M5, close + review, v10.1 T1 / T2 (built, not live; headline unchanged)
 - v1.5.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | v10.1 close row: built-only 88.0 % / 76.1 %; features 16, 42, 43 marked built
+- v1.6.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Session dump 41700a8e (§3 rule 6): v10.0 + v10.1 + v10.2 P1 deployed (ping 10.2.0, the review-fixed file) and the matching frontend live (5bbd435) - headline 88.0 % spec / 78.1 % roadmap, provisional until the browser checks and the §5e / §5f / plans migrations are reported
 ===============================================================================
 -->
 
 # PROGRESS — Feature completion
 
-> **Headline (31 Oct 2026, v9.6 deployed - ping `9.6.0`):** **87.0 %** of the original spec · **60.5 %** of the full roadmap (spec + the v10 plan; total **154** since session ff4c803f, was 66.5 % of 140). *Provisional:* the scoring rule counts a feature only once checked in the browser; the deploy guide §5d checks (sign-in, invite message, company email + test email, invite, Links) are not reported yet. Until then the last confirmed figures are 78.8 % / 57.8 % (v9.5; 52.5 % of 154).
+> **Headline (1 Nov 2026, v10.2 P1 deployed - ping `10.2.0`, frontend `5bbd435` live):** **88.0 %** of the original spec · **78.1 %** of the full roadmap (of 154): the v10.1 column (76.1 %) + v10.2 P1 (plan catalogue + gate + limits + platform admins, the public `/plans` page - 3 of the plans area's 10 pts). *Provisional:* the scoring rule counts a feature only once checked in the browser, and the v10.0 / v10.1 / plans migrations (deploy guide §5e, §5f, `seedCompanySubscriptionsApply`) and the browser checks (v9.6 §5d check 7, v10.0 dashboard / paged lists, v10.1 regions, v10.2 plans) are not reported yet. Last confirmed figures: 78.8 % / 52.5 % of 154 (v9.5).
 > After the v10 line (v10.4): 88.0 % spec · 92.2 % roadmap. 100 % on both needs file uploads + the ticket type Edit route.
 
 ---
@@ -157,6 +158,7 @@ Table C's effort-point totals aren't used for the headline: they gave the spec 9
 | 1 Nov 2026 | v10.1 T2 built, not live | 87.0 % | 60.5 % | session ff4c803f: call sites on the company clock - SLA rules + step SLAs (country weekends / working days, holidays), escalation run + email dates, Due Today, ticket number YEAR, report / list date days; getTickets always paged (D6); ADMIN_Tools v1.4 (feature 42 ≈ 80 %). Built-only roadmap 75.1 % |
 | 1 Nov 2026 | **v10.1 closed** (built, not live) | 87.0 % | 60.5 % | session ff4c803f: T3 frontend (dateTime.js + effective zone, Country Calendars, Company Region, Profile display zone, holidays per company), A17 v3 / F3 v3 checks, review CR5-01..07 fixed (`docs/planning/TODO_CodeReview_20261101_v10.1.md`). Built-only = the planned v10.1 column: **88.0 % spec / 76.1 % roadmap** (features 42 + 43 = 4 / 4 pts; feature 16 gap closed) - the headline moves there once v10.0 + v10.1 are deployed and checked |
 | 1 Nov 2026 | v10.2 P1 built, not live | 87.0 % | 60.5 % | session 41700a8e (continues ff4c803f): plan catalogue + gate + limits + platform admins + usage counter + legacy migration, `/plans` catalogue page (feature 44 = 3 / 3 pts). Built-only roadmap **78.1 %** |
+| 1 Nov 2026 | **v10.0 + v10.1 + v10.2 P1 deployed** (ping `10.2.0`; frontend `5bbd435`) - session dump 41700a8e | **88.0 %** | **78.1 %** | review CR6-01..18 fixed before the deploy (the live file has them); public `/`, `/plans`, `/privacy` (+ draft) live. Provisional until the browser checks + migrations are reported (headline note). No scope change: the website (+5 proposed) and privacy (+4 proposed) plans are not counted yet |
 
 ---
 
