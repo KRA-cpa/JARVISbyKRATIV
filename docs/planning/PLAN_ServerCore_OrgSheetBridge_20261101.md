@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_ServerCore_OrgSheetBridge_20261101.md | Author: Kenneth R. Advento | Version: 1.1.0
+Document: PLAN_ServerCore_OrgSheetBridge_20261101.md | Author: Kenneth R. Advento | Version: 1.2.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Add ORGANIZATIONS above companies (an organization owns its data store - e.g. its own Google Sheet - and onboards one or more companies); business logic moves to the server; Apps Script shrinks to a thin bridge to the organization's Sheet | Status: Draft (session 017zmKf6), decisions O1-O10 open, not built
 REVISION HISTORY:
+- v1.2.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: "appscript only needed to write and read to the org's Google sheet db" - bridge = read / write only; sendMail and nextSequence removed (mail and numbering on the server)
 - v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: "appscript lives on the cloud now" - no more feature work in the Apps Script backend; admin scope (O0) and organizations are built in the cloud server only; interim rule for the shared Apps Script platform
 - v1.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created; user: "appscript must now then live in server, appscript only to bridge the frontend to their sheet" + "organization is the owner of sheets, so they can onboard multiple companies"
 ===============================================================================
@@ -77,8 +78,9 @@ Vercel Cron ─► SLA escalation, email outbox, archive (were Apps Script trigg
 ```
 - **One code base, one release** for every organization, whatever its storage. The bridge changes only when its
   small contract changes (§4) - rarely.
-- **The bridge has no business rules**: no permissions, workflow or plan checks. It accepts only signed requests from
-  the server and does table I/O under one lock.
+- **The bridge only reads and writes the organization's Sheet** (user, 1 Nov 2026). No business rules, permissions,
+  workflow, plan checks, mail, triggers or numbering: all of that is on the server. It accepts only signed requests
+  from the server and does table I/O under one lock.
 - A new company in a Sheet organization = new rows in the same Sheet. **No new Sheet, script or deployment per
   company.**
 
@@ -91,8 +93,10 @@ One web-app endpoint, `POST`, JSON, signed by the server.
 | `ensureSchema(tables)` | Create missing tabs / header columns (never deletes) |
 | `read(table, filter?)` | Rows of a table: all, by ids, by `company_id`, or changed since a time |
 | `batch(ops[])` | `append` / `update(id, fields, expectedVersion)` / `delete` across tables **inside one `LockService` lock**; a version mismatch fails the whole batch (optimistic locking) |
-| `nextSequence(name)` | Ticket numbers etc., under the lock |
-| `sendMail(...)` (optional) | Mail from the organization's own domain (Workspace: 1,500 recipients / day) |
+
+Nothing else. **Ticket numbers** are a server job: read the `sequences` row, then `batch` an `update` with
+`expectedVersion` (retry on a version mismatch) - the bridge lock makes it safe. **Mail** is sent by the server's mail
+provider for every organization (sender name and Reply-To per company, as today).
 
 **Security:** a per-organization secret (Vercel encrypted env / secret store + the bridge's Script Properties); each
 request carries `timestamp + HMAC(body)`; the bridge refuses unsigned or > 5-minute-old requests.
@@ -101,7 +105,7 @@ request carries `timestamp + HMAC(body)`; the bridge refuses unsigned or > 5-min
 ## §5 Open decisions (proposed defaults)
 | # | Question | Proposed default |
 |---|---|---|
-| O1 | Bridge = Apps Script, or the server calls the **Sheets API** with a service account the organization shares its Sheet with? | **Apps Script bridge** (user decision): runs in their Workspace as their account, can mail from their domain, they can switch it off. Keep the storage adapter open for a Sheets-API adapter later (faster, no Apps Script quotas, but needs sharing to an outside account) |
+| O1 | Bridge = Apps Script, or the server calls the **Sheets API** with a service account the organization shares its Sheet with? | **Apps Script bridge** (user decision): runs in their Workspace as their account, they can switch it off. Keep the storage adapter open for a Sheets-API adapter later (faster, no Apps Script quotas, but needs sharing to an outside account) |
 | O2 | Organizations on the shared platform | **Every customer is an organization**, also on shared storage (one model; a one-company customer = an organization with one company) |
 | O3 | Plan / billing level | **Organization** pays (one invoice). Plan features apply to all its companies; limits (users, tickets / month) pooled across them. Moves v10.2's `company_subscriptions` to `organization_subscriptions` |
 | O4 | Users in several organizations (an accountant serving clients) | Allowed. The app shows an organization switcher when a user has more than one |
@@ -122,7 +126,7 @@ request carries `timestamp + HMAC(body)`; the bridge refuses unsigned or > 5-min
 | Admin = global | Platform / organization / company admin scopes (§2) |
 | Plan per company | Plan per organization (O3) |
 | Triggers in the script | Vercel Cron |
-| Mail from the script owner's Gmail | Bridge `sendMail` (their domain) or a mail provider |
+| Mail from the script owner's Gmail | Server mail provider for all organizations (verified sending domain; sender name / Reply-To per company) |
 | Release = paste into each copy | Release = deploy the server once |
 
 ## §7 Honest limits (tell customers)
