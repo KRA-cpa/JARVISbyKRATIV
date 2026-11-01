@@ -195,6 +195,12 @@
  *     PLATFORM_ADMIN_UIDS (empty = any admin, logged PLATFORM_BOOTSTRAP); Script Property PLAN_GATE (enforce | warn | off).
  *     Routes: getPlanCatalog, getCompanyPlan (GET), setSubscriptionOverrides (platform). Editor: seedCompanySubscriptions
  *     DryRun / Apply (every company -> Enterprise, active, 12 months, 'legacy'). Rebuild apply: 1 new tab (company_subscriptions)
+ *   P1 review fixes (docs/planning/TODO_CodeReview_20261101_v10.2.md CR6-01..18, compliance A22): the gate takes the company from
+ *     the record (never a company_id sent next to it); unknown ids / ended or cancelled plans / companies created after the
+ *     migration (Script Property PLAN_CUTOVER_AT) fail closed (Basic / last plan read-only / NEW_COMPANY_PLAN); platform admins
+ *     = PLATFORM_ADMIN_UIDS only (no bootstrap; AUTH warn refuses too); global config needs the feature in every company it
+ *     reaches; users limit counts future-dated assignments, reactivations and every invite grant company; a type moved into a
+ *     company is counted; SLA analytics gated; copies check SLAs + conditions; Restricted tick needs the plan
  *
  * Deploy description: v10.2 20261101_0710 - plans per company: gate + limits, trial / grace / read-only, invoices, templates, uploader
  *   (paste at redeploy: Deploy > Manage deployments > Edit > New version > Description)
@@ -1297,9 +1303,10 @@ function doPost(e) {
       return createJsonResponse({
         success: false,
         status: 'error',
-        error: error.toString(),
-        // v10.2: a handler that throws a plan refusal (planError) keeps its code + fields
-        ...(error && error.code ? { ...(error.details || {}), code: error.code, status: 'error' } : {})
+        // v10.2: a handler that throws a plan refusal (planError) keeps its code + fields; its text without "Error:"
+        // (review CR6-15)
+        error: error && error.code ? error.message : error.toString(),
+        ...(error && error.code ? { code: error.code, ...pickDefined(error.details || {}, PLAN_REFUSAL_KEYS) } : {})
       });
     }
 }
@@ -1518,7 +1525,7 @@ function routePostAction(action, data) {
           }
           // v10.2 (decision U8): a personal display zone is Advanced and up (blank = the company zone, always allowed)
           if (userPreferencesData.preferences.display_timezone) {
-            const zoneRefusal = requireFeature('', 'user_timezone_display', userPreferencesData.user_id);
+            const zoneRefusal = requireFeature('', 'user_timezone_display', userPreferencesData.user_id, { any: true });
             if (zoneRefusal) return createHandlerResponse(zoneRefusal);
           }
           return createJsonResponse({
@@ -1970,6 +1977,12 @@ function createTicket(payload, options = {}) {
   const asked = boolFlag(payload.is_confidential);
   if (asked && confidentialMode === 'off') throw new Error(`This ticket type doesn't allow ${RESTRICTED_LABEL} tickets`);
   const isConfidential = confidentialMode === 'always' || (confidentialMode === 'optional' && asked);
+  // v10.2 (review CR6-09): ticking Restricted is new use of an Enterprise feature in this company ('always' types follow
+  // their configuration - a downgrade never changes how a type's tickets are kept)
+  if (asked && confidentialMode === 'optional' && !options.requesterIsTarget) {
+    const restrictedPlan = requireFeature(company.id, 'restricted');
+    if (restrictedPlan) throw planError(restrictedPlan);
+  }
   if (isConfidential) {
     const outdated = requireColumns(SHEETS.TICKETS, ['is_confidential']);
     if (outdated) throw new Error(outdated.message);
@@ -3160,6 +3173,15 @@ function updateTicketType(payload) {
       created_at: data[rowIndex - 1][8],
       updated_at: new Date().toISOString()
     };
+
+    // v10.2 (review CR6-07): moving a type into a company (or reactivating it there) counts toward its ticket types limit
+    const typeBefore = data[rowIndex - 1];
+    const typeCompany = updatedTicketType.company_id ? String(updatedTicketType.company_id) : '';
+    const typeCounted = isActiveFlag(typeBefore[5]) && String(typeBefore[7] || '') === typeCompany;
+    if (typeCompany && updatedTicketType.is_active && !typeCounted) {
+      const overLimit = requireLimit(typeCompany, 'ticket_types', 1);
+      if (overLimit) throw planError(overLimit);
+    }
 
     ticketTypesSheet.getRange(rowIndex, 1, 1, 10).setValues([[
       updatedTicketType.id,
@@ -5376,8 +5398,9 @@ function updateCustomField(fieldId, payload) {
       return { status: 'error', message: 'No update data provided' };
     }
     // v10.2: changing a field to a type / setting that needs a plan
-    const fieldPlan = customFieldPlanRefusal(String(found.record.entity_category || 'ticket') === 'ticket'
-      ? recordCompany(SHEETS.TICKET_TYPES, found.record.ticket_type_id) : '', changes, found.record);
+    const isTicketField = String(found.record.entity_category || 'ticket') === 'ticket';
+    const fieldPlan = customFieldPlanRefusal(isTicketField ? recordCompany(SHEETS.TICKET_TYPES, found.record.ticket_type_id) : '',
+      changes, found.record, false, isTicketField ? found.record.ticket_type_id : '');
     if (fieldPlan) return fieldPlan;
 
     const userId = payload.user_id || getCurrentUserId();
@@ -6829,6 +6852,14 @@ function updateUserRoleAssignment(assignmentId, payload) {
     const end = merged.effective_end_date ? endOfTerm(merged.effective_end_date) : null;
     if (start && end && end <= start) {
       return { status: 'error', message: 'effective_end_date must be on or after effective_start_date' };
+    }
+    // v10.2 (review CR6-05): an edit that brings the user back into the company (reactivation, new dates) counts toward
+    // the plan's users limit
+    const checkedAt = new Date();
+    if (REQUEST_ACTIVE && !assignmentCountsAsUser(current.record, checkedAt) && assignmentCountsAsUser(merged, checkedAt) &&
+      !companyUserIds(current.record.company_id, checkedAt).has(String(current.record.user_id))) {
+      const overLimit = requireLimit(current.record.company_id, 'users', 1);
+      if (overLimit) return overLimit;
     }
 
     const result = updateRecordFields(SHEETS.USER_ROLE_ASSIGNMENTS, assignmentId, { ...updates, ...updateAuditFields() });
@@ -10192,7 +10223,7 @@ function createCustomField(entityTypeId, fieldData, entityCategory = 'ticket') {
 
     // v10.2: field types / settings that need a plan (the ticket type's company; '' = a global or non-ticket entity)
     const fieldPlan = customFieldPlanRefusal(entityCategory === 'ticket' ? recordCompany(SHEETS.TICKET_TYPES, entityTypeId) : '',
-      { ...fieldData, entity_category: entityCategory }, {}, true);
+      { ...fieldData, entity_category: entityCategory }, {}, true, entityCategory === 'ticket' ? entityTypeId : '');
     if (fieldPlan) return fieldPlan;
 
     // Generate unique field ID
@@ -13229,9 +13260,13 @@ function copyWorkflowStepsFromCompany(ticketTypeId, sourceCompanyId, targetCompa
       return { status: 'error', message: `The target company already has ${target.data.length} workflow step(s) for this ticket type - edit or delete them instead` };
     }
     // v10.2: the target company's plan must cover the copied steps (task / chained) and their number
+    // review CR6-13: the copy also writes the steps' SLAs and their routing conditions
+    const sourceStepIds = new Set(source.data.map(s => String(s.id)));
+    const copiesConditions = liveRecords(SHEETS.STEP_CONDITIONS).some(c => sourceStepIds.has(String(c.step_id)));
     const copyPlan = requireLimit(targetCompanyId, 'steps_per_type', source.data.length, { ticket_type_id: ticketTypeId, used: 0 }) ||
       source.data.reduce((refusal, step) => refusal || workflowStepPlanRefusal(targetCompanyId,
-        { step_type: step.step_type, next_ticket_type_id: step.next_ticket_type_id }), null);
+        { step_type: step.step_type, next_ticket_type_id: step.next_ticket_type_id, sla_duration: step.sla_duration }), null) ||
+      (copiesConditions ? requireFeature(targetCompanyId, 'conditional_routing') : null);
     if (copyPlan) return copyPlan;
 
     const actor = userId || getCurrentUserId();
@@ -17052,7 +17087,7 @@ function acceptPendingInvite(uid, email) {
     const res = createUserRoleAssignment({ user_id: uid, role_id: g.role_id, company_id: g.company_id || invite.company_id,
       ticket_type_id: g.ticket_type_id || '', effective_start_date: g.effective_start_date || '',
       effective_end_date: g.effective_end_date || '', assigned_by_user_id: by, assignment_notes: `Invite ${invite.id}` },
-      { skipPlanLimit: true }); // v10.2: the invite already counted toward the users limit
+      { skipPlanLimit: true }); // v10.2: the invite already counted in every grant company (CR6-06)
     return { role_id: g.role_id, status: res.status, message: res.status === 'success' ? '' : res.message };
   });
   updateRecordFields(SHEETS.USER_INVITES, invite.id, { status: 'accepted', accepted_uid: uid, accepted_at: now, updated_at: now, updated_by: uid });
@@ -17096,8 +17131,6 @@ function createUserInvite(payload = {}) {
   const company = companies[String(payload.company_id)];
   if (!company || !liveRecord(company)) return { status: 'error', message: `Company ${payload.company_id} not found` };
   if (findUserIdByEmail(email)) return { status: 'error', message: `${email} already has a user profile` };
-  const overLimit = requireLimit(company.id, 'users', 1); // v10.2: a pending invite counts as a user
-  if (overLimit) return overLimit;
   const now = new Date();
   const invites = readTable(SHEETS.USER_INVITES);
   if ((invites ? invites.records : []).some(i => normalizeEmail(i.email) === email && inviteStatus(i, now) === 'pending')) {
@@ -17111,6 +17144,11 @@ function createUserInvite(payload = {}) {
     const role = roles[g.role_id];
     if (!role || !isActiveFlag(role.is_active)) return { status: 'error', message: `Role ${g.role_id} not found` };
     if (role.company_id && !sameId(role.company_id, g.company_id)) return { status: 'error', message: `Role "${role.name}" belongs to another company` };
+  }
+  // v10.2 (review CR6-06): a pending invite counts as a user in its company AND in every company its grants name
+  for (const inviteCompany of unique([String(company.id)].concat(grants.map(g => g.company_id)))) {
+    const overLimit = requireLimit(inviteCompany, 'users', 1);
+    if (overLimit) return overLimit;
   }
 
   const invite = { id: generateId('inv'), email, display_name: String(payload.display_name || '').trim() || email,
@@ -18845,6 +18883,14 @@ const PLAN_CATALOG = PLAN_ORDER.reduce((catalog, plan, index) => {
  * smallest one instead, set this to 'basic'.
  */
 const NO_PLAN_DEFAULT = 'enterprise';
+/**
+ * Review CR6-08: a company created AFTER the plan migration (Script Property PLAN_CUTOVER_AT, set by
+ * seedCompanySubscriptionsApply) with no row yet runs on this plan until a platform admin sets one - never the Enterprise
+ * default. A company whose rows were all cancelled / ended keeps its last plan, read-only.
+ */
+const NEW_COMPANY_PLAN = 'basic';
+/** recordCompany() of a record that doesn't exist: not a live company, so it gets the smallest plan (fail closed). */
+const MISSING_COMPANY = '(missing)';
 const SUBSCRIPTION_STATUSES = ['trial', 'active', 'converted', 'cancelled'];
 const PAID_GRACE_DAYS = 14;
 const TRIAL_GRACE_DAYS = 7;
@@ -18920,10 +18966,25 @@ function validDay(value) {
 
 // --- Effective plan (plan §4, §5) ---------------------------------------------------------------------------------------
 
+/** Every subscription row of a company (cancelled / deactivated included). */
+function companySubscriptionRows(companyId) {
+  return ((readTable(SHEETS.COMPANY_SUBSCRIPTIONS) || {}).records || []).filter(r => sameId(r.company_id, companyId));
+}
+
 /** A company's subscription rows that count: live and not cancelled (one row per period - the history is kept). */
-function companySubscriptions(companyId) {
-  return ((readTable(SHEETS.COMPANY_SUBSCRIPTIONS) || {}).records || [])
-    .filter(r => sameId(r.company_id, companyId) && liveRecord(r) && String(r.status || '').toLowerCase() !== 'cancelled');
+function companySubscriptions(companyId, rows = null) {
+  return (rows || companySubscriptionRows(companyId))
+    .filter(r => liveRecord(r) && String(r.status || '').toLowerCase() !== 'cancelled');
+}
+
+/**
+ * Did the company exist before plans were switched on (Script Property PLAN_CUTOVER_AT, written by the migration)? Before
+ * the migration has run every company counts as existing (nothing breaks on deploy); a company without created_at too.
+ */
+function existedBeforePlans(company) {
+  const cutover = toDate(scriptProperty('PLAN_CUTOVER_AT', ''));
+  const created = toDate(company.created_at);
+  return !cutover || !created || created <= cutover;
 }
 
 /**
@@ -18969,8 +19030,16 @@ function subscriptionState(sub, today) {
 function companyPlan(companyId, now = new Date()) {
   const clock = companyClock(companyId);
   const today = dayIn(now, clock.tz);
-  const sub = companyId ? inForceSubscription(companySubscriptions(companyId), today) : null;
-  const plan = sub ? (normalizePlan(sub.plan) || 'basic') : NO_PLAN_DEFAULT;
+  // review CR6-01 / CR6-08: only a live company can be on a plan; the fallbacks fail closed
+  const company = companyId ? recordsById(SHEETS.COMPANIES)[String(companyId)] : null;
+  const known = !!company && liveRecord(company);
+  const allRows = known ? companySubscriptionRows(companyId) : [];
+  const sub = known ? inForceSubscription(companySubscriptions(companyId, allRows), today) : null;
+  const lastRow = !sub && allRows.length
+    ? allRows.slice().sort((a, b) => subscriptionDay(b.period_end).localeCompare(subscriptionDay(a.period_end)))[0] : null;
+  const fallbackPlan = !known ? 'basic' : lastRow ? (normalizePlan(lastRow.plan) || 'basic')
+    : (existedBeforePlans(company) ? NO_PLAN_DEFAULT : NEW_COMPANY_PLAN);
+  const plan = sub ? (normalizePlan(sub.plan) || 'basic') : fallbackPlan;
   const overrides = sub ? jsonObject(sub.feature_overrides) : {};
   const base = PLAN_CATALOG[plan].features;
   const features = base.filter(f => overrides[f] !== false)
@@ -18983,10 +19052,11 @@ function companyPlan(companyId, now = new Date()) {
     if (value === null || value === '') limits[key] = null;
     else if (Number.isFinite(Number(value)) && Number(value) >= 0) limits[key] = Math.floor(Number(value));
   });
-  const state = sub ? subscriptionState(sub, today) : 'unassigned';
+  const state = sub ? subscriptionState(sub, today) : (lastRow ? 'read_only' : 'unassigned');
   const end = sub ? subscriptionDay(sub.period_end) : '';
   return {
-    company_id: String(companyId || ''), plan, plan_name: PLAN_NAMES[plan], state, source: sub ? 'subscription' : 'unassigned',
+    company_id: String(companyId || ''), plan, plan_name: PLAN_NAMES[plan], state,
+    source: sub ? 'subscription' : !known ? 'unknown_company' : lastRow ? 'ended' : 'unassigned',
     subscription_id: sub ? String(sub.id) : '', status: sub ? String(sub.status || '') : '',
     period_start: sub ? subscriptionDay(sub.period_start) : '', period_end: end,
     trial_end: sub && isTrialRow(sub) ? (subscriptionDay(sub.trial_end) || end) : '',
@@ -19010,47 +19080,33 @@ function platformAdminUids() {
   return listParam(scriptProperty('PLATFORM_ADMIN_UIDS', ''));
 }
 
-/** Bootstrap (the v9.6 stance): while PLATFORM_ADMIN_UIDS is empty, any active admin is a platform admin. */
-function platformBootstrapOpen() {
-  return platformAdminUids().length === 0;
-}
-
+/**
+ * Review CR6-02: fail closed. Only the uids in PLATFORM_ADMIN_UIDS are platform admins - an empty property means nobody
+ * (company admins must never self-serve plans; design §5). Set the property in the editor before using Platform screens.
+ */
 function isPlatformAdmin(uid) {
   if (!uid) return false;
-  const uids = platformAdminUids();
-  if (uids.length) return uids.includes(String(uid));
-  return isAdminUser(uid) || adminBootstrapOpen();
+  return platformAdminUids().includes(String(uid));
 }
 
 /**
- * The platform check doPost runs before a PLATFORM_ONLY_ACTIONS route (actor = the verified uid). AUTH_MODE enforce
- * refuses (code PLATFORM_ONLY), warn logs and continues, off doesn't check.
- * @returns {Object} { denied, bootstrap, actor }
+ * The platform check doPost runs before a PLATFORM_ONLY_ACTIONS route. Review CR6-03: a VERIFIED platform admin in every
+ * AUTH_MODE but off (the documented kill switch) - warn refuses too (these routes are new, no legacy caller to keep).
+ * @returns {Object} { denied, actor }
  */
 function checkPlatformOnly(action) {
-  const mode = REQUEST_AUTH.mode;
-  if (mode === 'off' || !PLATFORM_ONLY_ACTIONS.includes(action)) return { denied: null, bootstrap: false, actor: null };
-  const actor = actorId(null);
-  if (actor && isPlatformAdmin(actor)) {
-    const bootstrap = platformBootstrapOpen();
-    if (bootstrap) console.log(`PLATFORM_BOOTSTRAP: ${action} by ${actor} (PLATFORM_ADMIN_UIDS not set)`);
-    return { denied: null, bootstrap, actor };
-  }
-  if (mode === 'enforce') {
-    return { denied: { success: false, status: 'error', code: 'PLATFORM_ONLY', error: `Only platform admins can ${action}` }, bootstrap: false, actor };
-  }
-  console.log(`AUTH warn: ${action} by non-platform-admin ${actor || '(no verified user)'}`);
-  return { denied: null, bootstrap: false, actor };
+  if (!PLATFORM_ONLY_ACTIONS.includes(action)) return { denied: null, actor: null };
+  if (REQUEST_AUTH.mode === 'off') return { denied: null, actor: actorId(null) };
+  const actor = REQUEST_AUTH.verified ? REQUEST_AUTH.uid : null;
+  if (actor && isPlatformAdmin(actor)) return { denied: null, actor };
+  const error = platformAdminUids().length ? `Only platform admins can ${action}`
+    : `No platform admin is set: add your uid to the Script Property PLATFORM_ADMIN_UIDS (deploy guide v10.2) - ${action} refused`;
+  return { denied: { success: false, status: 'error', code: 'PLATFORM_ONLY', error }, actor };
 }
 
-/** A PLATFORM_ONLY_ACTIONS route: the admin-write logging of routeAdminAction, plus PLATFORM_BOOTSTRAP while open. */
+/** A PLATFORM_ONLY_ACTIONS route, logged like an admin write (routeAdminAction). */
 function routePlatformAction(action, data, platform) {
-  const output = routeAdminAction(action, data, { actor: platform.actor, bootstrap: false });
-  const body = responseBody(output);
-  if (body && body.success === true && platform.bootstrap) {
-    logAdminAction(platform.actor, 'PLATFORM_BOOTSTRAP', 'action', action, { note: 'PLATFORM_ADMIN_UIDS is empty - set it (deploy guide v10.2)' });
-  }
-  return output;
+  return routeAdminAction(action, data, { actor: platform.actor, bootstrap: false });
 }
 
 // --- The gate (plan §5) -------------------------------------------------------------------------------------------------
@@ -19064,17 +19120,23 @@ function routePlatformAction(action, data, platform) {
  * company links) are in their handlers (requireFeature), limits in their create paths (requireLimit).
  */
 const PLAN_GATED_ACTIONS = {
-  saveStepConditions: { feature: 'conditional_routing', when: b => listOrJson(b.routes).length > 0 },
+  // review CR6-11: { enabled: false } stores no routes - turning routing off is never refused
+  saveStepConditions: { feature: 'conditional_routing',
+    when: b => (b.enabled === undefined || boolFlag(b.enabled)) && listOrJson(b.routes).length > 0 },
   copyWorkflowSteps: { feature: 'copy_workflows', company: b => b.target_company_id },
   createCompanySLARule: { feature: 'company_sla_rules' },
-  updateCompanySLARule: { feature: 'company_sla_rules', company: b => b.company_id || recordCompany(SHEETS.COMPANY_SLA_RULES, b.rule_id || b.id) },
+  // review CR6-01: an update acts on the record's company, never on a company_id sent next to it
+  updateCompanySLARule: { feature: 'company_sla_rules', company: b => recordCompany(SHEETS.COMPANY_SLA_RULES, b.rule_id || b.id) },
   createCompanyHoliday: { feature: 'company_holidays' },
   createSLAEscalationRule: { feature: 'sla_escalation' },
-  updateSLAEscalationRule: { feature: 'sla_escalation', company: b => b.company_id || recordCompany(SHEETS.SLA_ESCALATION_RULES, b.rule_id || b.id) },
-  saveCompanyEmailSettings: { feature: 'email_notifications', when: b => String(b.email_enabled === undefined ? 'on' : b.email_enabled).toLowerCase() !== 'off' },
-  sendCompanyTestEmail: { feature: 'email_notifications' },
+  updateSLAEscalationRule: { feature: 'sla_escalation', company: b => recordCompany(SHEETS.SLA_ESCALATION_RULES, b.rule_id || b.id) },
+  // review CR6-10 / CR6-11: the handler's company (company_id or id); only switching email ON needs the plan - sender name,
+  // Reply-To, footer and 'default' are not refused (the outbox drain skips companies without email anyway)
+  saveCompanyEmailSettings: { feature: 'email_notifications', company: b => b.company_id || b.id,
+    when: b => String(b.email_enabled === undefined ? '' : b.email_enabled).toLowerCase() === 'on' },
+  sendCompanyTestEmail: { feature: 'email_notifications', company: b => b.company_id || b.id },
   createTag: { feature: 'tags' },
-  updateTag: { feature: 'tags', company: b => b.company_id || recordCompany(SHEETS.TICKET_TAGS, b.tag_id || b.id) },
+  updateTag: { feature: 'tags', company: b => recordCompany(SHEETS.TICKET_TAGS, b.tag_id || b.id) },
   assignTags: { feature: 'tags' },
   shareTicket: { feature: 'sharing' },
   saveReportConfig: { feature: 'report_config' },
@@ -19087,7 +19149,11 @@ const PLAN_GATED_ACTIONS = {
   createUserProfileType: { feature: 'entity_types' },
   updateUserProfileType: { feature: 'entity_types' },
   createRoleType: { feature: 'entity_types' },
-  updateRoleType: { feature: 'entity_types' }
+  updateRoleType: { feature: 'entity_types' },
+  // review CR6-12: SLA analytics (Advanced) - the three performance reads
+  getSLAPerformanceByCompany: { feature: 'sla_analytics' },
+  getSLAPerformanceByTicketType: { feature: 'sla_analytics' },
+  getGlobalSLAPerformance: { feature: 'sla_analytics' }
 };
 
 /** A list sent as an array or JSON text ([] otherwise). */
@@ -19099,21 +19165,30 @@ function listOrJson(value) {
   return [];
 }
 
-/** company_id of one record ('' when missing / global). */
+/** company_id of one record: '' for a global record, MISSING_COMPANY when there is no such record (fails closed). */
 function recordCompany(sheetName, id) {
   if (!id) return '';
   const found = findRecord(sheetName, id);
-  return found && found.record.company_id ? String(found.record.company_id) : '';
+  if (!found) return MISSING_COMPANY;
+  return found.record.company_id ? String(found.record.company_id) : '';
 }
 
-/** The company a gated request acts in ('' = global configuration). */
+/**
+ * The company a gated request acts in ('' = global configuration). Review CR6-01: the record the request acts on decides
+ * (ticket, step, the rule's own resolver, a company-owned ticket type); a company the client names counts only when the
+ * request creates something there (or names the company of a global type's configuration). An unknown id is not a live
+ * company, so companyPlan() gives it the smallest plan.
+ */
 function planCompanyOf(body, rule) {
   if (rule.company) return String(rule.company(body) || '');
-  if (body.company_id || body.companyId) return String(body.company_id || body.companyId);
   if (body.ticket_id) return recordCompany(SHEETS.TICKETS, body.ticket_id);
   if (body.step_id) return recordCompany(SHEETS.WORKFLOW_STEPS, body.step_id);
-  if (body.ticket_type_id) return recordCompany(SHEETS.TICKET_TYPES, body.ticket_type_id);
-  return '';
+  const named = body.company_id || body.companyId;
+  if (body.ticket_type_id) {
+    const typeCompany = recordCompany(SHEETS.TICKET_TYPES, body.ticket_type_id);
+    if (typeCompany) return typeCompany;
+  }
+  return named ? String(named) : '';
 }
 
 /** The PLAN_REQUIRED refusal for a company's plan view. */
@@ -19123,17 +19198,32 @@ function planRefusal(view, feature) {
     message: `This needs the ${PLAN_NAMES[required]} plan (${feature}); the company is on ${PLAN_NAMES[view.plan]}` };
 }
 
+/** Companies that run a ticket type: the ones with live workflow steps for it. */
+function companiesUsingType(ticketTypeId) {
+  const ids = new Set();
+  if (!ticketTypeId) return ids;
+  liveRecords(SHEETS.WORKFLOW_STEPS).forEach(s => {
+    if (sameId(s.ticket_type_id, ticketTypeId) && s.company_id) ids.add(String(s.company_id));
+  });
+  return ids;
+}
+
 /**
- * Global configuration (no company - a global ticket type, a profile / role type): a platform admin may; otherwise the
- * actor needs the feature in at least one of their companies. No actor (AUTH warn, editor) or no company: not checked.
+ * Global configuration (no company - a global ticket type, a profile / role type). Review CR6-09: a platform admin may;
+ * otherwise EVERY company it reaches needs the feature - the actor's companies and, for a ticket type, every company that
+ * runs it - so an Advanced admin can't switch on Restricted for the Basic companies sharing a global type. No company in
+ * reach -> refused. options.any (a per-user preference like the display zone): one of the actor's companies is enough.
+ * No actor (AUTH warn without a verified user, editor runs): not checked.
  */
-function globalFeatureRefusal(actor, feature) {
+function globalFeatureRefusal(actor, feature, options = {}) {
   if (!actor || isPlatformAdmin(actor)) return null;
-  const companies = Object.keys(buildActorScope(actor).myCompanies);
-  if (!companies.length) return null;
-  const views = companies.map(id => companyPlan(id));
-  if (views.some(v => v.features.includes(feature))) return null;
-  return planRefusal(views.sort((a, b) => planRank(b.plan) - planRank(a.plan))[0], feature);
+  const companies = new Set(Object.keys(buildActorScope(actor).myCompanies));
+  if (!options.any) companiesUsingType(options.ticket_type_id).forEach(id => companies.add(id));
+  if (!companies.size) return planRefusal({ plan: 'basic', company_id: '' }, feature);
+  const views = [...companies].map(id => companyPlan(id));
+  if (options.any ? views.some(v => v.features.includes(feature)) : views.every(v => v.features.includes(feature))) return null;
+  const missing = views.filter(v => !v.features.includes(feature));
+  return planRefusal((options.any ? views.sort((a, b) => planRank(b.plan) - planRank(a.plan)) : missing.sort((a, b) => planRank(a.plan) - planRank(b.plan)))[0], feature);
 }
 
 /**
@@ -19142,8 +19232,9 @@ function globalFeatureRefusal(actor, feature) {
  * @param {string} companyId - '' / null = global configuration (globalFeatureRefusal)
  * @param {string} feature - a PLAN_ALL_FEATURES key
  * @param {string} actor - for global configuration (default: the verified uid)
+ * @param {Object} options - global configuration: { ticket_type_id } (the companies running it count too), { any: true }
  */
-function requireFeature(companyId, feature, actor) {
+function requireFeature(companyId, feature, actor, options = {}) {
   const mode = planGateMode();
   if (mode === 'off') return null;
   let refusal;
@@ -19151,7 +19242,7 @@ function requireFeature(companyId, feature, actor) {
     const view = companyPlan(companyId);
     refusal = view.features.includes(feature) ? null : planRefusal(view, feature);
   } else {
-    refusal = globalFeatureRefusal(actor === undefined ? actorId(null) : actor, feature);
+    refusal = globalFeatureRefusal(actor === undefined ? actorId(null) : actor, feature, options);
   }
   if (!refusal) return null;
   if (mode === 'warn') {
@@ -19185,12 +19276,31 @@ function checkPlanGate(action, data) {
   if (!rule) return null;
   const body = data && data.payload && typeof data.payload === 'object' ? { ...data, ...data.payload } : (data || {});
   if (rule.when && !rule.when(body)) return null;
-  const refusal = requireFeature(planCompanyOf(body, rule), rule.feature, actorId(null));
+  const companyId = planCompanyOf(body, rule);
+  // A record that doesn't exist - or a ticket the caller can't see - answers from its handler ("not found") exactly as
+  // before the gate: a refusal here would tell that the record exists and which plan its company is on (A21). The handler
+  // can't act on it either way. A company id the client makes up is not a record: it gets the smallest plan (CR6-01).
+  if (companyId === MISSING_COMPANY) return null;
+  if (body.ticket_id && !rule.company && !planTicketVisible(body.ticket_id)) return null;
+  // A named company that isn't a live company is refused here, with the handler's own words (CR6-01: never Enterprise)
+  if (companyId && !liveRecord(recordsById(SHEETS.COMPANIES)[companyId] || { is_active: false })) {
+    return { success: false, status: 'error', error: `Company ${companyId} not found` };
+  }
+  const refusal = requireFeature(companyId, rule.feature, actorId(null), { ticket_type_id: body.ticket_type_id });
   return refusal ? planResponse(refusal) : null;
+}
+
+/** Can the caller see this ticket (canViewTicket, the request's actor scope)? Unscoped requests (AUTH warn) count as yes. */
+function planTicketVisible(ticketId) {
+  const scope = buildActorScope(actorId(null));
+  if (scope.unscoped) return true;
+  const found = findRecord(SHEETS.TICKETS, ticketId);
+  return !!found && canViewTicket(scope, found.record) !== 'none';
 }
 
 /** The step fields that need a plan (task steps, chained tickets, step SLAs), compared with the step before an update. */
 function workflowStepPlanRefusal(companyId, step, before = {}) {
+  if (!companyId) companyId = MISSING_COMPANY; // a step always belongs to a company (createWorkflowStep requires it)
   const lower = v => String(v || '').toLowerCase();
   if (step.step_type !== undefined && lower(step.step_type) === 'task' && lower(before.step_type) !== 'task') {
     const r = requireFeature(companyId, 'task_steps');
@@ -19207,22 +19317,26 @@ function workflowStepPlanRefusal(companyId, step, before = {}) {
   return null;
 }
 
-/** The custom field settings that need a plan (date range, dependent dropdowns, Restricted, profile / role fields). */
-function customFieldPlanRefusal(companyId, field, before = {}, isNew = false) {
+/**
+ * The custom field settings that need a plan (date range, dependent dropdowns, Restricted, profile / role fields).
+ * @param {string} ticketTypeId - the field's ticket type: on a global type every company running it counts (CR6-09)
+ */
+function customFieldPlanRefusal(companyId, field, before = {}, isNew = false, ticketTypeId = '') {
+  const need = feature => requireFeature(companyId, feature, undefined, { ticket_type_id: ticketTypeId });
   if (field.type !== undefined && String(field.type) === 'date_range' && String(before.type || '') !== 'date_range') {
-    const r = requireFeature(companyId, 'date_range_field');
+    const r = need('date_range_field');
     if (r) return r;
   }
   if (field.depends_on_field_id && !sameId(field.depends_on_field_id, before.depends_on_field_id)) {
-    const r = requireFeature(companyId, 'dependent_dropdowns');
+    const r = need('dependent_dropdowns');
     if (r) return r;
   }
   if (field.is_confidential !== undefined && boolFlag(field.is_confidential) && !boolFlag(before.is_confidential)) {
-    const r = requireFeature(companyId, 'restricted');
+    const r = need('restricted');
     if (r) return r;
   }
   if (isNew && field.entity_category && !['ticket', 'workflow_step'].includes(String(field.entity_category))) {
-    const r = requireFeature(companyId, 'entity_types');
+    const r = need('entity_types');
     if (r) return r;
   }
   return null;
@@ -19231,22 +19345,24 @@ function customFieldPlanRefusal(companyId, field, before = {}, isNew = false) {
 /** The ticket type switches that need a plan, only when they are turned on. */
 function ticketTypePlanRefusal(ticketType, payload) {
   const companyId = ticketType.company_id ? String(ticketType.company_id) : '';
+  // review CR6-09: a global type's switches reach every company running it
+  const need = feature => requireFeature(companyId, feature, undefined, { ticket_type_id: ticketType.id });
   if (payload.enable_tags !== undefined && boolFlag(payload.enable_tags) && !boolFlag(ticketType.enable_tags)) {
-    const r = requireFeature(companyId, 'tags');
+    const r = need('tags');
     if (r) return r;
   }
   if (payload.enable_sharing !== undefined && boolFlag(payload.enable_sharing) && !boolFlag(ticketType.enable_sharing)) {
-    const r = requireFeature(companyId, 'sharing');
+    const r = need('sharing');
     if (r) return r;
   }
   if (payload.confidential_mode !== undefined && String(payload.confidential_mode).toLowerCase() !== 'off' &&
     ticketConfidentialMode(ticketType) === 'off') {
-    const r = requireFeature(companyId, 'restricted');
+    const r = need('restricted');
     if (r) return r;
   }
   if (payload.require_immediate_head_approval !== undefined && boolFlag(payload.require_immediate_head_approval) &&
     !boolFlag(ticketType.require_immediate_head_approval)) {
-    const r = requireFeature(companyId, 'head_approval');
+    const r = need('head_approval');
     if (r) return r;
   }
   return null;
@@ -19271,14 +19387,30 @@ function countTicketUsage(companyId, now = new Date()) {
   return nextSequenceValue(ticketUsageKey(companyId, now));
 }
 
-/** Users of a company: distinct users with a role in force there, plus its pending invites. */
+/**
+ * Does a role assignment make its user a user of the company (review CR6-04)? Active, not deleted, not expired - in force
+ * now OR starting later: the limit is on the people with access now or scheduled.
+ */
+function assignmentCountsAsUser(assignment, now = new Date()) {
+  if (!isActiveFlag(assignment.is_active) || assignment.deleted_at || assignment.deactivated_at) return false;
+  const expiry = assignmentExpiry(assignment);
+  return !expiry || now < expiry;
+}
+
+/**
+ * Users of a company: distinct users with a counting role there (assignmentCountsAsUser), plus pending invites into it -
+ * the invite's company and every company its role grants name (review CR6-06).
+ */
 function companyUserIds(companyId, now = new Date()) {
   const ids = new Set();
   ((readTable(SHEETS.USER_ROLE_ASSIGNMENTS) || {}).records || []).forEach(a => {
-    if (sameId(a.company_id, companyId) && isAssignmentActive(a, now)) ids.add(String(a.user_id));
+    if (sameId(a.company_id, companyId) && assignmentCountsAsUser(a, now)) ids.add(String(a.user_id));
   });
   ((readTable(SHEETS.USER_INVITES) || {}).records || []).forEach(i => {
-    if (sameId(i.company_id, companyId) && inviteStatus(i, now) === 'pending') ids.add(`invite:${normalizeEmail(i.email)}`);
+    if (inviteStatus(i, now) !== 'pending') return;
+    const reaches = sameId(i.company_id, companyId) ||
+      inviteRoleGrants(i.role_grants).some(g => sameId(g.company_id || i.company_id, companyId));
+    if (reaches) ids.add(`invite:${normalizeEmail(i.email)}`);
   });
   return ids;
 }
@@ -19353,11 +19485,11 @@ function getCompanyPlan(params = {}) {
   const withUsage = boolFlag(params.include_usage);
   const view = id => (withUsage ? companyPlanWithUsage(id) : companyPlan(id));
   const platform = isPlatformAdmin(actor);
-  const admin = platform || isAdminUser(actor);
   const scope = buildActorScope(actor);
   if (params.company_id) {
     const company = recordsById(SHEETS.COMPANIES)[String(params.company_id)];
-    if (!company || (!admin && !scope.myCompanies[String(params.company_id)] && !scope.unscoped)) {
+    // review CR6-18: members and platform admins only (an admin of one company doesn't read another's plan / usage)
+    if (!company || (!platform && !scope.myCompanies[String(params.company_id)] && !scope.unscoped)) {
       return { status: 'error', message: `Company ${params.company_id} not found` };
     }
     return { status: 'success', data: view(String(company.id)), message: 'Company plan' };
@@ -19375,7 +19507,8 @@ function getCompanyPlan(params = {}) {
  * false } (keys from the catalogue), limit_overrides { key: n | null (no limit) }, reason. A blank object clears them.
  */
 function setSubscriptionOverrides(payload = {}) {
-  const actor = actorId(payload.user_id) || getCurrentUserId();
+  // review CR6-14: the verified platform admin (checkPlatformOnly), never a user_id the body claims
+  const actor = actorId(null) || getCurrentUserId();
   if (!payload.company_id) return { status: 'error', message: 'company_id is required' };
   const outdated = requireColumns(SHEETS.COMPANY_SUBSCRIPTIONS, ['feature_overrides', 'limit_overrides']);
   if (outdated) return outdated;
@@ -19390,9 +19523,10 @@ function setSubscriptionOverrides(payload = {}) {
   }
   if (payload.limit_overrides !== undefined) {
     const limits = jsonObject(payload.limit_overrides);
+    // review CR6-14: a whole number >= 0, or null (no limit) - not true / '' / 2.5
     const bad = Object.keys(limits).filter(k => !PLAN_LIMIT_KEYS.includes(k) ||
-      !(limits[k] === null || (Number.isFinite(Number(limits[k])) && Number(limits[k]) >= 0 && limits[k] !== '')));
-    if (bad.length) return { status: 'error', message: `Invalid limit override(s): ${bad.join(', ')} (a number >= 0, or null for no limit)` };
+      !(limits[k] === null || (typeof limits[k] === 'number' && Number.isInteger(limits[k]) && limits[k] >= 0)));
+    if (bad.length) return { status: 'error', message: `Invalid limit override(s): ${bad.join(', ')} (a whole number >= 0, or null for no limit)` };
     changes.limit_overrides = Object.keys(limits).length ? JSON.stringify(limits) : '';
   }
   if (!Object.keys(changes).length) return { status: 'error', message: 'Send feature_overrides and / or limit_overrides' };
@@ -19428,6 +19562,10 @@ function seedCompanySubscriptions(options = {}) {
       }));
       logAdminAction(actor, 'SEED_COMPANY_SUBSCRIPTIONS', 'company_subscription', '', { companies: toAdd.map(c => String(c.id)),
         plan: 'enterprise', months: LEGACY_PLAN_MONTHS });
+    }
+    // review CR6-08: from now on a company without a row is new - it gets NEW_COMPANY_PLAN, not the Enterprise default
+    if (!dryRun && !scriptProperty('PLAN_CUTOVER_AT', '')) {
+      PropertiesService.getScriptProperties().setProperty('PLAN_CUTOVER_AT', now.toISOString());
     }
     return { dryRun, added: toAdd.map(c => String(c.id)), already: has.size,
       message: `${toAdd.length} compan${toAdd.length === 1 ? 'y' : 'ies'} ${dryRun ? 'would get' : 'got'} Enterprise for ${LEGACY_PLAN_MONTHS} months` };

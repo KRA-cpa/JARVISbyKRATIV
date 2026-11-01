@@ -228,13 +228,15 @@ test('limits at the edge: steps per type (Basic 3), tickets per month (override 
 
 // --- Overrides + platform admins ------------------------------------------------------------------------------------
 
-test('setSubscriptionOverrides: platform admins only (PLATFORM_ADMIN_UIDS; bootstrap = any admin), validated, logged, applied', () => {
+test('setSubscriptionOverrides: platform admins only (PLATFORM_ADMIN_UIDS - empty = nobody, CR6-02), validated, logged, applied', () => {
   const env = seed({ properties: { PLATFORM_ADMIN_UIDS: 'u_owner' } });
   env.plan('co_ph', 'basic');
   const set = (uid, body) => env.as(uid, { action: 'setSubscriptionOverrides', company_id: 'co_ph', ...body });
   assert.strictEqual(set('u_admin', { feature_overrides: { tags: true } }).code, 'PLATFORM_ONLY', 'a company admin is not the platform');
   assert.match(set('u_owner', { feature_overrides: { flying: true } }).error, /Unknown feature/);
   assert.match(set('u_owner', { limit_overrides: { users: -1 } }).error, /Invalid limit/);
+  assert.match(set('u_owner', { limit_overrides: { users: true } }).error, /Invalid limit/, 'CR6-14: true is not a number');
+  assert.match(set('u_owner', { limit_overrides: { users: 2.5 } }).error, /Invalid limit/);
   const view = env.ok(set('u_owner', { feature_overrides: { tags: true }, limit_overrides: { users: null }, reason: 'pilot' }));
   assert.ok(view.features.includes('tags'));
   assert.strictEqual(view.limits.users, null);
@@ -244,12 +246,19 @@ test('setSubscriptionOverrides: platform admins only (PLATFORM_ADMIN_UIDS; boots
   // a feature can also be taken away
   env.ok(set('u_owner', { feature_overrides: { tags: false } }));
   assert.ok(!env.rt.ctx.companyPlan('co_ph').features.includes('tags'));
-  // bootstrap: no PLATFORM_ADMIN_UIDS -> any admin may, logged PLATFORM_BOOTSTRAP
-  const boot = seed();
-  boot.plan('co_ph', 'basic');
-  boot.ok(boot.as('u_admin', { action: 'setSubscriptionOverrides', company_id: 'co_ph', feature_overrides: { tags: true } }));
-  assert.ok(boot.rows('admin_action_logs').some(l => l.action_type === 'PLATFORM_BOOTSTRAP'));
-  assert.strictEqual(boot.as('u_req', { action: 'setSubscriptionOverrides', company_id: 'co_ph', feature_overrides: {} }).code, 'PLATFORM_ONLY');
+  // the log names the verified platform admin (CR6-14)
+  assert.strictEqual(log.admin_user_id, 'u_owner');
+  // review CR6-02: no PLATFORM_ADMIN_UIDS -> nobody, not "any admin" (and not "anyone" while no admin exists)
+  const closed = seed();
+  closed.plan('co_ph', 'basic');
+  const refused = closed.as('u_admin', { action: 'setSubscriptionOverrides', company_id: 'co_ph', feature_overrides: { tags: true } });
+  assert.strictEqual(refused.code, 'PLATFORM_ONLY');
+  assert.match(refused.error, /PLATFORM_ADMIN_UIDS/);
+  assert.strictEqual(closed.as('u_req', { action: 'setSubscriptionOverrides', company_id: 'co_ph', feature_overrides: {} }).code, 'PLATFORM_ONLY');
+  // review CR6-03: AUTH_MODE warn refuses too
+  const warn = seed({ properties: { AUTH_MODE: 'warn', PLATFORM_ADMIN_UIDS: 'u_owner' } });
+  warn.plan('co_ph', 'basic');
+  assert.strictEqual(warn.as('u_req', { action: 'setSubscriptionOverrides', company_id: 'co_ph', feature_overrides: { tags: true } }).code, 'PLATFORM_ONLY');
 });
 
 test('getCompanyPlan: members see their companies only; without company_id = every company of the caller', () => {
@@ -262,6 +271,119 @@ test('getCompanyPlan: members see their companies only; without company_id = eve
   assert.strictEqual(mine.companies.co_ph.plan, 'advanced');
   const withUsage = env.ok(env.asGet('u_admin', { action: 'getCompanyPlan', company_id: 'co_ph', include_usage: 'true' }));
   assert.strictEqual(withUsage.usage.users, 3);
+});
+
+// --- Review CR6 (docs/planning/TODO_CodeReview_20261101_v10.2.md) - regression tests -----------------------------------
+
+test('CR6-01: the gate takes the company from the record, never a company_id sent next to it; unknown ids are Basic', () => {
+  const env = seed();
+  env.plan('co_ph', 'basic');
+  const ticket = env.ok(env.as('u_req', { action: 'createTicket', title: 't', ticket_type_id: 'tt_1', requester_id: 'u_req', company_id: 'co_ph' }));
+  ['nope', 'co_us', 'global'].forEach(named => {
+    assert.strictEqual(env.as('u_req', { action: 'shareTicket', ticket_id: ticket.id, company_id: named, shared_with_user_id: 'u_mgr' }).code,
+      'PLAN_REQUIRED', `shareTicket with company_id ${named}`);
+    assert.strictEqual(env.as('u_admin', { action: 'saveStepConditions', step_id: 'ws_0', company_id: named, routes: [{ conditions: [] }] }).code,
+      'PLAN_REQUIRED', `saveStepConditions with company_id ${named}`);
+  });
+  assert.strictEqual(env.as('u_admin', { action: 'setTicketRestricted', ticket_id: ticket.id, company_id: 'nope', is_confidential: true, reason: 'x' }).code,
+    'PLAN_REQUIRED');
+  // a made-up company is refused as "not found" (never the Enterprise default)
+  const madeUp = env.asGet('u_admin', { action: 'getAdminActionLogs', company_id: 'nope' });
+  assert.strictEqual(madeUp.success, false);
+  assert.match(madeUp.error, /Company nope not found/);
+  assert.match(env.as('u_admin', { action: 'createTag', company_id: 'nope', name: 'x' }).error, /Company nope not found/);
+  assert.strictEqual(env.rt.ctx.companyPlan('nope').plan, 'basic');
+  assert.strictEqual(env.rt.ctx.companyPlan('nope').source, 'unknown_company');
+});
+
+test('CR6-04 / CR6-05: future-dated assignments count; a reactivation is checked against the users limit', () => {
+  const env = seed();
+  env.plan('co_ph', 'basic', { limit_overrides: JSON.stringify({ users: 4 }) });
+  ['u_a', 'u_b', 'u_c'].forEach(uid => env.add('user_profiles', { user_id: uid, display_name: uid, email: `${uid}@example.com`, status: 'active', is_active: true }));
+  const assign = (uid, extra = {}) => env.as('u_admin', { action: 'assignUserRole', user_id: uid, role_id: 'r_mgr', company_id: 'co_ph', ...extra });
+  env.ok(assign('u_a', { effective_start_date: env.day(2) }));
+  assert.strictEqual(assign('u_b', { effective_start_date: env.day(2) }).limit, 'users', 'u_a (starting later) already counts');
+  // full at 4: deactivate u_mgr, add u_b, then reactivating u_mgr must be refused
+  const mgr = env.rows('user_role_assignments').find(a => a.user_id === 'u_mgr' && a.company_id === 'co_ph');
+  env.ok(env.as('u_admin', { action: 'updateUserRoleAssignment', assignment_id: mgr.id, is_active: false }));
+  env.ok(assign('u_b'));
+  const back = env.as('u_admin', { action: 'updateUserRoleAssignment', assignment_id: mgr.id, is_active: true });
+  assert.strictEqual(back.code, 'PLAN_LIMIT', back.error);
+  assert.strictEqual(back.limit, 'users');
+});
+
+test('CR6-06: an invite counts in every company its role grants name', () => {
+  const env = seed();
+  env.plan('co_us', 'basic', { limit_overrides: JSON.stringify({ users: 2 }) }); // u_req + u_mgr = full
+  const res = env.as('u_admin', { action: 'createUserInvite', email: 'new@example.com', company_id: 'co_ph',
+    role_grants: [{ role_id: 'r_mgr', company_id: 'co_us' }] });
+  assert.strictEqual(res.code, 'PLAN_LIMIT', res.error);
+  assert.strictEqual(res.company_id, 'co_us');
+  env.ok(env.as('u_admin', { action: 'createUserInvite', email: 'ok@example.com', company_id: 'co_ph', role_grants: [{ role_id: 'r_mgr' }] }));
+  assert.ok(env.rt.ctx.companyUserIds('co_ph').has('invite:ok@example.com'));
+});
+
+test('CR6-07: a global ticket type moved into a company is checked against its ticket types limit', () => {
+  const env = seed();
+  env.plan('co_ph', 'basic', { limit_overrides: JSON.stringify({ ticket_types: 0 }) });
+  const created = env.ok(env.as('u_admin', { action: 'createTicketType', name: 'Global one', code: 'GL', company_id: '' }));
+  const moved = env.as('u_admin', { action: 'updateTicketType', id: created.id, name: 'Global one', code: 'GL', company_id: 'co_ph' });
+  assert.strictEqual(moved.code, 'PLAN_LIMIT', moved.error);
+  assert.strictEqual(moved.limit, 'ticket_types');
+  // CR6-15: a thrown refusal reads without the "Error:" prefix and carries only the plan fields
+  const direct = env.as('u_admin', { action: 'createTicketType', name: 'Own', code: 'OW', company_id: 'co_ph' });
+  assert.strictEqual(direct.code, 'PLAN_LIMIT');
+  assert.ok(!/^Error:/.test(direct.error), direct.error);
+  assert.strictEqual(direct.message, undefined);
+});
+
+test('CR6-08: cancelled-only rows keep the last plan read-only; a company created after the migration is Basic', () => {
+  const env = seed();
+  env.plan('co_ph', 'advanced', { status: 'cancelled' });
+  const cancelled = env.rt.ctx.companyPlan('co_ph');
+  assert.strictEqual(cancelled.plan, 'advanced');
+  assert.strictEqual(cancelled.state, 'read_only');
+  assert.notStrictEqual(cancelled.plan, 'enterprise');
+  env.rt.ctx.seedCompanySubscriptionsApply();
+  assert.ok(env.rt.props.PLAN_CUTOVER_AT, 'the migration records the cutover');
+  env.add('companies', { id: 'co_new', name: 'New', code: 'NEW', is_active: true, created_at: new Date(Date.now() + 1000).toISOString() });
+  const fresh = env.rt.ctx.companyPlan('co_new');
+  assert.strictEqual(fresh.plan, 'basic');
+  assert.strictEqual(fresh.state, 'unassigned');
+});
+
+test('CR6-09: a global type\'s switch needs the plan in every company running it; ticking Restricted on Basic is refused', () => {
+  const env = seed();
+  env.plan('co_ph', 'basic'); // co_us stays Enterprise (no row)
+  env.rt.ctx.createUserRoleAssignment({ user_id: 'u_us_admin', role_id: 'r_admin', company_id: 'co_us' });
+  env.add('user_profiles', { user_id: 'u_us_admin', display_name: 'a', email: 'usadmin@example.com', status: 'active', is_active: true });
+  env.rt.cache.clear();
+  const res = env.as('u_us_admin', { action: 'setTicketTypeFeatures', ticket_type_id: 'tt_1', confidential_mode: 'optional' });
+  assert.strictEqual(res.code, 'PLAN_REQUIRED', 'co_ph (Basic) runs tt_1');
+  assert.strictEqual(res.company_id, 'co_ph');
+  env.add('ticket_types', { id: 'tt_conf', code: 'CF', name: 'Conf', company_id: 'co_ph', is_active: true, confidential_mode: 'optional' });
+  env.add('workflow_steps', { id: 'ws_conf', ticket_type_id: 'tt_conf', company_id: 'co_ph', name: 'M', status_on_reach: 'Pending',
+    step_type: 'approval', approver_logic: 'any', sort_order: 1, is_active: true });
+  const ticket = env.as('u_req', { action: 'createTicket', title: 't', ticket_type_id: 'tt_conf', requester_id: 'u_req', company_id: 'co_ph', is_confidential: true });
+  assert.strictEqual(ticket.code, 'PLAN_REQUIRED', ticket.error);
+  assert.strictEqual(ticket.feature, 'restricted');
+});
+
+test('CR6-10 / 11 / 12 / 13 / 18: email settings by id, off-switches allowed, SLA analytics gated, copy carries SLAs, plan reads by members', () => {
+  const env = seed();
+  env.plan('co_ph', 'basic');
+  assert.strictEqual(env.as('u_admin', { action: 'saveCompanyEmailSettings', id: 'co_ph', email_enabled: 'on' }).code, 'PLAN_REQUIRED');
+  assert.notStrictEqual(env.as('u_admin', { action: 'saveCompanyEmailSettings', company_id: 'co_ph', email_sender_name: 'X' }).code, 'PLAN_REQUIRED');
+  assert.notStrictEqual(env.as('u_admin', { action: 'saveStepConditions', step_id: 'ws_0', enabled: false, routes: [{ conditions: [] }] }).code, 'PLAN_REQUIRED');
+  assert.strictEqual(env.asGet('u_admin', { action: 'getSLAPerformanceByCompany', company_id: 'co_ph' }).code, 'PLAN_REQUIRED');
+  // copying steps with an SLA into a company whose plan has copy_workflows but not step_sla
+  env.add('companies', { id: 'co_t', name: 'T', code: 'TT', is_active: true });
+  env.plan('co_t', 'advanced', { feature_overrides: JSON.stringify({ step_sla: false }) });
+  env.add('step_slas', { step_id: 'ws_1', duration: 2, unit: 'days', exclude_weekends: false, is_active: true });
+  const copy = env.as('u_admin', { action: 'copyWorkflowSteps', ticket_type_id: 'tt_1', source_company_id: 'co_us', target_company_id: 'co_t' });
+  assert.strictEqual(copy.feature, 'step_sla', copy.error);
+  // an admin of co_ph doesn't read co_us's plan
+  assert.match(env.asGet('u_admin', { action: 'getCompanyPlan', company_id: 'co_us' }).error, /not found/);
 });
 
 // --- Modes, email, read budget ----------------------------------------------------------------------------------------

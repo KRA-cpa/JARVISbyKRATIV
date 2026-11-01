@@ -370,23 +370,40 @@ for (const diff of planCopyDiffs()) gaps.add(`plan-copy ${diff}`);
  * @returns {string[]} differences, e.g. "advanced.features" or "basic.limits.users"
  */
 function planCopyDiffs() {
-  const literal = (text, name) => {
-    const start = text.indexOf(`const ${name} = {`);
-    if (start === -1) return null;
-    const end = text.indexOf('\n};', start);
-    // eslint-disable-next-line no-new-func
-    return new Function(`return ${text.slice(start + `const ${name} = `.length, end + 2)};`)();
+  // review CR6-17: a literal that is missing or doesn't parse is reported as a gap, never a crash
+  const unreadable = [];
+  const literal = (text, name, where) => {
+    const start = text.indexOf(`const ${name} = `);
+    if (start === -1) { unreadable.push(`unreadable ${where}.${name}`); return null; }
+    const open = start + `const ${name} = `.length;
+    const end = text[open] === '{' ? text.indexOf('\n};', open) + 2
+      : text[open] === '[' ? text.indexOf('];', open) + 1 : text.indexOf(';', open);
+    try {
+      // eslint-disable-next-line no-new-func
+      return new Function(`return ${text.slice(open, end)};`)();
+    } catch (error) {
+      unreadable.push(`unreadable ${where}.${name}`);
+      return null;
+    }
   };
-  const serverTiers = literal(appscript, 'PLAN_FEATURE_TIERS');
-  if (!serverTiers) return [];
+  if (appscript.indexOf('const PLAN_FEATURE_TIERS = ') === -1) return []; // before v10.2: no catalogue
   const copyFile = path.join(SRC, 'config/plans.js');
   if (!fs.existsSync(copyFile)) return ['missing src/config/plans.js'];
   const copy = fs.readFileSync(copyFile, 'utf8').replace(/\r/g, '');
-  const copyTiers = literal(copy, 'TIERS');
-  const copyLimits = literal(copy, 'LIMITS');
-  const serverLimits = literal(appscript, 'PLAN_LIMITS');
-  if (!copyTiers || !copyLimits) return ['src/config/plans.js has no TIERS / LIMITS'];
+  const serverTiers = literal(appscript, 'PLAN_FEATURE_TIERS', 'server');
+  const serverLimits = literal(appscript, 'PLAN_LIMITS', 'server');
+  const copyTiers = literal(copy, 'TIERS', 'copy');
+  const copyLimits = literal(copy, 'LIMITS', 'copy');
   const diffs = [];
+  // plan order, limit keys, grace / trial days (review CR6-17)
+  [['PLAN_ORDER', 'PLAN_ORDER', 'plan_order'], ['PLAN_LIMIT_KEYS', 'LIMIT_KEYS', 'limit_keys'], ['PAID_GRACE_DAYS', 'PAID_GRACE_DAYS', 'grace_days.paid'],
+    ['TRIAL_GRACE_DAYS', 'TRIAL_GRACE_DAYS', 'grace_days.trial'], ['TRIAL_DEFAULT_DAYS', 'TRIAL_DEFAULT_DAYS', 'trial_default_days']]
+    .forEach(([serverName, copyName, label]) => {
+      const a = literal(appscript, serverName, 'server');
+      const b = literal(copy, copyName, 'copy');
+      if (a !== null && b !== null && JSON.stringify(a) !== JSON.stringify(b)) diffs.push(label);
+    });
+  if (!serverTiers || !serverLimits || !copyTiers || !copyLimits) return unreadable.concat(diffs);
   const plans = [...new Set([...Object.keys(serverTiers), ...Object.keys(copyTiers)])].sort();
   plans.forEach(plan => {
     const a = JSON.stringify([...(serverTiers[plan] || [])].sort());
@@ -397,7 +414,7 @@ function planCopyDiffs() {
       if (JSON.stringify((serverLimits[plan] || {})[key]) !== JSON.stringify((copyLimits[plan] || {})[key])) diffs.push(`${plan}.limits.${key}`);
     });
   });
-  return diffs;
+  return unreadable.concat(diffs);
 }
 
 /** Where a gap comes from, for the report. */
@@ -406,7 +423,7 @@ function gapWhere(gap) {
   if (kind === 'action-key') return actionKeys.get(name) || [];
   if (kind === 'missing-method') return methodGaps.get(name) || [];
   if (kind === 'missing-icon') return iconGaps.get(name) || [];
-  if (kind === 'plan-copy') return ['src/config/plans.js vs PLAN_FEATURE_TIERS / PLAN_LIMITS'];
+  if (kind === 'plan-copy') return ['src/config/plans.js vs the AppScript plan catalogue (tiers, limits, order, limit keys, grace / trial days)'];
   return calls.get(name) || [];
 }
 

@@ -2,7 +2,7 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_CodeReview_Compliance.md | Author: Kenneth R. Advento | Version: 2.3.0
+Document: GUIDE_CodeReview_Compliance.md | Author: Kenneth R. Advento | Version: 2.4.0
 Created: 18 October 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Coding rules for AppScript, its counterpart frontend / proxy code and scripts, derived from the code reviews (17 + 19 Oct 2026) and the Apps Script reco review (30 Oct 2026), so new changes don't reintroduce them | Status: Active — MANDATORY for AppScript, counterpart (src/, api/) and scripts/ changes
 
@@ -16,6 +16,7 @@ REVISION HISTORY:
 - v2.1.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | From the v9.6 review (docs/planning/TODO_CodeReview_20261031.md): A1 logAdminAction is header-driven (off the legacy list); A14 re-read inside the lock what a locked decision depends on; A15 admin routes are gated in doPost (ADMIN_ONLY_ACTIONS); F6 only an expired token may end a session, verify outages get their own code, `_auth_email` only when verified
 - v2.2.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | A21 (v10.0 M1, session ff4c803f): every ticket read goes through canViewTicket, a hidden ticket answers like a missing one; `check:code-rules A21`
 - v2.3.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | A17 v3 / F3 v3 (v10.1, session ff4c803f): local days and clocks come from the COMPANY's calendar (companyClock / dateTime.js effective zone), the default zone is named once (DEFAULT_TZ / DEFAULT_ZONE); `check:code-rules` flags the literal elsewhere, and `toLocale*String(` / an Intl `timeZone:` outside dateTime.js. Review log docs/planning/TODO_CodeReview_20261101_v10.1.md
+- v2.4.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | A22 (v10.2, session 41700a8e, review `docs/planning/TODO_CodeReview_20261101_v10.2.md` CR6-01..18): the plan gate resolves the company from the record and fails closed; platform admins only from `PLATFORM_ADMIN_UIDS`; `check:code-rules A22` + the extended `plan-copy` contract check
 ===============================================================================
 -->
 
@@ -347,6 +348,20 @@ From v10.0, who may see a ticket depends on the caller (ticket type visibility, 
 
 **Checked by:** `check:code-rules A21` (a `get*` / `search*` route naming tickets, plus `getReportData` / `getDashboard` / `getStepApprovals`, must reach one of `ticketReadGuard`, `canViewTicket`, `requestScope`, `buildActorScope`, `mayReadTicket` or an admin-only check, in its case or the handler it calls). Test: `ROUTES_TEST_v10.0.js` (visibility matrix; hidden = missing on every read path).
 
+### A22 — The plan gate fails closed *(v10.2; design `PLAN_PlanTiers_Subscriptions_20261031.md` §5; review `TODO_CodeReview_20261101_v10.2.md`)*
+
+From v10.2 what a company may do depends on its plan. The cloud review (CR6-01..08) bypassed the gate with an ordinary request, so these rules apply to every gated route and every new feature key:
+
+- **The company comes from the record the request acts on** (ticket, step, the rule / tag being updated, a company-owned ticket type). A `company_id` the client sends counts only when the request creates something in that company (CR6-01). `planCompanyOf` and the `company:` resolvers in `PLAN_GATED_ACTIONS` follow this; an update resolver never falls back to `b.company_id`.
+- **Fallbacks are never Enterprise by accident.** An id that is not a live company → Basic. A company whose rows all ended / were cancelled → its last plan, read-only. A company created after the migration (`PLAN_CUTOVER_AT`) with no row → `NEW_COMPANY_PLAN` (Basic). Only companies that existed before the migration get `NO_PLAN_DEFAULT` (CR6-08).
+- **Platform admins are only the uids in `PLATFORM_ADMIN_UIDS`.** Empty = nobody; no admin role and no bootstrap makes a platform admin, and `AUTH_MODE=warn` refuses platform-only routes too (CR6-02, CR6-03).
+- **Global configuration** (a global ticket type, profile / role types) needs the feature in every company it reaches: the actor's and every company running the type. A per-user preference (display zone) needs it in one of the user's companies (CR6-09).
+- **Turning a feature off, deleting, or editing what exists without switching a gated feature on is never refused** (`when` predicates; §1 of the design).
+- **Limits count what will have access:** users = role assignments in force now or starting later, plus pending invites in their company and every company their grants name. Every path that adds to a count checks it: create, update (reactivation, new dates, moving a type into a company), invites (CR6-04..07).
+- **A refusal carries its fields at the top level** (`code`, `feature`, `required_plan`, `current_plan` / `limit`, `max`, `used`), returned or thrown (`planError`); thrown text has no `Error:` prefix (CR6-15).
+
+**Checked by:** `check:code-rules A22` (every `PLAN_GATED_ACTIONS` action is routed; every feature key in it or in a `requireFeature(..., 'key')` call is in `PLAN_FEATURE_TIERS`; catalogue keys with no gate yet are printed as an information line). `check:api-contract` gap `plan-copy` (the public `/plans` copy in `src/config/plans.js` = the server's tiers, limits, plan order, limit keys and grace / trial days). Tests: `ROUTES_TEST_v10.2.js` (gate matrix, limits at the edge, CR6 regressions).
+
 ---
 
 ## §1b Counterpart Rules — frontend and proxy (F1–F6)
@@ -524,7 +539,8 @@ git show --name-only HEAD; git diff --cached --name-only     # only the intended
 - [ ] Time-driven jobs idempotent, `tryLock` skip, bounded, dry-run, editor-only install (A19)
 - [ ] No duplicate function names (A20)
 - [ ] Every route that returns tickets checks `canViewTicket`; a hidden ticket answers like a missing one (A21)
-- [ ] `npm run check:code-rules` passes; its known-gaps list only shrank (A14–A18, A20, A21)
+- [ ] A gated route takes its company from the record, its fallbacks fail closed, every path that adds to a limit checks it, and a new feature key is in `PLAN_FEATURE_TIERS` and in `src/config/plans.js` (A22)
+- [ ] `npm run check:code-rules` passes; its known-gaps list only shrank (A14–A18, A20–A22)
 - [ ] Review run on `git diff --no-index <prev> <new>` and logged in `TODO_CodeReview_<date>.md` (P7, P9)
 - [ ] Dry run `rebuildAllTables()` reviewed before any apply (P3)
 

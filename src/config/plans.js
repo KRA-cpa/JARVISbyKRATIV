@@ -3,8 +3,8 @@
  * The server decides what a company may do (compliance F1): PLAN_CATALOG in the AppScript file. This file holds the
  * names, labels and the area grouping the screens show, and a copy of the catalogue (PLAN_CATALOG_COPY) that the PUBLIC
  * /plans page renders without any API call (no sign-in needed).
- * TIERS / LIMITS below must equal the server's PLAN_FEATURE_TIERS / PLAN_LIMITS: `npm run check:api-contract` fails
- * (gap "plan-copy ...") when they differ.
+ * TIERS / LIMITS / PLAN_ORDER / LIMIT_KEYS / PAID_GRACE_DAYS / TRIAL_GRACE_DAYS / TRIAL_DEFAULT_DAYS below must equal
+ * the server's constants of the same meaning: `npm run check:api-contract` fails (gap "plan-copy ...") when they differ.
  * Layer: config (no imports).
  */
 
@@ -111,6 +111,11 @@ const LIMITS = {
   enterprise: { users: 2000, ticket_types: null, steps_per_type: 30, tickets_per_month: 50000, upload_rows: 2000 }
 };
 
+const LIMIT_KEYS = ['users', 'ticket_types', 'steps_per_type', 'tickets_per_month', 'upload_rows'];
+const PAID_GRACE_DAYS = 14;
+const TRIAL_GRACE_DAYS = 7;
+const TRIAL_DEFAULT_DAYS = 30;
+
 export const PLAN_CATALOG_COPY = {
   plans: PLAN_ORDER.map((plan, index) => ({
     plan,
@@ -119,9 +124,9 @@ export const PLAN_CATALOG_COPY = {
     limits: { ...LIMITS[plan] }
   })),
   features: PLAN_ORDER.flatMap(plan => TIERS[plan].map(key => ({ key, required_plan: plan }))),
-  limit_keys: Object.keys(PLAN_LIMIT_LABELS),
-  grace_days: { paid: 14, trial: 7 },
-  trial_default_days: 30
+  limit_keys: LIMIT_KEYS.slice(),
+  grace_days: { paid: PAID_GRACE_DAYS, trial: TRIAL_GRACE_DAYS },
+  trial_default_days: TRIAL_DEFAULT_DAYS
 };
 
 /** A limit for display: null = no limit. */

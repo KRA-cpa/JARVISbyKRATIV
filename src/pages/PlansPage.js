@@ -14,11 +14,12 @@ import PlanCatalog from '../components/plans/PlanCatalog';
  * Layer: page (imports shared + feature components only, per docs/reference/DEPENDENCY_MAPPING.md).
  */
 const PlansPage = () => {
-  const { user, userRoles, isAuthenticated } = useUser();
+  const { user, userRoles, isAuthenticated, loading } = useUser();
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-      {isAuthenticated ? <Header user={user} userRole={userRoles?.[0]?.name} /> : <PublicHeader />}
+      {/* review CR6-21: the public header while sign-in is still loading (it shows no button until Firebase answers) */}
+      {isAuthenticated && !loading ? <Header user={user} userRole={userRoles?.[0]?.name} /> : <PublicHeader />}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <PlanCatalog signedIn={isAuthenticated} />
       </div>

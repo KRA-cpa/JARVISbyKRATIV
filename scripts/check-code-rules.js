@@ -26,6 +26,10 @@
  *   A21  (v10.0) a route that returns tickets (getTickets, getTicket*, search*Ticket*, getReportData, getDashboard,
  *        getStepApprovals, ...) reaches no visibility check - neither its case nor the handler it calls uses
  *        ticketReadGuard / canViewTicket / requestScope / buildActorScope / mayReadTicket (or an admin-only check)
+ *   A22  (v10.2, review CR6-16) plan keys: a PLAN_GATED_ACTIONS action that no router routes ("A22 <action>"), or a
+ *        feature key - in PLAN_GATED_ACTIONS or a requireFeature(..., 'key') call - that PLAN_FEATURE_TIERS doesn't have
+ *        ("A22 feature:<key>"). Catalogue keys with no gate yet are printed as an information line (planned work, not a
+ *        violation - CR6-12)
  * Frontend checks run per file in src/ (tests skipped):
  *   F3   hour arithmetic for Philippine time (8 * 60 * 60). v3 (v10.1): outside src/utils/dateTime.js also
  *        .toLocaleString( / .toLocaleDateString( / .toLocaleTimeString( and an Intl `timeZone:` option (the browser's
@@ -277,7 +281,58 @@ function appscriptViolations(text) {
       add('A21', c.action, `line ${lineOf(c.index)} returns tickets without a visibility check (canViewTicket)`);
     });
   }
+
+  // A22 - plan keys (v10.2)
+  const plan = planKeys(text, functions);
+  if (plan) {
+    plan.gated.forEach(({ action, feature }) => {
+      if (!plan.routed.has(action)) add('A22', action, 'PLAN_GATED_ACTIONS entry that no router routes');
+      if (!plan.catalog.has(feature)) add('A22', `feature:${feature}`, `PLAN_GATED_ACTIONS.${action} uses a key PLAN_FEATURE_TIERS doesn't have`);
+    });
+    plan.required.forEach(feature => {
+      if (!plan.catalog.has(feature)) add('A22', `feature:${feature}`, `requireFeature(..., '${feature}') - not in PLAN_FEATURE_TIERS`);
+    });
+  }
   return violations;
+}
+
+/** A top-level `const NAME = {...};` / `[...]` literal evaluated as data, or null (missing / unreadable). */
+function constLiteral(text, name) {
+  const start = text.indexOf(`const ${name} = `);
+  if (start === -1) return null;
+  const open = start + `const ${name} = `.length;
+  const close = text[open] === '[' ? '\n];' : '\n};';
+  const end = text[open] === '[' ? text.indexOf('];', open) + 1 : text.indexOf(close, open) + 2;
+  if (end <= open) return null;
+  try {
+    // eslint-disable-next-line no-new-func
+    return new Function(`return ${text.slice(open, end)};`)();
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * The plan keys of an AppScript file (v10.2+): { catalog, gated: [{ action, feature }], required: Set, routed: Set,
+ * ungated: [...] }, or null when the file has no PLAN_FEATURE_TIERS.
+ */
+function planKeys(text, functions) {
+  const tiers = constLiteral(text, 'PLAN_FEATURE_TIERS');
+  if (!tiers) return null;
+  const catalog = new Set(Object.values(tiers).flat());
+  const start = text.indexOf('const PLAN_GATED_ACTIONS = {');
+  const block = start === -1 ? '' : text.slice(start, text.indexOf('\n};', start));
+  const gated = [...block.matchAll(/^\s*(\w+):\s*\{\s*feature:\s*'(\w+)'/gm)].map(m => ({ action: m[1], feature: m[2] }));
+  const code = text.split('\n').filter(line => !/^\s*(\/\/|\*)/.test(line)).join('\n');
+  // the key is the second argument: requireFeature(companyId, 'key') / requireFeature('', 'key', ...) /
+  // requireFeature(String(x || ''), 'key')
+  const required = new Set([...code.matchAll(/\brequireFeature\([^\n]*?,\s*'([a-z_]+)'/g)].map(m => m[1]));
+  // the ticket type / custom field helpers call requireFeature through a local need('key')
+  const viaHelper = new Set([...code.matchAll(/\bneed\('([a-z_]+)'\)/g)].map(m => m[1]));
+  const routed = new Set();
+  functions.filter(f => ROUTER_FUNCTIONS.has(f.name)).forEach(f => each(CASE_LABEL, f.raw, m => routed.add(m[1])));
+  const used = new Set([...gated.map(g => g.feature), ...required, ...viaHelper]);
+  return { catalog, gated, required, routed, ungated: [...catalog].filter(k => !used.has(k)).sort() };
 }
 
 const ROUTER_FUNCTIONS = new Set(['doGet', 'doPost', 'routePostAction']);
@@ -366,7 +421,15 @@ function selfTest() {
     ['A21 passes a check in the handler', "function doGet(e) {\n  switch (a) {\n    case 'getTickets':\n      return foo(p);\n  }\n}\nfunction foo(p) {\n  const s = requestScope(p.user_id, 'x');\n  return s;\n}\n", []],
     ['A17 v3 flags the zone literal in a function', "const DEFAULT_TZ = 'Asia/Manila';\nfunction z(d) {\n  return Utilities.formatDate(d, 'Asia/Manila', 'yyyy');\n}\n", ['A17 z']],
     ['A17 v3 flags a top-level literal, not the constant or comments', "const DEFAULT_TZ = 'Asia/Manila';\n// 'Asia/Manila' in a comment\nconst X = { tz: 'Asia/Manila' };\n", ['A17 top-level']],
-    ['A21 ignores ticket types and allow comments', "function doGet(e) {\n  switch (a) {\n    case 'getTicketTypes':\n      return t();\n    // code-rules-allow A21 own inbox\n    case 'getTicketsForApproval':\n      return i();\n  }\n}\n", []]
+    ['A21 ignores ticket types and allow comments', "function doGet(e) {\n  switch (a) {\n    case 'getTicketTypes':\n      return t();\n    // code-rules-allow A21 own inbox\n    case 'getTicketsForApproval':\n      return i();\n  }\n}\n", []],
+    ['A22 flags an unrouted gated action and unknown keys',
+      "const PLAN_FEATURE_TIERS = {\n  basic: [],\n  advanced: ['tags']\n};\nconst PLAN_GATED_ACTIONS = {\n  createTag: { feature: 'tags' },\n  foo: { feature: 'nope' }\n};\n" +
+      "function routePostAction(a) {\n  switch (a) {\n    case 'createTag':\n      return requireFeature(c, 'flying');\n  }\n}\n",
+      ['A22 feature:flying', 'A22 feature:nope', 'A22 foo']],
+    ['A22 passes routed actions with catalogue keys',
+      "const PLAN_FEATURE_TIERS = {\n  basic: [],\n  advanced: ['tags', 'sharing']\n};\nconst PLAN_GATED_ACTIONS = {\n  createTag: { feature: 'tags' }\n};\n" +
+      "function routePostAction(a) {\n  switch (a) {\n    case 'createTag':\n      return requireFeature(c, 'sharing');\n  }\n}\n",
+      []]
   ];
   let failed = 0;
   for (const [name, src, expected] of cases) {
@@ -440,6 +503,10 @@ const fixed = [...known].filter(v => !violations.has(v)).sort();
 const byRule = {};
 for (const v of violations.keys()) byRule[v.split(' ')[0]] = (byRule[v.split(' ')[0]] || 0) + 1;
 console.log(`Code rules: ${appscriptName} + src/ - ${violations.size} violations (${Object.entries(byRule).sort().map(([r, n]) => `${r} ${n}`).join(', ') || 'none'}), ${known.size} in known-gaps list`);
+// v10.2 (review CR6-12 / CR6-16): plan catalogue keys that nothing gates yet - planned work (P3 builder, P4 uploader,
+// v10.3 / v10.4), listed so a key can't silently stay ungated after its phase ships
+const planInfo = planKeys(appscript, topLevelFunctions(appscript));
+if (planInfo) console.log(`Plan keys with no gate yet (${planInfo.ungated.length}): ${planInfo.ungated.join(', ') || 'none'}`);
 
 if (UPDATE) {
   if (added.length && fs.existsSync(KNOWN_GAPS)) {

@@ -2,11 +2,12 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: TODO_CodeReview_20261101_v10.2.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: TODO_CodeReview_20261101_v10.2.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
-Purpose: Findings of the v10.2 P1 review (version diff v10.1 → v10.2 + the public /plans page, cloud session 017zmKfA) | Status: 21 open (review only - fixes go into the same v10.2 file in the local session, with P2)
+Purpose: Findings of the v10.2 P1 review (version diff v10.1 → v10.2 + the public /plans page, cloud session 017zmKfA) | Status: 18 fixed + tested (local session 41700a8e), 3 tracked to P2 / P5 (CR6-14c, CR6-19, CR6-20, CR6-21b) - see "Fix status"
 REVISION HISTORY:
 - v1.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Read-only review of APPSCRIPT_v10.2_20261101_0710.txt P1 and commits 6e4e54e / c5b755a; 21 findings (CR6-01..21), none fixed here
+- v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Fixed in the same v10.2 file (not deployed) in local session 41700a8e; regression tests in ROUTES_TEST_v10.2.js (each fails on the pre-fix file); compliance guide v2.4.0 A22
 ===============================================================================
 -->
 
@@ -41,6 +42,34 @@ REVISION HISTORY:
 | CR6-19 | ⚪ | `subscriptionState` (18955), `inForceSubscription` | A row with a blank `period_end` reads as `read_only` and never "covers" today. `seedCompanySubscriptions` always writes one, but P2 `setCompanyPlan` / `startTrial` must too (or treat blank as open-ended) | P2: always write `period_end` (validate with `validDay`), or define blank = open-ended in both functions | - |
 | CR6-20 | ⚪ | design §4 vs P1 | `state` is computed (`grace` / `read_only`) and `COMPANY_READ_ONLY` is in `PLAN_REFUSAL_CODES`, but nothing refuses writes in `read_only` yet, and a downgraded company's SLA escalation rules keep firing in-app escalations (only the outbox email is skipped). Expected in P2 - track it there, with the `READ_ONLY_ALLOWED` list from §4 | P2: `COMPANY_READ_ONLY` gate + allow-list; decide whether escalation rules of a company without `sla_escalation` keep running (§1 "never break a live ticket") | P2 tests (§8 state machine) |
 | CR6-21 | ⚪ | `createUserRoleAssignment` (6759), `src/hooks/useAPI.js` (1082, 1088), `src/pages/PlansPage.js` (17–20) | (a) `REQUEST_ACTIVE` is used as "skip the users limit in the editor", but editor tools that wrap their work in `withRequestScope` (seed, JARVIS Admin) do get the limit while others don't - prefer an explicit option. (b) `usePlanCatalog` / `useCompanyPlans` have no consumer since `c5b755a` (kept for P5; fine, but `useCompanyPlans` makes a call wherever it is mounted - mount it in `UserContext` once, §6 / F5). (c) `/plans` ignores `loading`: a signed-in user first sees `PublicHeader` + "Sign in" until Firebase answers, then the app header | (a) `options.skipPlanLimit` from the editor callers instead of `REQUEST_ACTIVE`; (b) P5; (c) while `loading`, render the page without the header's Sign-in button (or a neutral header) | - |
+
+## Fix status (local session 41700a8e, 1 Nov 2026)
+
+Fixed in `APPSCRIPT_v10.2_20261101_0710.txt` (still the v10.2 update - not deployed). Every 🔴 / 🟠 repro became a test in `ROUTES_TEST_v10.2.js`; the 8 new / changed tests **fail on the pre-fix file and pass on the fixed one** (20 / 20 in TZ=Asia/Manila and TZ=UTC). Policy choices were made fail-closed (working rule 1), with how to switch:
+
+| ID | Status | Fix | Test |
+|---|---|---|---|
+| CR6-01 | ✅ fixed | `planCompanyOf`: ticket → step → the rule's own resolver → a company-owned ticket type; a named `company_id` only for creates / a global type's company; `update*` resolvers read the record only. `recordCompany` of a missing record = `MISSING_COMPANY`; `companyPlan` of a non-live company = Basic (`source: 'unknown_company'`). In the central gate a **named** company that isn't live is refused "Company … not found"; a **missing record** or a **ticket the caller can't see** is left to its handler ("not found"), so the gate never tells that a record exists or which plan its company is on (A21 - found by `ROUTES_TEST_v10.0` CR4-01/02, `v9.5`, `v9.3`) | `CR6-01: the gate takes the company from the record…` |
+| CR6-02 | ✅ fixed | `isPlatformAdmin` = `PLATFORM_ADMIN_UIDS` only (empty = nobody, refusal names the property); bootstrap and `PLATFORM_BOOTSTRAP` removed. (JARVIS Admin "platform admins: not set" status line → ADMIN_Tools v1.5 with P5) | `setSubscriptionOverrides: platform admins only…` |
+| CR6-03 | ✅ fixed | `checkPlatformOnly`: a verified platform admin in every `AUTH_MODE` but `off` (warn refuses) | same test (warn case) |
+| CR6-04 | ✅ fixed | `assignmentCountsAsUser` (in force now or starting later) in `companyUserIds` | `CR6-04 / CR6-05…` |
+| CR6-05 | ✅ fixed | `updateUserRoleAssignment`: an edit that makes the assignment count for a user new to the company runs `requireLimit(users)` | same test |
+| CR6-06 | ✅ fixed | `createUserInvite`: `requireLimit` for the invite company and every grant company; `companyUserIds` counts pending invites in grant companies; acceptance keeps `skipPlanLimit` (counted at create) | `CR6-06…` |
+| CR6-07 | ✅ fixed | `updateTicketType`: moving a type into a company / reactivating it there → `requireLimit(ticket_types)` (thrown `planError`). Global types created only by platform admins → P3 (template library) | `CR6-07…` |
+| CR6-08 | ✅ fixed | cancelled / ended rows only → the last row's plan, `read_only` (`source: 'ended'`); `seedCompanySubscriptionsApply` writes Script Property `PLAN_CUTOVER_AT`; a company created after it with no row → `NEW_COMPANY_PLAN` = Basic (switch: the constant) | `CR6-08…` |
+| CR6-09 | ✅ fixed | `globalFeatureRefusal`: platform admin, else the feature in **every** company reached (the actor's + every company running the type - `companiesUsingType`); no company → refused; `{ any: true }` for the display zone. `createTicket`: ticking Restricted on an `optional` type needs `restricted` (`always` types keep their configuration) | `CR6-09…` |
+| CR6-10 | ✅ fixed | `saveCompanyEmailSettings` / `sendCompanyTestEmail`: `company: b => b.company_id \|\| b.id` | `CR6-10 / 11 / 12 / 13 / 18…` |
+| CR6-11 | ✅ fixed | email: gated only when `email_enabled: 'on'` is sent (the outbox drain still skips companies without the feature); `saveStepConditions`: `enabled: false` never refused | same test |
+| CR6-12 | ✅ fixed | `getSLAPerformanceByCompany` / `ByTicketType` / `getGlobalSLAPerformance` gated `sla_analytics`; ungated catalogue keys printed by `check:code-rules` (8 today: type_builder P3, bulk_upload / on_behalf P4, delegation / bulk_approve v10.3, comments / drafts / webhooks v10.4) | same test |
+| CR6-13 | ✅ fixed | the copy checks the steps' SLAs (`step_sla`) and, when the source steps have conditions, `conditional_routing` | same test |
+| CR6-14 | ✅ a, b fixed · c → P2 | (a) whole numbers >= 0 or null only; (b) the log actor is the verified uid (`actorId(null)`); (c) P2: renewal / upgrade rows carry the overrides | `setSubscriptionOverrides…` (true / 2.5 refused, log actor) |
+| CR6-15 | ✅ fixed | `doPost` catch: `error.message` for a coded error, only `PLAN_REFUSAL_KEYS` spread | `CR6-07…` (no `Error:` prefix, no `message`) |
+| CR6-16 | ✅ fixed | `check:code-rules` **A22** (unrouted gated action, unknown feature key in `PLAN_GATED_ACTIONS` / `requireFeature` / the `need('…')` helpers) + 2 self-test cases; compliance guide v2.4.0 | self-test |
+| CR6-17 | ✅ fixed | `plan-copy` also compares `PLAN_ORDER`, limit keys, grace / trial days (literals in `src/config/plans.js`); a missing / unparsable literal → gap `plan-copy unreadable <where>.<name>`, no crash | checked by hand: grace 14 → 10 and a broken `LIMITS` both reported, file restored |
+| CR6-18 | ✅ fixed | `getCompanyPlan`: members and platform admins only | same test as CR6-10 |
+| CR6-19 | → P2 | `setCompanyPlan` / `startTrial` always write a valid `period_end` (`validDay`) | P2 tests |
+| CR6-20 | → P2 | `COMPANY_READ_ONLY` gate + `READ_ONLY_ALLOWED`; decide whether escalation rules of a company without `sla_escalation` keep running | P2 tests |
+| CR6-21 | ✅ c fixed · a kept · b → P5 | (c) `PlansPage` / `PublicHeader`: no Sign-in button while sign-in is loading; (a) `REQUEST_ACTIVE` kept as "a request" (editor tools run uncached and unlimited by design - revisit if an editor tool should be limited); (b) mount `useCompanyPlans` once in `UserContext` with P5 | build:ci |
 
 ## Checked, no finding
 

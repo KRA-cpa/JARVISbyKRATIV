@@ -9,7 +9,8 @@ import Icons from './Icons';
  * Layer: shared component (context + Icons only).
  */
 const PublicHeader = () => {
-  const { isAuthenticated } = useUser();
+  // review CR6-21: until Firebase answers, show neither button (a signed-in user shouldn't flash "Sign in")
+  const { isAuthenticated, loading } = useUser();
 
   return (
     <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
@@ -26,7 +27,7 @@ const PublicHeader = () => {
               </Link>
             </nav>
           </div>
-          {isAuthenticated ? (
+          {loading ? <span aria-hidden="true" className="w-32" /> : isAuthenticated ? (
             <Link to="/dashboard" className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
               <Icons.Dashboard size={16} />
               <span>Go to dashboard</span>
