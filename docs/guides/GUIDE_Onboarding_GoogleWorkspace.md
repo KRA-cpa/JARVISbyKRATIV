@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_Onboarding_GoogleWorkspace.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: GUIDE_Onboarding_GoogleWorkspace.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: How to onboard a company that already uses Google Workspace onto Daloy - shared platform (default) or a dedicated instance on the company's own Google Sheet | Status: Active (written against AppScript v10.2 / proxy v9.4+); Option C and D are not built
 REVISION HISTORY:
+- v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Note on organizations (owner of the data store, onboards several companies) + global-admin warning; points to PLAN_ServerCore_OrgSheetBridge
 - v1.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created; user: "add guide how to onboard a company already using google workspace, esp if they want their own google sheet as db"
 ===============================================================================
 -->
@@ -14,6 +15,15 @@ REVISION HISTORY:
 
 **Who this is for:** you (platform owner) onboarding a company whose staff already sign in with Google Workspace
 accounts (`name@theircompany.com`).
+
+> **Coming: organizations** (`docs/planning/PLAN_ServerCore_OrgSheetBridge_20261101.md`). The customer becomes an
+> **organization** that owns the data store (e.g. its own Google Sheet) and onboards **one or more companies** into it.
+> The logic moves to the server and Apps Script becomes a thin bridge to the organization's Sheet, so "own Sheet"
+> no longer needs a full copy per customer. Until then, this guide describes what works **today**.
+>
+> ⚠️ **Before onboarding a second outside customer on the shared platform:** admin rights are global today (a user
+> with an "admin" role in any company sees every company). Do plan phase **O0** (scope admin rights) first, or give
+> customer admins a non-admin role.
 
 **Good news first:** Workspace accounts *are* Google accounts. Daloy signs people in with Google (Firebase), so their
 staff sign in with the account they already use - no new passwords.
