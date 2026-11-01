@@ -4,6 +4,7 @@ import { useUser } from '../contexts/UserContext';
 import { clearSessionNotice, takeSessionNotice } from '../utils/sessionGuard';
 import Icons from '../components/shared/Icons';
 import LoadingScreen from '../components/shared/LoadingScreen';
+import { BRAND_NAME, BRAND_PARENT_LINE, BRAND_DESCRIPTOR } from '../config/site';
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -53,10 +54,13 @@ const LoginPage = () => {
             <Icons.Ticket size={48} className="text-blue-600" />
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            TicketFlow
+            {BRAND_NAME}
           </h2>
+          <p className="mt-1 text-xs text-gray-500">
+            {BRAND_PARENT_LINE}
+          </p>
           <p className="mt-2 text-sm text-gray-600">
-            Ticketing & Workflow Orchestration System
+            {BRAND_DESCRIPTOR}
           </p>
           <p className="mt-1 text-sm text-gray-500">
             Please sign in to continue

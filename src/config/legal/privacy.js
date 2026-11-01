@@ -28,19 +28,19 @@ export const PRIVACY_POLICY = {
     {
       id: 'who-we-are',
       heading: 'Who we are and how to contact our Data Protection Officer',
-      body: 'This Privacy Policy explains how [[legal name of the company that operates TicketFlow]] ("TicketFlow", "we", "us"), ' +
+      body: 'This Privacy Policy explains how [[legal name of the company that operates Daloy]] ("Daloy", "we", "us"), ' +
         'with address at [[registered business address]], collects, uses, shares and protects personal information when you visit ' +
-        'our website or use the TicketFlow application.\n\n' +
+        'our website or use the Daloy application.\n\n' +
         'Our Data Protection Officer (DPO) can be reached at jarvis.dpo@blueknight.xyz or by mail at [[DPO mailing address]]. ' +
         'Please contact the DPO for any question or request about your personal information.'
     },
     {
       id: 'scope',
       heading: 'What this policy covers',
-      body: 'This policy covers our website, the TicketFlow application, signing in, and the emails we send.\n\n' +
-        'TicketFlow is used by organizations (for example, your employer) to run their own forms, tickets and approval workflows. For ' +
+      body: 'This policy covers our website, the Daloy application, signing in, and the emails we send.\n\n' +
+        'Daloy is used by organizations (for example, your employer) to run their own forms, tickets and approval workflows. For ' +
         'your account, sign-in, our website and billing, we decide how personal information is used: we are the personal information ' +
-        'controller. For the content an organization puts into TicketFlow - its tickets, form answers, workflow history and the ' +
+        'controller. For the content an organization puts into Daloy - its tickets, form answers, workflow history and the ' +
         'profiles of its users - we process personal information on that organization\'s behalf and on its instructions: the ' +
         'organization is the personal information controller and we are its personal information processor. The organization\'s own ' +
         'privacy policy applies to that content, and requests about it are best sent to the organization first; we will help it respond.'
@@ -65,7 +65,7 @@ export const PRIVACY_POLICY = {
     {
       id: 'why',
       heading: 'Why we use it and on what lawful basis',
-      body: '- To provide the TicketFlow service you or your organization signed up for - the contract with your organization ' +
+      body: '- To provide the Daloy service you or your organization signed up for - the contract with your organization ' +
         '(Data Privacy Act, Section 12(b)).\n' +
         '- To keep accounts and data secure, prevent misuse and fix problems - our legitimate interests (Section 12(f)), balanced ' +
         'against your rights.\n' +
@@ -119,7 +119,7 @@ export const PRIVACY_POLICY = {
       body: 'Under the Data Privacy Act you have the right to be informed, to access your personal information, to object, to have ' +
         'inaccurate information corrected, to have it erased or blocked, to data portability, to claim damages, and to file a ' +
         'complaint with the National Privacy Commission (privacy.gov.ph).\n\n' +
-        'To exercise a right, contact our DPO at jarvis.dpo@blueknight.xyz. For content your organization put into TicketFlow, you may also ' +
+        'To exercise a right, contact our DPO at jarvis.dpo@blueknight.xyz. For content your organization put into Daloy, you may also ' +
         'contact your organization\'s administrator. We will verify your identity and respond within [[15 working days - confirm the ' +
         'period]]. Where a record must be kept, erasure means we remove or replace your personal details while keeping the record.'
     },
@@ -139,7 +139,7 @@ export const PRIVACY_POLICY = {
     {
       id: 'children',
       heading: 'Children',
-      body: 'TicketFlow is meant for business users aged 18 and over. It is not intended for children, and we do not knowingly ' +
+      body: 'Daloy is meant for business users aged 18 and over. It is not intended for children, and we do not knowingly ' +
         'collect their personal information. If you believe a child\'s information was provided to us, contact our DPO.'
     },
     {

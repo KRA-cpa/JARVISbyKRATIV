@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_PlatformWebsite_20261101.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: PLAN_PlatformWebsite_20261101.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
-Purpose: The public platform website - pages, public API surface, contact / trial requests, SEO, phases W1-W4 | Status: Draft (session 41700a8e), decisions W4-W9 open, not built
+Purpose: The public platform website - pages, public API surface, contact / trial requests, SEO, phases W1-W4 | Status: Draft (session 41700a8e), decisions W4 (domain) - W9 open, not built
 REVISION HISTORY:
+- v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | W4a: brand "Daloy by KRAtiv" replaces "TicketFlow" (taken); W4 narrowed to the domain
 - v1.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created after the public /plans page (commit c5b755a); user: "page /plans should be accessible to the public, as part of the platform's website (TBD), might create a plan for this" → "write the website plan next"
 ===============================================================================
 -->
@@ -32,12 +33,13 @@ This plan turns that into a small website around the app.
 | W1 | The website lives **in this app, as public routes** on the same Vercel project. Signed-in screens stay behind sign-in. One codebase, one deploy |
 | W2 | **No prices yet.** The plans page shows features and limits, plus a "Talk to us" / "Request a trial" call to action. Prices come later (§8) |
 | W3 | `/plans` is public now and makes no sign-in-requiring request (done, `c5b755a`) |
+| W4a | **Brand: "Daloy by KRAtiv"** (Tagalog "flow"; parent line "A KRAtiv Solutions app"; KRA = Kenneth R. Advento). "TicketFlow" was taken. JARVIS stays the internal project / server name. Copy lives in `src/config/site.js` (`BRAND_*`) |
 
 **Open decisions (defaults proposed; change any before its phase):**
 
 | # | Question | Proposed default |
 |---|---|---|
-| W4 | Brand name + domain (the UI says "TicketFlow"; the repo is JARVISbyERP) | Keep "TicketFlow" on screen; domain TBD. Until there is one, the site runs on the Vercel URL |
+| W4 | Domain | TBD. Until there is one, the site runs on the Vercel URL. (Brand name decided - W4a above) |
 | W5 | Where "Talk to us" goes | W1 phase: a `mailto:` to one sales address (env `REACT_APP_CONTACT_EMAIL`; the button is hidden while it isn't set). W2 phase: the lead form (§4) |
 | W6 | Trial requests: self-serve or reviewed | **Reviewed:** a request becomes a lead; a platform admin creates the company and starts the trial (`startTrial`, v10.2 P2). Self-serve sign-up is later (§9) |
 | W7 | Legal pages (terms, privacy) | Pages and routes are built with a clearly marked placeholder; **the text comes from the business / its counsel**, not from code |

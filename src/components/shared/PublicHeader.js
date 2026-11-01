@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useUser } from '../../contexts/UserContext';
 import Icons from './Icons';
-import { PUBLIC_NAV } from '../../config/site';
+import { BRAND_NAME, BRAND_BYLINE, PUBLIC_NAV } from '../../config/site';
 
 /**
  * PublicHeader - the header of the public website pages (/, /how-it-works, /plans, /contact, /privacy). Makes no API call, so
@@ -44,7 +44,8 @@ const PublicHeader = () => {
           <div className="flex items-center gap-8 min-w-0">
             <Link to="/" className="flex items-center gap-2">
               <Icons.Ticket size={28} className="text-blue-600" />
-              <span className="text-xl font-bold text-gray-900 dark:text-white">TicketFlow</span>
+              <span className="text-xl font-bold text-gray-900 dark:text-white">{BRAND_NAME}</span>
+              <span className="hidden sm:inline text-xs text-gray-500 dark:text-gray-400 self-end pb-1">{BRAND_BYLINE}</span>
             </Link>
             <nav aria-label="Main" className="hidden md:flex gap-1 lg:gap-2">
               {PUBLIC_NAV.map(item => (

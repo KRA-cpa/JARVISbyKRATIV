@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" class="tf light" width="560" height="280" viewBox="0 0 560 280" role="img" aria-labelledby="tf-t tf-d">
-<title id="tf-t">TicketFlow approval flow</title>
+<title id="tf-t">Daloy approval flow</title>
 <desc id="tf-d">Purchase request PR-2026-00000042 moves through Manager, Finance and Done approval steps, then shows Approved</desc>
 <style>
 .tf{--blue:#2563EB;--green:#22C55E;--on-green:#052E16}

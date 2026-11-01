@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { BRAND_NAME, BRAND_PARENT_LINE } from '../../config/site';
 
 /**
  * Footer Component
@@ -14,7 +15,8 @@ const Footer = ({ className = "" }) => {
       <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <div className="text-sm text-gray-500">
-            <p className="font-medium">Proof of Concept</p>
+            <p className="font-medium text-gray-700">{BRAND_NAME} · {BRAND_PARENT_LINE}</p>
+            <p className="mt-1 font-medium">Proof of Concept</p>
             <p className="mt-1">
               Designed by <span className="font-medium text-gray-700">Kenneth Advento</span>
             </p>

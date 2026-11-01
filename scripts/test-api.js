@@ -117,7 +117,7 @@ class APITester {
         timeout: API_CONFIG.timeout,
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': 'TicketFlow-API-Tester/1.0'
+          'User-Agent': 'Daloy-API-Tester/1.0'
         }
       };
 

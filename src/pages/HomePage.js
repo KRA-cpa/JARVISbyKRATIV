@@ -4,6 +4,7 @@ import PublicHeader from '../components/shared/PublicHeader';
 import Footer from '../components/shared/Footer';
 import Icons from '../components/shared/Icons';
 import { PLAN_ORDER, PLAN_NAMES } from '../config/plans';
+import { BRAND_NAME, BRAND_PARENT_LINE } from '../config/site';
 // Hero animation (docs/design/ticketflow-hero/, made in claude.ai): CSS-only SVG, no script; it stops on its final frame
 // when the viewer asks for reduced motion. The app's dark mode is a class (tailwind darkMode: 'class'), so the fixed light
 // / dark variants are swapped with dark: classes rather than the OS-following file.
@@ -26,7 +27,8 @@ const HomePage = () => (
           above the fold and the animation follows */}
       <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-center">
       <div className="text-center md:text-left">
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white">TicketFlow</h1>
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white">{BRAND_NAME}</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{BRAND_PARENT_LINE}</p>
         <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
           Ticketing and workflow orchestration for every company: forms, approval chains, SLAs and reports, set up without code.
         </p>
