@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.2.0
+Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.3.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: DRAFT Terms of Service for Daloy (B2B subscription), aligned with the plan, usage, data and privacy decisions so far | Status: DRAFT - not legal advice, not in effect; for review by counsel; [[...]] = pending decision (§0)
 REVISION HISTORY:
+- v0.3.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §6.5 waivers and credits (user: "platform owner can waive limitations on customer billing and usage"); T13
 - v0.2.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: "terms will form part of the subscription contract of a company or org once they sign up" - T2 / T3 decided; contract documents + order of precedence; acceptance record (§0a)
 - v0.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | First draft (user: "draft terms and conditions")
 ===============================================================================
@@ -33,6 +34,7 @@ REVISION HISTORY:
 | T10 | Changes to the Terms | [[30]] days' notice for material changes; continued use = acceptance |
 | T11 | Suspension for non-payment | Read-only after the grace period (plan U4: 14 days paid, 7 after a trial) - not deletion |
 | T12 | Language | English; a Filipino translation is for convenience, English prevails |
+| T13 | Waivers by the platform owner (limits, fees, add-ons, credits) | ✅ Allowed at our discretion (§6.5): recorded, time-limited, no precedent, shown on the statement; uses the platform admin overrides (plan U2, `setSubscriptionOverrides`) |
 
 ## §0a Subscription contract and acceptance record (product requirements)
 **Contract documents** (one subscription contract per subscribing company or organization):
@@ -50,6 +52,7 @@ If they conflict: Subscription details → Data Processing Agreement (for person
 | When (UTC timestamp), from where (sign-up, renewal, plan change, re-acceptance) | same |
 | Which versions: Terms, DPA, Privacy Policy (version + effective date) | same - a version string per document |
 | The subscription details accepted (plan, period, packs, add-on prices) | a snapshot (JSON) |
+| Waivers / overrides granted later (what, scope, from - to, by which platform admin, reason) | the override record (`setSubscriptionOverrides`) + an audit-log entry; shown to the customer on *Plan & usage* |
 
 - A **material change** of the Terms (§17) asks a company / organization admin to accept the new version at next
   sign-in; until then the old version applies, and declining before the effective date ends the subscription with a
@@ -134,6 +137,13 @@ counted users and tickets at any time, receive alerts as usage approaches and pa
 *Usage & charges* page during the month.
 6.4 Technical limits of the storage system may cap usage regardless of Plan; we will tell the Customer before a
 technical limit is reached.
+
+6.5 **Waivers and credits.** We may, at our discretion, raise or waive a limit, waive or reduce fees or Usage
+Add-ons, or give credits for a Customer. A waiver applies only as recorded in the Customer's Subscription details or
+on its *Usage & charges* page or statement, for the scope and period stated there (if no end is stated, until the
+end of the current subscription period). A waiver is not a change to the Plan or prices, does not entitle the
+Customer to the same waiver later, and can be ended for future periods with [[30]] days' notice. Waived amounts are
+shown on the statement as a discount or credit.
 
 ### 7. Customer Data
 7.1 **Ownership.** The Customer owns Customer Data. We use it only to provide, secure, support and improve the
