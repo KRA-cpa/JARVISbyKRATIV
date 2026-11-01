@@ -391,7 +391,8 @@ Until v9.1 nothing imported the ticket components or `AdminWorkflowBuilder`; `np
 | `src/api/googleSheet.js` | API | new **`Plans`** (`getCatalog` → `getPlanCatalog`, `getCompanyPlan(companyId, { includeUsage, all })`); both in the GET read list | hooks |
 | `src/hooks/useAPI.js` | Hooks | new **`usePlanCatalog`**, **`useCompanyPlans`** (for the P5 Plan & usage / Platform screens; the public page doesn't call them) | - (P5) |
 | `src/components/plans/PlanCatalog.js` | Component (new, mounted) | `Icons`, `react-router-dom` `Link`, **`config/plans`** - static, **no API call** | `PlansPage` |
-| `src/components/shared/PublicHeader.js` | Shared component (new, mounted) | `useUser` (isAuthenticated), `Icons` - no API call (Sign in / Go to dashboard) | `PlansPage` (signed out); the future platform website pages |
+| `src/components/shared/PublicHeader.js` | Shared component (new, mounted) | `useUser` (isAuthenticated, loading), `useLocation` (active link), `Icons` - no API call (brand → `/`, Plans, Sign in / Go to dashboard) | `HomePage`, `PlansPage` (signed out); the future platform website pages |
+| `src/pages/HomePage.js` | Page (new, placeholder) | **`PublicHeader`**, `Footer`, `Icons`, **`config/plans`** (plan names) - static, no API call; links to `/plans` and `/login` | `App.js` `SmartRedirect` on `/` for visitors (signed in → `/dashboard`); placeholder for `docs/planning/PLAN_PlatformWebsite_20261101.md` W1 |
 | `src/pages/PlansPage.js` | Page (new) | `useUser`, `Header` (signed in) / **`PublicHeader`** (signed out), `Footer`, **`PlanCatalog`** | `App.js` route `/plans` - **`OpenRoute`** (public: no sign-in, no redirect) |
 | `src/components/shared/Header.js` | Shared component | nav link **Plans** (desktop + mobile, `Icons.Shield`) | every page |
 

@@ -1,28 +1,32 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useUser } from '../../contexts/UserContext';
 import Icons from './Icons';
 
 /**
- * PublicHeader - the header of public pages (v10.2: /plans; later the platform website). Makes no API call, so it works
- * for visitors who aren't signed in: brand, Plans, and Sign in (signed out) or Go to dashboard (signed in).
+ * PublicHeader - the header of public pages (v10.2: / and /plans; later the platform website). Makes no API call, so it
+ * works for visitors who aren't signed in: brand (-> /), Plans, and Sign in (signed out) or Go to dashboard (signed in).
  * Layer: shared component (context + Icons only).
  */
 const PublicHeader = () => {
   // review CR6-21: until Firebase answers, show neither button (a signed-in user shouldn't flash "Sign in")
   const { isAuthenticated, loading } = useUser();
+  const { pathname } = useLocation();
+  const navClass = path => `px-3 py-2 rounded-lg text-sm font-medium ${pathname === path
+    ? 'text-blue-700 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-200'
+    : 'text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-300'}`;
 
   return (
     <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
-            <Link to="/plans" className="flex items-center space-x-2">
+            <Link to="/" className="flex items-center space-x-2">
               <Icons.Ticket size={28} className="text-blue-600" />
               <span className="text-xl font-bold text-gray-900 dark:text-white">TicketFlow</span>
             </Link>
             <nav className="flex space-x-4">
-              <Link to="/plans" className="px-3 py-2 rounded-lg text-sm font-medium text-blue-700 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-200">
+              <Link to="/plans" className={navClass('/plans')}>
                 Plans
               </Link>
             </nav>

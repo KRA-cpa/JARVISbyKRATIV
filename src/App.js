@@ -22,6 +22,7 @@ import ProfilePage from './pages/ProfilePage';
 import TicketsPage from './pages/TicketsPage';
 import ReportsPage from './pages/ReportsPage';
 import PlansPage from './pages/PlansPage';
+import HomePage from './pages/HomePage';
 
 // Shared Components
 import LoadingScreen from './components/shared/LoadingScreen';
@@ -43,12 +44,11 @@ const SmartRedirect = () => {
     return <LoadingScreen />;
   }
 
-  // Redirect based on authentication status
+  // Signed in -> the dashboard; visitors -> the public home page (placeholder for the platform website, v10.2)
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
-  } else {
-    return <Navigate to="/login" replace />;
   }
+  return <HomePage />;
 };
 
 // Protected Route Component with Development Toggle
