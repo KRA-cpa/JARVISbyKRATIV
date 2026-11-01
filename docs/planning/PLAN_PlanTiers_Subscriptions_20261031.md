@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_PlanTiers_Subscriptions_20261031.md | Author: Kenneth R. Advento | Version: 1.3.0
+Document: PLAN_PlanTiers_Subscriptions_20261031.md | Author: Kenneth R. Advento | Version: 1.3.1
 Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: AppScript v10.2 - Basic / Advanced / Enterprise plans per company: feature + limit catalogue, server gate, subscription lifecycle (trial end, grace, read-only), invoices without payment, owner template library for Basic, ticket uploader | Status: Approved (session ff4c803f), not built
 REVISION HISTORY:
+- v1.3.1 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2c: waivers / deductions as a discount or a credit memo (user)
 - v1.3.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2c: usage visible to company + organization admins (user: "so there will be no bill shock"); what can be measured today; Daloy meters + issues a usage statement, invoices come from a billing / accounting system; O6 = monthly active users; O7-O8
 - v1.2.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | U10 (user): usage above the plan's allowance is billed as add-ons (users per block, tickets above the average) - no forced upgrade; §2c rules, guardrails, build impact; O1-O6 open
 - v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | U9 (user, session 017zmKf6): four plans - Basic, **Basic+** (Basic + Payroll pack + HR pack), Advanced, Enterprise; packs on / off per company / organization on Advanced and Enterprise; §2b packs + build impact (P1 was built with three plans)
@@ -233,6 +234,8 @@ level, at every new block, and when the projection crosses the cap; a **weekly d
   computer-generated invoice must come from a BIR-registered system - confirm with the tax adviser), credit notes,
   payments, collections, 2307 withholding. Daloy's own record stays a *statement*, not an official invoice.
 - Unpaid charges follow the normal grace → read-only rules (U4).
+- **Waivers / deductions** (platform owner, Terms §6.5): given as a **discount** on the invoice or a **credit memo**
+  issued to the customer from the billing / accounting system; Daloy's statement shows them and links the memo.
 - **Where it is built:** the cloud server (`PLAN_ServerCore` - the Apps Script feature freeze). Until then: limits run
   in `stop` mode, or the platform team reviews overages by hand from the counters.
 - Trials: no add-ons; a trial at its allowance behaves like `stop` (O5).

@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.3.0
+Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.4.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: DRAFT Terms of Service for Daloy (B2B subscription), aligned with the plan, usage, data and privacy decisions so far | Status: DRAFT - not legal advice, not in effect; for review by counsel; [[...]] = pending decision (§0)
 REVISION HISTORY:
+- v0.4.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: entity placeholder "KRATIV Solutions"; venue = courts of Mandaluyong City, Metro Manila (no arbitration); waivers / deductions given as a discount or by a credit memo issued to the Customer
 - v0.3.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §6.5 waivers and credits (user: "platform owner can waive limitations on customer billing and usage"); T13
 - v0.2.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: "terms will form part of the subscription contract of a company or org once they sign up" - T2 / T3 decided; contract documents + order of precedence; acceptance record (§0a)
 - v0.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | First draft (user: "draft terms and conditions")
@@ -22,7 +23,7 @@ REVISION HISTORY:
 ## §0 Decisions needed before publishing
 | # | Decision | Proposed default / source |
 |---|---|---|
-| T1 | Contracting entity (legal name, address, SEC / DTI registration, TIN) | [[KRAtiv Solutions - confirm the registered name]] (also privacy D1) |
+| T1 | Contracting entity (legal name, address, SEC / DTI registration, TIN) | **KRATIV Solutions** as the placeholder name (user, 1 Nov 2026) - registration, address and TIN still to confirm (also privacy D1) |
 | T2 | Who the customer is: organization or company | ✅ **Decided (user):** whichever **signs up** - a company, or an organization (which then covers its companies) |
 | T3 | Acceptance | ✅ **Decided (user):** the Terms **form part of the subscription contract** when the company / organization signs up; accepted at sign-up and recorded (§0a) |
 | T4 | Prices, currency, VAT | Not set (website W2); PHP; prices [[exclusive / inclusive]] of VAT |
@@ -30,11 +31,11 @@ REVISION HISTORY:
 | T6 | Service levels | **None while the service is a proof of concept** (Google Sheets backend); a separate SLA later |
 | T7 | Liability cap | Fees paid in the **12 months** before the claim |
 | T8 | Data return / deletion after termination | Export available for [[30]] days of read-only access, deleted within [[90]] days (privacy retention) |
-| T9 | Governing law and venue | Philippine law; courts of [[city]] - or arbitration in [[city]] under the ADR Act (RA 9285) *(verify)* |
+| T9 | Governing law and venue | ✅ **Decided (user):** Philippine law; the courts of **Mandaluyong City, Metro Manila** |
 | T10 | Changes to the Terms | [[30]] days' notice for material changes; continued use = acceptance |
 | T11 | Suspension for non-payment | Read-only after the grace period (plan U4: 14 days paid, 7 after a trial) - not deletion |
 | T12 | Language | English; a Filipino translation is for convenience, English prevails |
-| T13 | Waivers by the platform owner (limits, fees, add-ons, credits) | ✅ Allowed at our discretion (§6.5): recorded, time-limited, no precedent, shown on the statement; uses the platform admin overrides (plan U2, `setSubscriptionOverrides`) |
+| T13 | Waivers by the platform owner (limits, fees, add-ons, credits) | ✅ Allowed at our discretion (§6.5): recorded, time-limited, no precedent; amounts given as a **discount** on the invoice or a **credit memo** to the customer (user); uses the platform admin overrides (plan U2, `setSubscriptionOverrides`) |
 
 ## §0a Subscription contract and acceptance record (product requirements)
 **Contract documents** (one subscription contract per subscribing company or organization):
@@ -67,7 +68,8 @@ If they conflict: Subscription details → Data Processing Agreement (for person
 
 **Effective date:** [[date]] · **Version:** [[1.0]]
 
-These Terms of Service ("**Terms**") are between [[legal name]] ("**KRAtiv**", "**we**", "**us**"), with address at
+These Terms of Service ("**Terms**") are between **KRATIV Solutions** [[placeholder - confirm the registered name]]
+("**KRATIV**", "**we**", "**us**"), with address at
 [[registered address]], and the company or organization that signs up for Daloy ("**Customer**", "**you**").
 
 **These Terms form part of the Customer's subscription contract.** When the Customer signs up (including a trial), the
@@ -142,8 +144,9 @@ technical limit is reached.
 Add-ons, or give credits for a Customer. A waiver applies only as recorded in the Customer's Subscription details or
 on its *Usage & charges* page or statement, for the scope and period stated there (if no end is stated, until the
 end of the current subscription period). A waiver is not a change to the Plan or prices, does not entitle the
-Customer to the same waiver later, and can be ended for future periods with [[30]] days' notice. Waived amounts are
-shown on the statement as a discount or credit.
+Customer to the same waiver later, and can be ended for future periods with [[30]] days' notice. A waiver or deduction
+of an amount is given either as a **discount** on the invoice for that period or by a **credit memo** issued to the
+Customer, which reduces amounts the Customer owes; it is not paid out in cash unless we agree otherwise in writing.
 
 ### 7. Customer Data
 7.1 **Ownership.** The Customer owns Customer Data. We use it only to provide, secure, support and improve the
@@ -239,7 +242,7 @@ change takes effect and receive a pro-rated refund of prepaid fees.
   Terms.
 - **Severability / no waiver:** an invalid clause does not affect the rest; not enforcing a right is not a waiver.
 - **Governing law and disputes:** Philippine law. The parties first try to settle a dispute in good faith for
-  [[30]] days; then [[the courts of city]] / [[arbitration in city under RA 9285]] ([[T9]]).
+  [[30]] days; if not settled, the dispute goes exclusively to the proper courts of **Mandaluyong City, Metro Manila**.
 - **Language:** English prevails over any translation ([[T12]]).
 
-**Contact:** [[legal name]], [[address]] · [[support email]] · Data Protection Officer: jarvis.dpo@blueknight.xyz
+**Contact:** KRATIV Solutions [[placeholder]], [[address]] · [[support email]] · Data Protection Officer: jarvis.dpo@blueknight.xyz
