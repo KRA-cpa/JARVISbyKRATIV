@@ -10,8 +10,9 @@ animation doesn't show ticket creation - create new image assets, keep old in ar
 | 0.4-1.2 s | "Laptop for new hire" types into *Item* |
 | 1.3-1.7 s | "45,000" types into *Amount (PHP)* |
 | 1.6-2.4 s | a cursor moves to **Submit** and clicks it |
-| 2.5-3.6 s | the form fades and becomes ticket **PR-2026-00000042** |
-| 3.6-10 s | the earlier flow: Manager → Finance → Done → **Approved** |
+| 2.4-2.8 s | **the form turns into the ticket**: fields fade, the box shrinks into the card, the title becomes **PR-2026-00000042** |
+| 2.8-3.1 s | a dot runs down the connector from the ticket to **step 1 - Manager** (the level-1 approver), which lights up on arrival |
+| 3.1-10 s | the flow continues: Finance → Done → **Approved** |
 
 | File | Use |
 |---|---|

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" class="tf" width="560" height="280" viewBox="0 0 560 280" role="img" aria-labelledby="tf-t tf-d">
 <title id="tf-t">Daloy: create a request, then the approval flow</title>
-<desc id="tf-d">A requester types a purchase request (Laptop for new hire, 45,000) and clicks Submit; it becomes ticket PR-2026-00000042 and moves through Manager, Finance and Done, then shows Approved</desc>
+<desc id="tf-d">A requester types a purchase request (Laptop for new hire, 45,000) and clicks Submit; the form turns into ticket PR-2026-00000042, which goes to the first approver (Manager) and then through Finance and Done, ending Approved</desc>
 <style>
 .tf{--blue:#2563EB;--green:#22C55E;--on-green:#052E16}
 .tf{--bg:#F8FAFC;--card:#FFFFFF;--node:#FFFFFF;--line:#CBD5E1;--track:#E2E8F0;--text:#0F172A;--muted:#64748B}
@@ -51,12 +51,12 @@
 .l3{animation:l3 10s ease infinite}
 .ring{animation:pulse 1.4s ease-out infinite}
 .hand{animation:tick 1.4s steps(8,end) infinite}
-@keyframes card{0%,30%{transform:translateX(15px);opacity:0}35.6%{transform:translateX(15px);opacity:1}50.3%{transform:translateX(15px)}55.9%{transform:translateX(165px)}69.9%{transform:translateX(165px)}75.5%{transform:translateX(315px)}83.9%{transform:translateX(315px)}89.5%{transform:translateX(165px)}96.5%{transform:translateX(165px);opacity:1}99.3%,100%{transform:translateX(165px);opacity:0}}
+@keyframes card{0%,24%{transform:translateX(15px);opacity:0}27%{transform:translateX(15px);opacity:1}50.3%{transform:translateX(15px)}55.9%{transform:translateX(165px)}69.9%{transform:translateX(165px)}75.5%{transform:translateX(315px)}83.9%{transform:translateX(315px)}89.5%{transform:translateX(165px)}96.5%{transform:translateX(165px);opacity:1}99.3%,100%{transform:translateX(165px);opacity:0}}
 @keyframes cardline{0%,30%,83.9%{stroke:var(--blue)}88.1%,100%{stroke:var(--green)}}
 @keyframes dot{0%,30%,83.9%{fill:var(--blue)}88.1%,100%{fill:var(--green)}}
-@keyframes conn{0%,30%,34.2%{opacity:0}37%,83.2%{opacity:1}86%,100%{opacity:0}}
+@keyframes conn{0%,27%{opacity:0}28%,83.2%{opacity:1}86%,100%{opacity:0}}
 @keyframes pill{0%,30%,86%{opacity:0;transform:scale(.6)}89.5%{opacity:1;transform:scale(1.06)}91.6%,96.5%{opacity:1;transform:scale(1)}99.3%,100%{opacity:0;transform:scale(1)}}
-@keyframes a1{0%,30%,34.2%{opacity:0}36.3%,48.9%{opacity:1}51%,100%{opacity:0}}
+@keyframes a1{0%,30.5%{opacity:0}31.5%,48.9%{opacity:1}51%,100%{opacity:0}}
 @keyframes a2{0%,30%,54.5%{opacity:0}56.6%,68.5%{opacity:1}70.6%,100%{opacity:0}}
 @keyframes a3{0%,30%,74.8%{opacity:0}76.9%,81.1%{opacity:1}83.2%,100%{opacity:0}}
 @keyframes d1{0%,30%,49.6%{opacity:0;transform:scale(.5)}51.7%{opacity:1;transform:scale(1.12)}53.8%,96.5%{opacity:1;transform:scale(1)}99.3%,100%{opacity:0;transform:scale(1)}}
@@ -64,7 +64,7 @@
 @keyframes d3{0%,30%,81.8%{opacity:0;transform:scale(.5)}83.9%{opacity:1;transform:scale(1.12)}86%,96.5%{opacity:1;transform:scale(1)}99.3%,100%{opacity:0;transform:scale(1)}}
 @keyframes f1{0%,30%,50.3%{stroke-dashoffset:106;opacity:1}54.5%,96.5%{stroke-dashoffset:0;opacity:1}99.3%,100%{stroke-dashoffset:0;opacity:0}}
 @keyframes f2{0%,30%,69.9%{stroke-dashoffset:106;opacity:1}74.1%,96.5%{stroke-dashoffset:0;opacity:1}99.3%,100%{stroke-dashoffset:0;opacity:0}}
-@keyframes l1{0%,30%,34.2%{fill:var(--muted)}36.3%,96.5%{fill:var(--text)}99.3%,100%{fill:var(--muted)}}
+@keyframes l1{0%,30.5%{fill:var(--muted)}31.5%,96.5%{fill:var(--text)}99.3%,100%{fill:var(--muted)}}
 @keyframes l2{0%,30%,54.5%{fill:var(--muted)}56.6%,96.5%{fill:var(--text)}99.3%,100%{fill:var(--muted)}}
 @keyframes l3{0%,30%,74.8%{fill:var(--muted)}76.9%,96.5%{fill:var(--text)}99.3%,100%{fill:var(--muted)}}
 @keyframes pulse{0%{transform:scale(1);opacity:.45}100%{transform:scale(1.6);opacity:0}}
@@ -88,7 +88,15 @@
 .cur{animation:cur 10s ease-in-out infinite}
 .btn{animation:btn 10s ease infinite}
 .btnbg{animation:btnbg 10s ease infinite}
-@keyframes form{0%{opacity:0;transform:translateY(8px)}3%,25%{opacity:1;transform:translateY(0)}29%,100%{opacity:0;transform:translateY(-6px)}}
+@keyframes form{0%{opacity:0;transform:translateY(8px)}3%,28%{opacity:1;transform:translateY(0)}29%,100%{opacity:0;transform:translateY(0)}}
+.fbg{transform-box:fill-box;transform-origin:top center;animation:fbg 10s cubic-bezier(.4,0,.2,1) infinite}
+.ftitle{animation:ftitle 10s ease infinite}
+.ffields{animation:ffields 10s ease infinite}
+.tok{fill:var(--blue);opacity:0;animation:tok 10s cubic-bezier(.4,0,.2,1) infinite}
+@keyframes fbg{0%,24.5%{transform:scaleY(1);opacity:1}27.5%{transform:scaleY(.6);opacity:1}28.5%,100%{transform:scaleY(.6);opacity:0}}
+@keyframes ftitle{0%,24%{opacity:1}25.5%,100%{opacity:0}}
+@keyframes ffields{0%,23.5%{opacity:1}25.5%,100%{opacity:0}}
+@keyframes tok{0%,27.8%{opacity:0;transform:translateY(0)}28.3%{opacity:1;transform:translateY(0)}30.3%{opacity:1;transform:translateY(64px)}31%,100%{opacity:0;transform:translateY(64px)}}
 @keyframes t1{0%,4%{transform:scaleX(0);animation-timing-function:steps(19,end)}12%,100%{transform:scaleX(1)}}
 @keyframes t2{0%,13%{transform:scaleX(0);animation-timing-function:steps(6,end)}17%,100%{transform:scaleX(1)}}
 @keyframes cur{0%,16%{opacity:0;transform:translate(70px,46px)}18%{opacity:1;transform:translate(70px,46px)}21.5%,24%{opacity:1;transform:translate(0,0)}26%,100%{opacity:0;transform:translate(0,0)}}
@@ -98,21 +106,23 @@
 @media (prefers-reduced-motion:reduce){.tf *{animation:none!important}}
 </style>
 <defs>
-<clipPath id="tf-c1"><rect class="t1" x="39" y="68" width="170" height="20"></rect></clipPath>
-<clipPath id="tf-c2"><rect class="t2" x="39" y="116" width="60" height="20"></rect></clipPath>
+<clipPath id="tf-c1"><rect class="t1" x="39" y="87" width="170" height="20"></rect></clipPath>
+<clipPath id="tf-c2"><rect class="t2" x="39" y="135" width="60" height="20"></rect></clipPath>
 </defs>
 <rect class="bg" width="560" height="280" rx="20"></rect>
 <g class="form">
-<rect class="fbg" x="15" y="16" width="230" height="140" rx="14"></rect>
-<text class="ftitle" x="31" y="40">New purchase request</text>
-<text class="flabel" x="31" y="59">Item</text>
-<rect class="finput" x="31" y="64" width="198" height="26" rx="6"></rect>
-<text class="ftext" x="39" y="82" clip-path="url(#tf-c1)">Laptop for new hire</text>
-<text class="flabel" x="31" y="107">Amount (PHP)</text>
-<rect class="finput" x="31" y="112" width="118" height="26" rx="6"></rect>
-<text class="ftext" x="39" y="130" clip-path="url(#tf-c2)">45,000</text>
-<g class="btn"><rect class="btnbg" x="161" y="112" width="68" height="26" rx="6"></rect><text class="btntx" x="195" y="129.5">Submit</text></g>
-<g class="cur" transform="translate(0 0)"><g transform="translate(196 122)"><path class="curp" d="M0 0L0 16L4.5 12L7.5 18.5L10 17.3L7 11L12.5 11Z"></path></g></g>
+<rect class="fbg" x="15" y="28" width="230" height="140" rx="14"></rect>
+<text class="ftitle" x="33" y="58">New purchase request</text>
+<g class="ffields">
+<text class="flabel" x="33" y="78">Item</text>
+<rect class="finput" x="31" y="83" width="198" height="26" rx="6"></rect>
+<text class="ftext" x="39" y="101" clip-path="url(#tf-c1)">Laptop for new hire</text>
+<text class="flabel" x="33" y="126">Amount (PHP)</text>
+<rect class="finput" x="31" y="131" width="118" height="26" rx="6"></rect>
+<text class="ftext" x="39" y="149" clip-path="url(#tf-c2)">45,000</text>
+<g class="btn"><rect class="btnbg" x="161" y="131" width="68" height="26" rx="6"></rect><text class="btntx" x="195" y="148.5">Submit</text></g>
+<g class="cur"><g transform="translate(196 141)"><path class="curp" d="M0 0L0 16L4.5 12L7.5 18.5L10 17.3L7 11L12.5 11Z"></path></g></g>
+</g>
 </g>
 <line class="track" x1="152" y1="204" x2="258" y2="204"></line>
 <line class="track" x1="302" y1="204" x2="408" y2="204"></line>
@@ -125,5 +135,6 @@
 <text class="lbl l2" x="280" y="256">Finance</text>
 <text class="lbl l3" x="430" y="256">Done</text>
 <g class="card"><line class="conn" x1="115" y1="118" x2="115" y2="176"></line><rect class="cardbg" x="0" y="28" width="230" height="84" rx="14"></rect><circle class="dot" cx="210" cy="54" r="5"></circle><text class="id" x="18" y="60">PR-2026-00000042</text><text class="sub" x="18" y="88">Purchase request</text></g>
+<circle class="tok" cx="130" cy="116" r="5"></circle>
 <g class="pill"><rect class="pillbg" x="205" y="131" width="150" height="36" rx="18"></rect><path class="pchk" d="M231 149.5l4 4 8-9"></path><text class="pilltx" x="251" y="155">Approved</text></g>
 </svg>
