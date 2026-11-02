@@ -7,11 +7,12 @@ import Icons from '../components/shared/Icons';
 import { PLAN_ORDER, PLAN_NAMES } from '../config/plans';
 import { PROPOSED_PLAN_ORDER, PROPOSED_PLAN_NAMES } from '../config/plansProposed';
 import { BRAND_NAME, BRAND_PARENT_LINE, BRAND_TAGLINE, BRAND_MEANING } from '../config/site';
-// Hero animation (docs/design/ticketflow-hero/, made in claude.ai): CSS-only SVG, no script; it stops on its final frame
+// Hero animation (docs/design/daloy-hero/ - request creation + approval flow; the ticket-only version is archived in
+// docs/archive/2026-11/ticketflow-hero/): CSS-only SVG, no script; it stops on its final frame
 // when the viewer asks for reduced motion. The app's dark mode is a class (tailwind darkMode: 'class'), so the fixed light
 // / dark variants are swapped with dark: classes rather than the OS-following file.
-import heroLight from '../assets/hero/ticketflow-hero-light.svg';
-import heroDark from '../assets/hero/ticketflow-hero-dark.svg';
+import heroLight from '../assets/hero/daloy-hero-light.svg';
+import heroDark from '../assets/hero/daloy-hero-dark.svg';
 
 // Preview builds list the PROPOSED plans (Basic / Basic+ / Advanced / Enterprise - PLAN_PlanTiers U9), like /plans;
 // production lists the live catalogue, which must match the server (compliance F1)
@@ -20,7 +21,8 @@ const HOME_PLANS = IS_PREVIEW_BUILD
   ? PROPOSED_PLAN_ORDER.map(plan => PROPOSED_PLAN_NAMES[plan]).join(' · ')
   : PLAN_ORDER.map(plan => PLAN_NAMES[plan]).join(' · ');
 
-const HERO_ALT = 'Purchase request moving through Manager, Finance and Done approval, ending Approved';
+const HERO_ALT = 'A purchase request is filled in and submitted, becomes ticket PR-2026-00000042, and moves through Manager, ' +
+  'Finance and Done approval, ending Approved';
 
 /**
  * HomePage - "/" for visitors who aren't signed in (signed-in users go to /dashboard - SmartRedirect in App.js).
