@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PROPOSAL_Pricing_20261102.md | Author: Kenneth R. Advento | Version: 0.7.0
+Document: PROPOSAL_Pricing_20261102.md | Author: Kenneth R. Advento | Version: 0.8.0
 Created: 2 November 2026 UTC+8 (Philippine Standard Time) | Modified: 2 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Peso cost of the cloud services Daloy runs on + a proposed price list (plans, add-ons, one-time fees) for the four plans (PLAN_PlanTiers U9 / U10) | Status: PROPOSAL - not decided; website decision W2 ("no prices yet") still stands until approved
 REVISION HISTORY:
+- v0.8.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §3c add-on crossover projection vs the next plan (user); users about right, tickets too cheap; proposed ticket add-ons $10 / 250 and $25 / 1,000 (PR10)
 - v0.7.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §3b first-year cost with setup ON TOP of the monthly fee (user); Basic+ options $39 / $35 / $33 / $31 - prices unchanged until decided (PR9)
 - v0.6.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Setup fees set by the user: ₱3,490 / ₱5,590 / ₱16,990 / ₱44,990; recheck table; PR7 note (annual waiver = 11-22% of the first year)
 - v0.5.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | PR8: provider price changes reflected from the next billing cycle (user)
@@ -173,6 +174,38 @@ self-serve - and the buyer of Basic+ compares it with HR apps whose entry tiers 
 HR packs" rather than as an HR app. With PR7 (50% off setup on annual prepayment) a Basic+ annual year 1 is
 ₱25,895 (₱86 / user). Floor check at $35: cloud-server stage ₱9,100 / ₱2,310 → still **4 Basic+** customers.
 
+## §3c "Need more?" add-ons vs the next plan up (user, 2 Nov 2026)
+**Crossover** = the usage at which "plan + add-ons" costs more than the next plan. Target: **50-80 % of the next plan's
+allowance** - earlier and add-ons feel punitive; beyond 100 % and add-ons undercut the upgrade. USD (rate-independent).
+
+**Current add-on prices**
+| From → to | Users: crossover | Tickets: crossover |
+|---|---|---|
+| Basic → Advanced | 130 users = **65 %** ✅ | 7,500 tickets = **150 %** ❌ too cheap |
+| Basic+ → Advanced | 120 users = **60 %** ✅ | 7,250 tickets = **145 %** ❌ too cheap |
+| Advanced → Enterprise | 780 users = **39 %** ⚠ a little early, acceptable (Enterprise features matter at that size) | 63,000 tickets = **126 %** ❌ too cheap (and past the 50,000 storage ceiling) |
+
+**Why:** an add-on unit should cost about what a unit costs inside the plan. Users do (Basic $0.96 / user in the plan
+vs $1.30 as add-on; Advanced $0.80 vs $0.80). Tickets don't: Basic $0.048 / ticket in the plan vs **$0.020** as add-on;
+Advanced $0.032 vs **$0.008**.
+
+**Proposed ticket add-ons (PR10)** - users unchanged:
+| Plan | Ticket add-on | at ₱66 | Crossover |
+|---|---|---|---|
+| Basic / Basic+ | **$10 per 250** (was $5) | ₱660 | Basic 4,000 = **80 %**; Basic+ 4,250 = **85 %** (at $35: 4,250 = 85 %) |
+| Advanced | **$25 per 1,000** (was $8) | ₱1,650 | 24,000 = **48 %** |
+| Enterprise | - (storage ceiling) | | |
+
+**Combined growth** (users and tickets grow together - the usual case), Basic+ at $35, new ticket prices:
+| Users / tickets per month | Basic+ + add-ons | Advanced |
+|---|---|---|
+| 40 / 1,500 | $74.50 | $159 |
+| 60 / 2,000 | $120.50 | $159 |
+| 80 / 3,000 | **$186.50** | **$159** - upgrade hint (G4) fires here |
+| 100 / 4,000 | $252.50 | $159 |
+A growing company is pointed to Advanced at roughly **70-80 users / 2,500-3,000 tickets** - well inside Advanced's
+200 / 5,000, so the move feels natural, never forced. The 3-month ticket average still shields one-off spikes.
+
 ## §4 Things to settle (P-decisions)
 | # | Question | Proposed default |
 |---|---|---|
@@ -185,6 +218,7 @@ HR packs" rather than as an HR app. With PR7 (50% off setup on annual prepayment
 | PR7 | Setup fee on annual prepayment | Waiving it fully = 11-22% of the first year on top of the 2-months-free annual price. **Recommendation: 50% off the setup fee** with annual prepayment (discount line on the invoice) [[confirm]] |
 | PR8 | Provider price changes (Google, Vercel, Neon, email) | ✅ **Decided (user):** reflected in Daloy's USD prices **from the next billing cycle**, after [[30]] days' notice; prepaid periods keep their price; customers may leave before it applies (General Terms §5.1b). Review the §1 cost table whenever a provider announces a change |
 | PR9 | Basic+ monthly price, given setup is on top | **$35** (§3b) - or keep $39 if Basic+ is sold mainly with the packs' value, not against HR apps [[decide]] |
+| PR10 | Ticket add-on prices | **$10 per 250** (Basic / Basic+) and **$25 per 1,000** (Advanced) - §3c; user add-ons unchanged [[decide]] |
 
 ## Sources (2 Nov 2026)
 - Exchange rate: philnews.ph USD to PHP exchange rate today, 2 Nov 2026 (October 2026 average ₱63.100, citing BSP); BSP Table 12 (bsp.gov.ph/statistics/external/tab12_pus_data.aspx - to confirm)
