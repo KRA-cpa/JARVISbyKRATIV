@@ -7,7 +7,8 @@ import {
 } from '../../config/plans';
 import {
   PROPOSED_PLAN_ORDER, PROPOSED_PLAN_NAMES, PROPOSED_PLAN_TAGLINES, PROPOSED_ADDED_FEATURES, PROPOSED_PACK_GROUP,
-  PROPOSED_BASIC_PLUS_LIMITS, PROPOSED_NOTES, PROPOSED_ALLOWANCE_KEYS, PROPOSED_ADDON_BLOCKS
+  PROPOSED_BASIC_PLUS_LIMITS, PROPOSED_NOTES, PROPOSED_ALLOWANCE_KEYS, PROPOSED_ADDON_BLOCKS, PROPOSED_RATE, PROPOSED_PRICES,
+  PROPOSED_ADDON_PRICES_USD
 } from '../../config/plansProposed';
 
 /**
@@ -30,6 +31,29 @@ const PLAN_ACCENTS = {
 
 const byKey = Object.fromEntries(PLAN_CATALOG_COPY.plans.map(p => [p.plan, p]));
 const LIMIT_KEYS = PLAN_CATALOG_COPY.limit_keys;
+
+/** Money for display (compliance F3 v3: thousands separators by hand, no toLocale*). */
+const usd = value => `$${Number.isInteger(value) ? value : value.toFixed(2)}`;
+const pesoOf = valueUsd => `₱${formatPlanLimit(Math.round(valueUsd * PROPOSED_RATE.phpPerUsd))}`;
+
+/** The proposed price block of a plan card (preview only). */
+const PriceBlock = ({ planKey }) => {
+  const price = PROPOSED_PRICES[planKey];
+  if (!price) return null;
+  return (
+    <div className="mt-4">
+      <p className="text-gray-900 dark:text-white">
+        {price.from && <span className="text-sm font-medium text-gray-500 dark:text-gray-400">from </span>}
+        <span className="text-3xl font-bold">{usd(price.usd)}</span>
+        <span className="text-sm text-gray-500 dark:text-gray-400"> / month</span>
+      </p>
+      <p className="text-xs text-gray-500 dark:text-gray-400">≈ {pesoOf(price.usd)} at the {PROPOSED_RATE.month} BSP rate · VAT-exclusive</p>
+      <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+        One-time setup {price.from ? 'from ' : ''}₱{formatPlanLimit(price.setupPhp)} <span className="text-gray-400">(optional)</span>
+      </p>
+    </div>
+  );
+};
 
 /** The live catalogue: plans from the copy of the server catalogue. */
 const LIVE = {
@@ -80,6 +104,7 @@ const PlanCatalog = ({ signedIn = false, proposed = false }) => {
           className={`flex flex-col rounded-xl border-2 bg-white p-6 shadow-sm dark:bg-gray-800 ${PLAN_ACCENTS[plan.plan] || PLAN_ACCENTS.basic}`}>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">{plan.name || PLAN_NAMES[plan.plan]}</h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{taglines[plan.plan]}</p>
+          {proposed && <PriceBlock planKey={plan.plan} />}
           <p className="mt-4 text-sm font-medium text-gray-800 dark:text-gray-100">
             {index === 0 ? 'The core flow' : `Everything in ${PLANS[index - 1].name}, plus ${addedCount(index)} features`}
           </p>
@@ -97,10 +122,12 @@ const PlanCatalog = ({ signedIn = false, proposed = false }) => {
           </dl>
           {proposed && PROPOSED_ADDON_BLOCKS[plan.plan] && (
             <p className="mt-4 rounded-md bg-teal-50 px-3 py-2 text-xs text-teal-900 dark:bg-teal-900/30 dark:text-teal-100">
-              <span className="font-semibold">* Need more?</span> Add users in blocks of {PROPOSED_ADDON_BLOCKS[plan.plan].users}
+              <span className="font-semibold">* Need more?</span> +{PROPOSED_ADDON_BLOCKS[plan.plan].users} users for{' '}
+              {usd(PROPOSED_ADDON_PRICES_USD[plan.plan].users)}
               {PROPOSED_ADDON_BLOCKS[plan.plan].tickets_per_month
-                ? <> and tickets in blocks of {formatPlanLimit(PROPOSED_ADDON_BLOCKS[plan.plan].tickets_per_month)} - billed only when used.</>
-                : <> - billed only when used. For more tickets, talk to us.</>}
+                ? <>; +{formatPlanLimit(PROPOSED_ADDON_BLOCKS[plan.plan].tickets_per_month)} tickets for {usd(PROPOSED_ADDON_PRICES_USD[plan.plan].tickets_per_month)}</>
+                : <>; for more tickets, talk to us</>}
+              {' '}- per month, billed only when used.
             </p>
           )}
         </div>
