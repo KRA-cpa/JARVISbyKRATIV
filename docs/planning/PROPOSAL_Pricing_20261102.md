@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PROPOSAL_Pricing_20261102.md | Author: Kenneth R. Advento | Version: 0.1.0
+Document: PROPOSAL_Pricing_20261102.md | Author: Kenneth R. Advento | Version: 0.2.0
 Created: 2 November 2026 UTC+8 (Philippine Standard Time) | Modified: 2 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Peso cost of the cloud services Daloy runs on + a proposed price list (plans, add-ons, one-time fees) for the four plans (PLAN_PlanTiers U9 / U10) | Status: PROPOSAL - not decided; website decision W2 ("no prices yet") still stands until approved
 REVISION HISTORY:
+- v0.2.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Rate basis = BSP weighted average for the previous month (user): October 2026 ₱63.10 / USD; costs recomputed; one-time setup fees per plan + KRATIV's own one-time launch costs (user: "add one time setup cost")
 - v0.1.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (user: "check peso rates for cloud services + proposed pricing"); web research 2 Nov 2026
 ===============================================================================
 -->
@@ -13,20 +14,25 @@ REVISION HISTORY:
 # PROPOSAL — Daloy pricing (PHP)
 
 **Sources are third-party summaries dated Oct-Nov 2026 unless marked; confirm on each vendor's own pricing page before
-budgeting.** Rate used: **₱63.72 / USD** (mid-market, 2 Nov 2026); budget at **₱66 / USD** to cover card FX margins.
+budgeting.**
+
+**Exchange rate (user, 2 Nov 2026): the BSP weighted average rate for the previous month.** October 2026 =
+**₱63.10 / USD** (as reported from the BSP daily rate table by philnews.ph, 2 Nov 2026 - [[confirm on BSP Table 12;
+www.bsp.gov.ph was not reachable from this session]]). Card payments in USD add the bank's FX / foreign-transaction
+fee on top. Update this rate each month (or at each price review) from the BSP table.
 
 ## §1 What the cloud services cost (monthly)
-| Service | Used for | Price (USD) | ≈ PHP @ ₱66 | Notes |
+| Service | Used for | Price (USD) | ≈ PHP @ ₱63.10 | Notes |
 |---|---|---|---|---|
-| **Vercel Pro** | website, app, proxy / server | $20 / month, 1 deploying seat, incl. $20 usage credit; +$20 per extra deploying seat; usage above the credit is metered | **₱1,320** | Hobby (free) is **non-commercial only** - Pro is required once customers pay |
-| **Google Workspace Business Starter** (platform account) | Apps Script owner, Sheets, mail (1,500 recipients / day vs 100 on Gmail) | $7 / user (annual) - $8.40 (flexible) | **₱510-610** incl. VAT (reseller quotes) | 1 user is enough today |
+| **Vercel Pro** | website, app, proxy / server | $20 / month, 1 deploying seat, incl. $20 usage credit; +$20 per extra deploying seat; usage above the credit is metered | **₱1,262** | Hobby (free) is **non-commercial only** - Pro is required once customers pay |
+| **Google Workspace Business Starter** (platform account) | Apps Script owner, Sheets, mail (1,500 recipients / day vs 100 on Gmail) | $7 / user (annual) - $8.40 (flexible) | **₱442-530** + 12% VAT = **₱495-594** | 1 user is enough today |
 | **Firebase Authentication** | Google sign-in | free up to **50,000 MAU** (Blaze) | **₱0** | Spark (free plan) caps at 3,000 daily active users - use Blaze, still ₱0 at our size |
-| Domain (.com / .ph) | daloy.* | ~$12-40 / year | **~₱100-200** / month | decision W4 |
-| **Today (Apps Script stage) - total** | | | **≈ ₱2,000 / month** | |
-| **Neon Postgres - Launch** (cloud server, PLAN_ServerCore) | database | usage: $0.106 / CU-hour + $0.35 / GB-month; small apps ~$15 | **₱1,000-2,700** | scale-to-zero keeps it low; an always-on 4-CU DB would be ~$345 - not needed |
-| **Resend Pro** (or similar) | email from the cloud server | $20 / 50,000 emails | **₱1,320** | free tier 3,000 / month may do at first |
+| Domain (.com / .ph) | daloy.* | ~$12-40 / year | **~₱63-210** / month | decision W4 |
+| **Today (Apps Script stage) - total** | | | **≈ ₱1,900 / month** | |
+| **Neon Postgres - Launch** (cloud server, PLAN_ServerCore) | database | usage: $0.106 / CU-hour + $0.35 / GB-month; small apps ~$15 | **₱947-2,524** ($15-40) | scale-to-zero keeps it low; an always-on 4-CU DB would be ~$345 - not needed |
+| **Resend Pro** (or similar) | email from the cloud server | $20 / 50,000 emails | **₱1,262** | free tier 3,000 / month may do at first |
 | Accounting / billing system | invoices, credit memos, BIR | [[not researched]] | [[₱1,500-3,000]] | issues the BIR-compliant invoices (plans §2c) |
-| **Cloud-server stage - total** | | | **≈ ₱5,000-8,000 / month** | before growth |
+| **Cloud-server stage - total** | | | **≈ ₱5,600-8,700 / month** | before growth |
 
 **VAT on these:** foreign digital services sold to Philippine buyers now carry **12% VAT** (RA 12023) - expect it on
 Vercel / Neon / Resend bills *(verify how each vendor charges it)*.
@@ -65,19 +71,45 @@ request type, not only HR). Benchmark: **₱40-100 per user per month**, below f
 **One-time and other add-ons**
 | Item | Proposed |
 |---|---|
-| Managed setup (platform team configures types, roles, users) | **₱5,000** (waivable by credit memo) |
+| Managed setup | see **§3a one-time setup fees** |
 | Paid custom ticket type (Basic / Basic+, U5) | **₱1,500** one-time per type |
 | Own Google Sheet as the data store (bridge, PLAN_ServerCore O6) | **₱1,500 / month**, Advanced and up |
 | Trial | 30 days, free |
 
 **Checks on the numbers**
-- **Upgrade hint (G4) works:** Basic+ with add-ons passes Advanced's ₱9,900 only around **~115 users** - long after
-  a company should look at Advanced for its features; no one is pushed early.
+- **Upgrade hint (G4) works:** Basic+ with add-ons passes Advanced's ₱9,900 only at **120 users** - long after a
+  company should look at Advanced for its features; no one is pushed early.
 - **Basic+ vs the closest rival:** 25 users on Basic+ = ₱2,490 vs Hier ESS ₱50 × 25 = ₱1,250 **plus** its ₱150-200 base
   plan per employee (₱5,000+). Daloy is cheaper as a stand-alone request layer and includes approval chains for any
   request, not only HR.
-- **Floor:** cloud-server stage ≈ ₱8,000 / month → **covered by 4 Basic+ or 1 Advanced** customer.
+- **Floor:** cloud-server stage ≈ ₱8,700 / month → **covered by 4 Basic+ or 1 Advanced** customer.
+- **Upgrade point recomputed:** Basic+ ₱2,490 + ₱400 per 5 users passes Advanced's ₱9,900 at **120 users**.
 - **Late penalty** (Terms §5.3b) on ₱2,490 = ₱25 / month - small enough to be fair, big enough to matter.
+
+## §3a One-time setup (user, 2 Nov 2026: "add one time setup cost")
+**Charged to the customer** (one-time, on the first invoice, VAT-exclusive; waivable by credit memo or discount):
+| Plan / item | Setup fee | What it covers |
+|---|---|---|
+| Basic | **₱3,000** | company + region set-up, adopting up to 5 templates, roles mapped, admin onboarding call, first 25 users invited |
+| Basic+ | **₱5,000** | the above + Payroll and HR packs configured (leave types, approvers, windows) |
+| Advanced | **₱15,000** | the above + up to 10 custom ticket types / workflows built with the customer, SLA rules, email settings, a training session |
+| Enterprise | **by quote** (from ₱40,000) | migration / upload of existing tickets, Restricted set-up, several companies, integration (webhooks) |
+| Own Google Sheet bridge (template copy + checks, PLAN_ServerCore §4a) | **₱5,000** | with the customer's Workspace admin |
+| Data import (ticket uploader, on behalf) | **₱2,000 per 1,000 rows** | mapping + checks |
+| Self-serve set-up (customer does it alone) | **₱0** | trial → adopt templates without help |
+
+Proposed: the setup fee is **waived for annual prepayment** (PR7) - it rewards the commitment and covers the work out of
+the prepaid year.
+
+**KRATIV's own one-time costs to launch** ([[not researched - estimates to fill in with actual quotes]]):
+| Item | Estimate |
+|---|---|
+| Business registration (DTI or SEC), barangay / mayor's permit | [[₱ - actual fees]] |
+| BIR registration, books of accounts, invoicing (a BIR-registered invoicing / accounting system - plans §2c) | [[₱ - actual fees / subscription]] |
+| Lawyer review: General Terms, DPA, Privacy Policy | [[₱ - quote]] |
+| NPC registration / DPO appointment (if required - privacy plan D4) | [[₱ - if any]] |
+| Domain + email set-up, logo / brand clearance (trademark search - IPOPHL) | [[₱ - actual]] |
+| **Payback:** at ₱5,000 setup + ₱2,490 / month per Basic+ customer, one-time launch costs of ₱X are recovered after **X ÷ (setup + 12 × monthly margin)** customers - fill in once the quotes are in | |
 
 ## §4 Things to settle (P-decisions)
 | # | Question | Proposed default |
@@ -87,10 +119,11 @@ request type, not only HR). Benchmark: **₱40-100 per user per month**, below f
 | PR3 | Annual discount | Pay 10 months for 12 |
 | PR4 | Payment channels | Bank transfer + e-wallet / card via a local gateway [[fees not researched - typically a few %]] |
 | PR5 | Founding-customer price | First [[10]] customers: Basic+ at ₱1,990 for 12 months (discount line on the invoice) |
-| PR6 | Currency risk | Costs are in USD; review prices yearly or if ₱/$ moves > 10% |
+| PR6 | Currency risk | Costs are in USD; **convert at the BSP weighted average rate for the previous month** (user); review prices yearly or if that rate moves > 10% from the rate used for the price list (₱63.10, Oct 2026) |
+| PR7 | Setup fee on annual prepayment | Waived (discount line on the invoice) |
 
 ## Sources (2 Nov 2026)
-- Exchange rate: valuta.exchange/usd-to-php; exchangerates.org.uk USD-PHP history; poundsterlinglive.com USD-PHP 2026
+- Exchange rate: philnews.ph USD to PHP exchange rate today, 2 Nov 2026 (October 2026 average ₱63.100, citing BSP); BSP Table 12 (bsp.gov.ph/statistics/external/tab12_pus_data.aspx - to confirm)
 - Vercel: focusreactive.com/vercel-cost-optimization; omidsaffari.com/blog/vercel-pricing; temps.sh Vercel pricing guide 2026
 - Neon: comparedge.com/tools/neon-db/pricing; vela.run Neon pricing 2026; selfhost.dev Neon pricing
 - Google Workspace: emailvendorselection.com/google-workspace-pricing; truehost.ph Google Workspace plan Philippines
