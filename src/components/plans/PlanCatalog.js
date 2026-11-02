@@ -36,6 +36,23 @@ const LIMIT_KEYS = PLAN_CATALOG_COPY.limit_keys;
 const usd = value => `$${Number.isInteger(value) ? value : value.toFixed(2)}`;
 const pesoOf = valueUsd => `₱${formatPlanLimit(Math.round(valueUsd * PROPOSED_RATE.phpPerUsd))}`;
 
+/** The founding-customer offer (PR5) as one banner above the plans (user, 2 Nov 2026: "founding customer banner na lang"). */
+const FoundingBanner = () => {
+  const entry = Object.entries(PROPOSED_PRICES).find(([, price]) => price.founding);
+  if (!entry) return null;
+  const [planKey, price] = entry;
+  const f = price.founding;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-amber-300 bg-amber-50 px-5 py-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-50" role="note">
+      <span className="rounded-full bg-amber-500 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-white">Founding customers</span>
+      <span>
+        <strong>{PROPOSED_PLAN_NAMES[planKey]} at {usd(f.usd)} / month</strong> (≈ {pesoOf(f.usd)}) for your first {f.months} months,
+        instead of {usd(price.usd)} - for the first {f.customers} customers only.
+      </span>
+    </div>
+  );
+};
+
 /** The proposed price block of a plan card (preview only). */
 const PriceBlock = ({ planKey }) => {
   const price = PROPOSED_PRICES[planKey];
@@ -52,12 +69,6 @@ const PriceBlock = ({ planKey }) => {
         + {price.from ? 'from ' : ''}₱{formatPlanLimit(price.setupPhp)} one-time setup, billed with the first month{' '}
         <span className="text-gray-400">(optional)</span>
       </p>
-      {price.founding && (
-        <p className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">
-          <span className="font-semibold">Founding customers:</span> {usd(price.founding.usd)} / month (≈ {pesoOf(price.founding.usd)})
-          for the first {price.founding.months} months - first {price.founding.customers} customers only.
-        </p>
-      )}
     </div>
   );
 };
@@ -105,37 +116,55 @@ const PlanCatalog = ({ signedIn = false, proposed = false }) => {
       </p>
     </div>
 
+    {proposed && <FoundingBanner />}
+
     <section aria-label="Plans" className={`grid grid-cols-1 gap-6 ${gridCols}`}>
       {PLANS.map((plan, index) => (
+        // Subgrid (user, 2 Nov 2026: "make it aligned"): every card spans the same rows of the section grid, so name,
+        // price, summary, "Included" and "Need more?" start at the same height in every card of a row
         <div key={plan.plan}
-          className={`flex flex-col rounded-xl border-2 bg-white p-6 shadow-sm dark:bg-gray-800 ${PLAN_ACCENTS[plan.plan] || PLAN_ACCENTS.basic}`}>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">{plan.name || PLAN_NAMES[plan.plan]}</h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{taglines[plan.plan]}</p>
-          {proposed && <PriceBlock planKey={plan.plan} />}
+          className={`grid grid-rows-subgrid gap-y-0 ${proposed ? 'row-span-5' : 'row-span-3'} rounded-xl border-2 bg-white p-6 shadow-sm dark:bg-gray-800 ${PLAN_ACCENTS[plan.plan] || PLAN_ACCENTS.basic}`}>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">{plan.name || PLAN_NAMES[plan.plan]}</h2>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{taglines[plan.plan]}</p>
+          </div>
+          {proposed && <div><PriceBlock planKey={plan.plan} /></div>}
           <p className="mt-4 text-sm font-medium text-gray-800 dark:text-gray-100">
             {index === 0 ? 'The core flow' : `Everything in ${PLANS[index - 1].name}, plus ${addedCount(index)} features`}
           </p>
-          {proposed && <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Included</p>}
-          <dl className={`${proposed ? 'mt-2' : 'mt-4'} space-y-2 border-t border-gray-100 pt-4 text-sm dark:border-gray-700`}>
-            {LIMIT_KEYS.map(key => (
-              <div key={key} className="flex justify-between gap-4">
-                <dt className="text-gray-600 dark:text-gray-400">
-                  {PLAN_LIMIT_LABELS[key] || key}
-                  {proposed && PROPOSED_ALLOWANCE_KEYS.includes(key) && <span className="text-teal-700 dark:text-teal-300"> *</span>}
-                </dt>
-                <dd className="font-semibold tabular-nums text-gray-900 dark:text-white">{formatPlanLimit(plan.limits[key])}</dd>
-              </div>
-            ))}
-          </dl>
-          {proposed && PROPOSED_ADDON_BLOCKS[plan.plan] && (
-            <p className="mt-4 rounded-md bg-teal-50 px-3 py-2 text-xs text-teal-900 dark:bg-teal-900/30 dark:text-teal-100">
-              <span className="font-semibold">* Need more?</span> +{PROPOSED_ADDON_BLOCKS[plan.plan].users} users for{' '}
-              {usd(PROPOSED_ADDON_PRICES_USD[plan.plan].users)}
-              {PROPOSED_ADDON_BLOCKS[plan.plan].tickets_per_month
-                ? <>; +{formatPlanLimit(PROPOSED_ADDON_BLOCKS[plan.plan].tickets_per_month)} tickets for {usd(PROPOSED_ADDON_PRICES_USD[plan.plan].tickets_per_month)}</>
-                : <>; for more tickets, talk to us</>}
-              {' '}- per month, billed only when used.
-            </p>
+          <div>
+            {proposed && <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Included</p>}
+            <dl className={`${proposed ? 'mt-2' : 'mt-4'} space-y-2 border-t border-gray-100 pt-4 text-sm dark:border-gray-700`}>
+              {LIMIT_KEYS.map(key => (
+                <div key={key} className="flex justify-between gap-4">
+                  <dt className="text-gray-600 dark:text-gray-400">
+                    {PLAN_LIMIT_LABELS[key] || key}
+                    {proposed && PROPOSED_ALLOWANCE_KEYS.includes(key) && <span className="text-teal-700 dark:text-teal-300"> *</span>}
+                  </dt>
+                  <dd className="font-semibold tabular-nums text-gray-900 dark:text-white">{formatPlanLimit(plan.limits[key])}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+          {proposed && (
+            <div>
+              {PROPOSED_ADDON_BLOCKS[plan.plan] && (
+                // Click to show (user, 2 Nov 2026): native <details>, keyboard and screen-reader friendly, no state
+                <details className="group mt-4 rounded-md bg-teal-50 px-3 py-2 text-xs text-teal-900 dark:bg-teal-900/30 dark:text-teal-100">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 font-semibold [&::-webkit-details-marker]:hidden">
+                    <span>* Need more? Add-ons</span>
+                    <Icons.ChevronDown size={14} className="flex-none transition-transform group-open:rotate-180" />
+                  </summary>
+                  <p className="mt-2">
+                    +{PROPOSED_ADDON_BLOCKS[plan.plan].users} users for {usd(PROPOSED_ADDON_PRICES_USD[plan.plan].users)}
+                    {PROPOSED_ADDON_BLOCKS[plan.plan].tickets_per_month
+                      ? <>; +{formatPlanLimit(PROPOSED_ADDON_BLOCKS[plan.plan].tickets_per_month)} tickets for {usd(PROPOSED_ADDON_PRICES_USD[plan.plan].tickets_per_month)}</>
+                      : <>; for more tickets, talk to us</>}
+                    {' '}- per month, billed only when used.
+                  </p>
+                </details>
+              )}
+            </div>
           )}
         </div>
       ))}
