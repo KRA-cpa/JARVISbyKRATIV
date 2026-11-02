@@ -4,6 +4,7 @@ One Markdown snapshot per version, **never edited after it is added** (user, 1 N
 
 | File | Version | Status | Last updated |
 |---|---|---|---|
+| `TERMS_v0.13_20261102.md` | 0.13 | Draft - §5.1a USD prices billed in PHP at last month's BSP rate (previews; not in effect) | 2 Nov 2026 |
 | `TERMS_v0.12_20261101.md` | 0.12 | Draft - §5.3b late-payment penalty (previews; not in effect) | 1 Nov 2026 |
 | `TERMS_v0.11_20261101.md` | 0.11 | Draft - §10.2 provider outages (previews; not in effect) | 1 Nov 2026 |
 | `TERMS_v0.10_20261101.md` | 0.10 | Draft - §7.4a limited access to Customer-owned storage (previews; not in effect) | 1 Nov 2026 |
@@ -18,4 +19,4 @@ or the published text), copy the replaced version's object unchanged into `src/c
 (with `supersededOn`), then update `src/config/legal/terms.js` (version, lastUpdated). The in-app history is
 `/terms/versions`; a customer's acceptance record points to the version it accepted.
 
-Drafts 0.1-0.4 were working drafts (never shown); 0.5-0.12 were shown on previews only; their history is in git and in the draft's revision history.
+Drafts 0.1-0.4 were working drafts (never shown); 0.5-0.13 were shown on previews only; their history is in git and in the draft's revision history.

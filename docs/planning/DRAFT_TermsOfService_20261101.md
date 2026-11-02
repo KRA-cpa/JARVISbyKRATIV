@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.12.0
-Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
+Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.13.0
+Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 2 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: DRAFT General Terms of Service for Daloy (B2B subscription), aligned with the plan, usage, data and privacy decisions so far | Status: DRAFT - not legal advice, not in effect; for review by counsel; [[...]] = pending decision (§0)
 REVISION HISTORY:
+- v0.13.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.1a currency: USD-priced subscription billed in PHP at the previous month's BSP weighted average rate (user); T4
 - v0.12.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.3b late-payment penalty (user: "penalties on overdue subs, unless agreed upon otherwise or waived via credit memo or in writing"); T5
 - v0.11.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §10.2 provider outages (user: "add google status / google downtimes"): not a Service failure, fees due, Status page /status, admin notice after [[1 hour]], discretionary goodwill credit after [[24 h / month]]
 - v0.10.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §7.4a limited access to Customer-owned storage: customer's right, not a Service failure, fees due and payments received / recorded as usual (user: "payments received even if database is unreachable"), notice, 30-day suspension
@@ -34,7 +35,7 @@ REVISION HISTORY:
 | T1 | Contracting entity (legal name, address, SEC / DTI registration, TIN) | **KRATIV Solutions** as the placeholder name (user, 1 Nov 2026) - registration, address and TIN still to confirm (also privacy D1) |
 | T2 | Who the customer is: organization or company | ✅ **Decided (user):** whichever **signs up** - a company, or an organization (which then covers its companies) |
 | T3 | Acceptance | ✅ **Decided (user):** the Terms **form part of the subscription contract** when the company / organization signs up; accepted at sign-up and recorded (§0a) |
-| T4 | Prices, currency, VAT | Not set (website W2); PHP; prices [[exclusive / inclusive]] of VAT |
+| T4 | Prices, currency, VAT | ✅ **Currency decided (user, 2 Nov 2026):** monthly subscription + monthly add-ons priced in **USD**, billed in **PHP** at the **BSP weighted average rate of the previous month** (§5.1a); one-time fees in PHP. Prices: `PROPOSAL_Pricing_20261102.md`; VAT treatment open (PR1) |
 | T5 | Payment terms, late payment | Due [[15]] days after the statement / invoice. ✅ **Decided (user):** a late-payment **penalty** on overdue amounts, **unless agreed otherwise or waived by credit memo or in writing** (§5.3b); rate [[1% per month]] to confirm; no penalty on good-faith disputed amounts or on withheld tax before the 2307 deadline |
 | T6 | Service levels | **None while the service is a proof of concept** (Google Sheets backend); a separate SLA later |
 | T7 | Liability cap | Fees paid in the **12 months** before the claim |
@@ -146,6 +147,7 @@ on or off. Turning a pack off stops new requests of its types; existing requests
 ### 5. Fees, statements and taxes
 5.1 Fees are as stated on the order form or Plans page [[T4]]. Plans are billed per period in advance; Usage
 Add-ons are billed in arrears (§6).
+5.1a **Currency.** The monthly subscription fee and the monthly Usage Add-ons are priced in US dollars and billed in Philippine pesos. Each statement converts them at the Bangko Sentral ng Pilipinas (BSP) weighted average peso-dollar rate for the calendar month before the statement month, and shows the rate used. One-time fees (such as setup) are stated and billed in pesos unless the Subscription details say otherwise. The rate for the coming month is shown on the Customer's Usage & charges page as soon as the BSP publishes it, so the peso amount is known before the statement. *(verify: invoice currency / peso equivalent requirements under BIR rules)*
 5.2 We send a **usage statement** each month. Official invoices are issued [[through our accounting / billing
 system, in compliance with BIR rules]] *(verify the EOPT Act invoicing requirements)*.
 5.3 Payment is due within [[15]] days ([[T5]]). Fees are [[exclusive]] of VAT and other taxes.

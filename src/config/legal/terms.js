@@ -13,9 +13,9 @@
 
 export const TERMS_OF_SERVICE = {
   status: 'draft', // 'draft' | 'published'
-  version: '0.12', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
+  version: '0.13', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
   effectiveDate: '',
-  lastUpdated: '1 November 2026',
+  lastUpdated: '2 November 2026',
   title: 'General Terms of Service',
   draftPath: '/terms/draft',
   historyPath: '/terms/versions',
@@ -108,6 +108,7 @@ export const TERMS_OF_SERVICE = {
       heading: 'Fees, statements and taxes',
       body: 'Fees are as stated in the Subscription details [[T4: prices, VAT treatment]]. Plans are billed per period in advance; ' +
         'Usage Add-ons are billed in arrears.\n\n' +
+        'Currency. The monthly subscription fee and the monthly Usage Add-ons are priced in US dollars and billed in Philippine pesos. Each statement converts them at the Bangko Sentral ng Pilipinas (BSP) weighted average peso-dollar rate for the calendar month before the statement month, and shows the rate used. One-time fees (such as setup) are stated and billed in pesos unless the Subscription details say otherwise. The rate for the coming month is shown on the Customer\'s Usage & charges page as soon as the BSP publishes it, so the peso amount is known before the statement.\n\n' +
         'We send a usage statement each month. Official invoices are issued [[through our accounting / billing system, in ' +
         'compliance with BIR rules]].\n\n' +
         'Payment is due within [[15]] days. Fees are [[exclusive]] of VAT and other taxes.\n\n' +

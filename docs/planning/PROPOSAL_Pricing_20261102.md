@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PROPOSAL_Pricing_20261102.md | Author: Kenneth R. Advento | Version: 0.2.0
+Document: PROPOSAL_Pricing_20261102.md | Author: Kenneth R. Advento | Version: 0.3.0
 Created: 2 November 2026 UTC+8 (Philippine Standard Time) | Modified: 2 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Peso cost of the cloud services Daloy runs on + a proposed price list (plans, add-ons, one-time fees) for the four plans (PLAN_PlanTiers U9 / U10) | Status: PROPOSAL - not decided; website decision W2 ("no prices yet") still stands until approved
 REVISION HISTORY:
+- v0.3.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Monthly subscription + add-ons priced in USD, billed in PHP at last month's BSP rate (user; General Terms §5.1a); USD list added; one-time fees stay in PHP
 - v0.2.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Rate basis = BSP weighted average for the previous month (user): October 2026 ₱63.10 / USD; costs recomputed; one-time setup fees per plan + KRATIV's own one-time launch costs (user: "add one time setup cost")
 - v0.1.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (user: "check peso rates for cloud services + proposed pricing"); web research 2 Nov 2026
 ===============================================================================
@@ -53,7 +54,21 @@ database and email volume grow. **Price from value and the market, not from cost
 Daloy is **not** a payroll system (payroll rules are out of scope); it is the **request and approval layer** (any
 request type, not only HR). Benchmark: **₱40-100 per user per month**, below full HRIS, above a bare ESS add-on.
 
-## §3 Proposed price list (PHP, per company or organization, monthly, VAT-exclusive)
+## §3 Proposed price list (per company or organization, monthly, VAT-exclusive)
+**Currency (user, 2 Nov 2026; General Terms §5.1a):** the monthly subscription and monthly add-ons are **priced in USD**
+and **billed in PHP** at the **BSP weighted average rate of the previous month**; one-time fees stay in PHP. The USD
+list below is the PHP proposal ÷ ₱63.10 (Oct 2026), rounded; the PHP column is what a November 2026 statement would show.
+
+| Plan | **USD list / month** | = PHP at ₱63.10 (Nov 2026 statements) |
+|---|---|---|
+| Basic | **$24** | ₱1,514 |
+| Basic+ | **$39** | ₱2,461 |
+| Advanced | **$159** | ₱10,033 |
+| Enterprise | **from $619** (quote) | from ₱39,059 |
+| Add-on: +5 users | **$6.50** (Basic / Basic+) · **$4** (Advanced) · **$2.50** (Enterprise) | ₱410 · ₱252 · ₱158 |
+| Add-on: tickets | **$5** / 250 (Basic / Basic+) · **$8** / 1,000 (Advanced) | ₱316 · ₱505 |
+
+*PHP planning figures (the first draft, kept for reference):*
 | Plan | Included | **Monthly** | Per user at full allowance | Annual (pay 10 months) |
 |---|---|---|---|---|
 | **Basic** | 25 users · 5 types · 500 tickets | **₱1,490** | ₱60 | ₱14,900 |
@@ -119,7 +134,7 @@ the prepaid year.
 | PR3 | Annual discount | Pay 10 months for 12 |
 | PR4 | Payment channels | Bank transfer + e-wallet / card via a local gateway [[fees not researched - typically a few %]] |
 | PR5 | Founding-customer price | First [[10]] customers: Basic+ at ₱1,990 for 12 months (discount line on the invoice) |
-| PR6 | Currency risk | Costs are in USD; **convert at the BSP weighted average rate for the previous month** (user); review prices yearly or if that rate moves > 10% from the rate used for the price list (₱63.10, Oct 2026) |
+| PR6 | Currency risk | ✅ **Decided (user):** USD prices billed in PHP at the BSP weighted average rate of the previous month - the FX risk on USD costs passes to the customer month by month; the Usage & charges page shows the coming month's rate in advance (no bill shock) |
 | PR7 | Setup fee on annual prepayment | Waived (discount line on the invoice) |
 
 ## Sources (2 Nov 2026)
