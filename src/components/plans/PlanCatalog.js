@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import Icons from '../shared/Icons';
+import PromoBanner from '../shared/PromoBanner';
 import { BRAND_NAME, CONTACT, contactMailto } from '../../config/site';
 import {
   PLAN_ORDER, PLAN_NAMES, PLAN_TAGLINES, CORE_FEATURES, PLAN_FEATURE_GROUPS, PLAN_LIMIT_LABELS, PLAN_CATALOG_COPY,
@@ -36,29 +37,6 @@ const LIMIT_KEYS = PLAN_CATALOG_COPY.limit_keys;
 /** Money for display (compliance F3 v3: thousands separators by hand, no toLocale*). */
 const usd = value => `$${Number.isInteger(value) ? value : value.toFixed(2)}`;
 const pesoOf = valueUsd => `₱${formatPlanLimit(Math.round(valueUsd * PROPOSED_RATE.phpPerUsd))}`;
-
-/** The founding-customer offer (PR5) as one banner above the plans (user, 2 Nov 2026: "founding customer banner na lang"). */
-const FoundingBanner = () => {
-  const entry = Object.entries(PROPOSED_PRICES).find(([, price]) => price.founding);
-  if (!entry) return null;
-  const [planKey, price] = entry;
-  const f = price.founding;
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-amber-300 bg-amber-50 px-5 py-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-50" role="note">
-      <span className="rounded-full bg-amber-500 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-white">Founding customers</span>
-      <span>
-        <strong>{PROPOSED_PLAN_NAMES[planKey]} at {usd(f.usd)} / month</strong> (≈ {pesoOf(f.usd)}) for your first {f.months} months,
-        instead of {usd(price.usd)} - for the first {f.customers} customers only.
-      </span>
-      {CONTACT.salesEmail && (
-        <a href={contactMailto(CONTACT.salesEmail, `Founding customer - ${PROPOSED_PLAN_NAMES[planKey]}`, `${PROPOSED_PLAN_NAMES[planKey]} (founding customer)`)}
-          className="ml-auto rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600">
-          Claim a founding spot
-        </a>
-      )}
-    </div>
-  );
-};
 
 /** The proposed price block of a plan card (preview only). */
 const PriceBlock = ({ planKey }) => {
@@ -123,7 +101,8 @@ const PlanCatalog = ({ signedIn = false, proposed = false }) => {
       </p>
     </div>
 
-    {proposed && <FoundingBanner />}
+    {/* promotional banner (src/config/promo.js - on / off, where, words); shared with the home page */}
+    <PromoBanner page="plans" />
 
     <section aria-label="Plans" className={`grid grid-cols-1 gap-6 ${gridCols}`}>
       {PLANS.map((plan, index) => (

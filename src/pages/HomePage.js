@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import PublicHeader from '../components/shared/PublicHeader';
 import Footer from '../components/shared/Footer';
+import PromoBanner from '../components/shared/PromoBanner';
 import Icons from '../components/shared/Icons';
 import { PLAN_ORDER, PLAN_NAMES } from '../config/plans';
 import { PROPOSED_PLAN_ORDER, PROPOSED_PLAN_NAMES } from '../config/plansProposed';
@@ -30,6 +31,10 @@ const HERO_ALT = 'Purchase request moving through Manager, Finance and Done appr
 const HomePage = () => (
   <div className="min-h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
     <PublicHeader />
+    {/* promotional banner (src/config/promo.js - on / off, where, words); shared with /plans */}
+    <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 empty:hidden">
+      <PromoBanner page="home" />
+    </div>
     <main className="flex-1 flex items-center">
       {/* Text left, animation right from md up; on phones the text comes first, so the headline and the buttons stay
           above the fold and the animation follows */}
