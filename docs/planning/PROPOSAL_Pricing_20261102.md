@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PROPOSAL_Pricing_20261102.md | Author: Kenneth R. Advento | Version: 0.3.0
+Document: PROPOSAL_Pricing_20261102.md | Author: Kenneth R. Advento | Version: 0.4.0
 Created: 2 November 2026 UTC+8 (Philippine Standard Time) | Modified: 2 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Peso cost of the cloud services Daloy runs on + a proposed price list (plans, add-ons, one-time fees) for the four plans (PLAN_PlanTiers U9 / U10) | Status: PROPOSAL - not decided; website decision W2 ("no prices yet") still stands until approved
 REVISION HISTORY:
+- v0.4.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Projections at a conservative PLANNING rate of ₱66 / USD (user: "so we are already accounting for high USD rate"); billing still at the previous month's BSP rate
 - v0.3.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Monthly subscription + add-ons priced in USD, billed in PHP at last month's BSP rate (user; General Terms §5.1a); USD list added; one-time fees stay in PHP
 - v0.2.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Rate basis = BSP weighted average for the previous month (user): October 2026 ₱63.10 / USD; costs recomputed; one-time setup fees per plan + KRATIV's own one-time launch costs (user: "add one time setup cost")
 - v0.1.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (user: "check peso rates for cloud services + proposed pricing"); web research 2 Nov 2026
@@ -22,18 +23,22 @@ budgeting.**
 www.bsp.gov.ph was not reachable from this session]]). Card payments in USD add the bank's FX / foreign-transaction
 fee on top. Update this rate each month (or at each price review) from the BSP table.
 
+**Planning rate (user, 2 Nov 2026): ₱66 / USD** for every cost projection and every PHP figure in this proposal - a
+buffer of ~4.6% over October's ₱63.10, so a weaker peso is already accounted for. **Billing** still converts at the
+previous month's BSP rate (General Terms §5.1a); when BSP is below ₱66, statements come out lower than these figures.
+
 ## §1 What the cloud services cost (monthly)
-| Service | Used for | Price (USD) | ≈ PHP @ ₱63.10 | Notes |
+| Service | Used for | Price (USD) | ≈ PHP @ ₱66 (planning) | Notes |
 |---|---|---|---|---|
-| **Vercel Pro** | website, app, proxy / server | $20 / month, 1 deploying seat, incl. $20 usage credit; +$20 per extra deploying seat; usage above the credit is metered | **₱1,262** | Hobby (free) is **non-commercial only** - Pro is required once customers pay |
-| **Google Workspace Business Starter** (platform account) | Apps Script owner, Sheets, mail (1,500 recipients / day vs 100 on Gmail) | $7 / user (annual) - $8.40 (flexible) | **₱442-530** + 12% VAT = **₱495-594** | 1 user is enough today |
+| **Vercel Pro** | website, app, proxy / server | $20 / month, 1 deploying seat, incl. $20 usage credit; +$20 per extra deploying seat; usage above the credit is metered | **₱1,320** | Hobby (free) is **non-commercial only** - Pro is required once customers pay |
+| **Google Workspace Business Starter** (platform account) | Apps Script owner, Sheets, mail (1,500 recipients / day vs 100 on Gmail) | $7 / user (annual) - $8.40 (flexible) | **₱462-554** + 12% VAT = **₱517-621** | 1 user is enough today |
 | **Firebase Authentication** | Google sign-in | free up to **50,000 MAU** (Blaze) | **₱0** | Spark (free plan) caps at 3,000 daily active users - use Blaze, still ₱0 at our size |
-| Domain (.com / .ph) | daloy.* | ~$12-40 / year | **~₱63-210** / month | decision W4 |
-| **Today (Apps Script stage) - total** | | | **≈ ₱1,800-2,100 / month** | |
-| **Neon Postgres - Launch** (cloud server, PLAN_ServerCore) | database | usage: $0.106 / CU-hour + $0.35 / GB-month; small apps ~$15 | **₱947-2,524** ($15-40) | scale-to-zero keeps it low; an always-on 4-CU DB would be ~$345 - not needed |
-| **Resend Pro** (or similar) | email from the cloud server | $20 / 50,000 emails | **₱1,262** | free tier 3,000 / month may do at first |
+| Domain (.com / .ph) | daloy.* | ~$12-40 / year | **~₱66-220** / month | decision W4 |
+| **Today (Apps Script stage) - total** | | | **≈ ₱1,900-2,200 / month** | |
+| **Neon Postgres - Launch** (cloud server, PLAN_ServerCore) | database | usage: $0.106 / CU-hour + $0.35 / GB-month; small apps ~$15 | **₱990-2,640** ($15-40) | scale-to-zero keeps it low; an always-on 4-CU DB would be ~$345 - not needed |
+| **Resend Pro** (or similar) | email from the cloud server | $20 / 50,000 emails | **₱1,320** | free tier 3,000 / month may do at first |
 | Accounting / billing system | invoices, credit memos, BIR | [[not researched]] | [[₱1,500-3,000]] | issues the BIR-compliant invoices (plans §2c) |
-| **Cloud-server stage - total** | | | **≈ ₱5,500-8,900 / month** | before growth |
+| **Cloud-server stage - total** | | | **≈ ₱5,700-9,100 / month** | before growth |
 
 **VAT on these:** foreign digital services sold to Philippine buyers now carry **12% VAT** (RA 12023) - expect it on
 Vercel / Neon / Resend bills *(verify how each vendor charges it)*.
@@ -57,16 +62,16 @@ request type, not only HR). Benchmark: **₱40-100 per user per month**, below f
 ## §3 Proposed price list (per company or organization, monthly, VAT-exclusive)
 **Currency (user, 2 Nov 2026; General Terms §5.1a):** the monthly subscription and monthly add-ons are **priced in USD**
 and **billed in PHP** at the **BSP weighted average rate of the previous month**; one-time fees stay in PHP. The USD
-list below is the PHP proposal ÷ ₱63.10 (Oct 2026), rounded; the PHP column is what a November 2026 statement would show.
+list below is the PHP proposal ÷ ₱63.10 (Oct 2026), rounded.
 
-| Plan | **USD list / month** | = PHP at ₱63.10 (Nov 2026 statements) |
-|---|---|---|
-| Basic | **$24** | ₱1,514 |
-| Basic+ | **$39** | ₱2,461 |
-| Advanced | **$159** | ₱10,033 |
-| Enterprise | **from $619** (quote) | from ₱39,059 |
-| Add-on: +5 users | **$6.50** (Basic / Basic+) · **$4** (Advanced) · **$2.50** (Enterprise) | ₱410 · ₱252 · ₱158 |
-| Add-on: tickets | **$5** / 250 (Basic / Basic+) · **$8** / 1,000 (Advanced) | ₱316 · ₱505 |
+| Plan | **USD list / month** | PHP at the **₱66 planning rate** | PHP at Oct 2026 BSP ₱63.10 (a Nov 2026 statement) |
+|---|---|---|---|
+| Basic | **$24** | ₱1,584 | ₱1,514 |
+| Basic+ | **$39** | ₱2,574 | ₱2,461 |
+| Advanced | **$159** | ₱10,494 | ₱10,033 |
+| Enterprise | **from $619** (quote) | from ₱40,854 | from ₱39,059 |
+| Add-on: +5 users | **$6.50** (Basic / Basic+) · **$4** (Advanced) · **$2.50** (Enterprise) | ₱429 · ₱264 · ₱165 | ₱410 · ₱252 · ₱158 |
+| Add-on: tickets | **$5** / 250 (Basic / Basic+) · **$8** / 1,000 (Advanced) | ₱330 · ₱528 | ₱316 · ₱505 |
 
 *PHP planning figures (the first draft, kept for reference):*
 | Plan | Included | **Monthly** | Per user at full allowance | Annual (pay 10 months) |
@@ -97,8 +102,9 @@ list below is the PHP proposal ÷ ₱63.10 (Oct 2026), rounded; the PHP column i
 - **Basic+ vs the closest rival:** 25 users on Basic+ = ₱2,490 vs Hier ESS ₱50 × 25 = ₱1,250 **plus** its ₱150-200 base
   plan per employee (₱5,000+). Daloy is cheaper as a stand-alone request layer and includes approval chains for any
   request, not only HR.
-- **Floor:** cloud-server stage ≈ ₱8,900 / month → **covered by 4 Basic+ or 1 Advanced** customer.
-- **Upgrade point recomputed:** Basic+ ₱2,490 + ₱400 per 5 users passes Advanced's ₱9,900 at **120 users**.
+- **Floor (at ₱66):** cloud-server stage ≈ ₱9,100 / month → **covered by 4 Basic+ ($39 = ₱2,574 each) or 1 Advanced
+  ($159 = ₱10,494)** customer. Costs and prices are both in USD, so the floor holds at any rate.
+- **Upgrade point (USD list):** Basic+ $39 + $6.50 per 5 users passes Advanced's $159 at **120 users** - the same at any rate.
 - **Late penalty** (Terms §5.3b) on ₱2,490 = ₱25 / month - small enough to be fair, big enough to matter.
 
 ## §3a One-time setup (user, 2 Nov 2026: "add one time setup cost")
