@@ -49,8 +49,15 @@ const PriceBlock = ({ planKey }) => {
       </p>
       <p className="text-xs text-gray-500 dark:text-gray-400">≈ {pesoOf(price.usd)} at the {PROPOSED_RATE.month} BSP rate · VAT-exclusive</p>
       <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
-        One-time setup {price.from ? 'from ' : ''}₱{formatPlanLimit(price.setupPhp)} <span className="text-gray-400">(optional)</span>
+        + {price.from ? 'from ' : ''}₱{formatPlanLimit(price.setupPhp)} one-time setup, billed with the first month{' '}
+        <span className="text-gray-400">(optional)</span>
       </p>
+      {price.founding && (
+        <p className="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">
+          <span className="font-semibold">Founding customers:</span> {usd(price.founding.usd)} / month (≈ {pesoOf(price.founding.usd)})
+          for the first {price.founding.months} months - first {price.founding.customers} customers only.
+        </p>
+      )}
     </div>
   );
 };

@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PROPOSAL_Pricing_20261102.md | Author: Kenneth R. Advento | Version: 0.8.0
+Document: PROPOSAL_Pricing_20261102.md | Author: Kenneth R. Advento | Version: 0.9.0
 Created: 2 November 2026 UTC+8 (Philippine Standard Time) | Modified: 2 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Peso cost of the cloud services Daloy runs on + a proposed price list (plans, add-ons, one-time fees) for the four plans (PLAN_PlanTiers U9 / U10) | Status: PROPOSAL - not decided; website decision W2 ("no prices yet") still stands until approved
 REVISION HISTORY:
+- v0.9.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User approved: Basic+ $35 (PR9) and the founding-customer price $29 / month for 12 months (PR5); PR10 still open
 - v0.8.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §3c add-on crossover projection vs the next plan (user); users about right, tickets too cheap; proposed ticket add-ons $10 / 250 and $25 / 1,000 (PR10)
 - v0.7.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §3b first-year cost with setup ON TOP of the monthly fee (user); Basic+ options $39 / $35 / $33 / $31 - prices unchanged until decided (PR9)
 - v0.6.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Setup fees set by the user: ₱3,490 / ₱5,590 / ₱16,990 / ₱44,990; recheck table; PR7 note (annual waiver = 11-22% of the first year)
@@ -71,7 +72,7 @@ list below is the PHP proposal ÷ ₱63.10 (Oct 2026), rounded.
 | Plan | **USD list / month** | PHP at the **₱66 planning rate** | PHP at Oct 2026 BSP ₱63.10 (a Nov 2026 statement) |
 |---|---|---|---|
 | Basic | **$24** | ₱1,584 | ₱1,514 |
-| Basic+ | **$39** | ₱2,574 | ₱2,461 |
+| Basic+ | **$35** ✅ (PR9; was $39) - founding customers **$29** for 12 months (PR5) | ₱2,310 (founding ₱1,914) | ₱2,209 (founding ₱1,830) |
 | Advanced | **$159** | ₱10,494 | ₱10,033 |
 | Enterprise | **from $619** (quote) | from ₱40,854 | from ₱39,059 |
 | Add-on: +5 users | **$6.50** (Basic / Basic+) · **$4** (Advanced) · **$2.50** (Enterprise) | ₱429 · ₱264 · ₱165 | ₱410 · ₱252 · ₱158 |
@@ -106,9 +107,9 @@ list below is the PHP proposal ÷ ₱63.10 (Oct 2026), rounded.
 - **Basic+ vs the closest rival:** 25 users on Basic+ = ₱2,490 vs Hier ESS ₱50 × 25 = ₱1,250 **plus** its ₱150-200 base
   plan per employee (₱5,000+). Daloy is cheaper as a stand-alone request layer and includes approval chains for any
   request, not only HR.
-- **Floor (at ₱66):** cloud-server stage ≈ ₱9,100 / month → **covered by 4 Basic+ ($39 = ₱2,574 each) or 1 Advanced
+- **Floor (at ₱66):** cloud-server stage ≈ ₱9,100 / month → **covered by 4 Basic+ ($35 = ₱2,310 each) or 1 Advanced
   ($159 = ₱10,494)** customer. Costs and prices are both in USD, so the floor holds at any rate.
-- **Upgrade point (USD list):** Basic+ $39 + $6.50 per 5 users passes Advanced's $159 at **120 users** - the same at any rate.
+- **Upgrade point (USD list):** Basic+ $35 + $6.50 per 5 users passes Advanced's $159 at **125 users** - the same at any rate.
 - **Late penalty** (Terms §5.3b) on ₱2,490 = ₱25 / month - small enough to be fair, big enough to matter.
 
 ## §3a One-time setup (user, 2 Nov 2026: "add one time setup cost")
@@ -146,7 +147,7 @@ Setup fees set by the user (2 Nov 2026), in PHP, VAT-exclusive, not rate-linked.
 | Lawyer review: General Terms, DPA, Privacy Policy | [[₱ - quote]] |
 | NPC registration / DPO appointment (if required - privacy plan D4) | [[₱ - if any]] |
 | Domain + email set-up, logo / brand clearance (trademark search - IPOPHL) | [[₱ - actual]] |
-| **Payback:** at ₱5,590 setup + $39 (₱2,574 at ₱66) / month per Basic+ customer, one-time launch costs of ₱X are recovered after **X ÷ (setup + 12 × monthly margin)** customers - fill in once the quotes are in | |
+| **Payback:** at ₱5,590 setup + $35 (₱2,310 at ₱66) / month per Basic+ customer, one-time launch costs of ₱X are recovered after **X ÷ (setup + 12 × monthly margin)** customers - fill in once the quotes are in | |
 
 ## §3b First-year cost to the customer - setup is ON TOP of the monthly fee (user, 2 Nov 2026)
 At the ₱66 planning rate; per user = at the full user allowance.
@@ -213,11 +214,11 @@ A growing company is pointed to Advanced at roughly **70-80 users / 2,500-3,000 
 | PR2 | Prices shown publicly or "talk to us" | Public for Basic / Basic+ / Advanced; Enterprise by quote |
 | PR3 | Annual discount | Pay 10 months for 12 |
 | PR4 | Payment channels | Bank transfer + e-wallet / card via a local gateway [[fees not researched - typically a few %]] |
-| PR5 | Founding-customer price | First [[10]] customers: Basic+ at ₱1,990 for 12 months (discount line on the invoice) |
+| PR5 | Founding-customer price | ✅ **Decided (user, 2 Nov 2026):** the first [[10]] customers on Basic+ pay **$29 / month for their first 12 months** (then the list price), shown as a discount line on each statement; setup fee as normal (PR7 applies to annual prepayment) |
 | PR6 | Currency risk | ✅ **Decided (user):** USD prices billed in PHP at the BSP weighted average rate of the previous month - the FX risk on USD costs passes to the customer month by month; the Usage & charges page shows the coming month's rate in advance (no bill shock) |
 | PR7 | Setup fee on annual prepayment | Waiving it fully = 11-22% of the first year on top of the 2-months-free annual price. **Recommendation: 50% off the setup fee** with annual prepayment (discount line on the invoice) [[confirm]] |
 | PR8 | Provider price changes (Google, Vercel, Neon, email) | ✅ **Decided (user):** reflected in Daloy's USD prices **from the next billing cycle**, after [[30]] days' notice; prepaid periods keep their price; customers may leave before it applies (General Terms §5.1b). Review the §1 cost table whenever a provider announces a change |
-| PR9 | Basic+ monthly price, given setup is on top | **$35** (§3b) - or keep $39 if Basic+ is sold mainly with the packs' value, not against HR apps [[decide]] |
+| PR9 | Basic+ monthly price, given setup is on top | ✅ **Decided (user, 2 Nov 2026): $35** (§3b) |
 | PR10 | Ticket add-on prices | **$10 per 250** (Basic / Basic+) and **$25 per 1,000** (Advanced) - §3c; user add-ons unchanged [[decide]] |
 
 ## Sources (2 Nov 2026)

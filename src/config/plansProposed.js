@@ -54,14 +54,14 @@ export const PROPOSED_ADDON_BLOCKS = {
 };
 
 /**
- * PROPOSED prices (docs/planning/PROPOSAL_Pricing_20261102.md v0.6) - preview only; production shows no prices (website
+ * PROPOSED prices (docs/planning/PROPOSAL_Pricing_20261102.md v0.9) - preview only; production shows no prices (website
  * decision W2) until approved. Monthly fees + add-ons are priced in USD and billed in PHP at the BSP weighted average
  * rate of the previous month (General Terms §5.1a); setup fees are one-time, in PHP. VAT-exclusive.
  */
 export const PROPOSED_RATE = { phpPerUsd: 63.10, month: 'October 2026', source: 'BSP weighted average' }; // update monthly
 export const PROPOSED_PRICES = {
   basic: { usd: 24, setupPhp: 3490 },
-  basic_plus: { usd: 39, setupPhp: 5590 },
+  basic_plus: { usd: 35, setupPhp: 5590, founding: { usd: 29, months: 12, customers: 10 } }, // PR9 + PR5 (user, 2 Nov 2026)
   advanced: { usd: 159, setupPhp: 16990 },
   enterprise: { usd: 619, setupPhp: 44990, from: true }
 };
@@ -75,7 +75,8 @@ export const PROPOSED_ADDON_PRICES_USD = {
 export const PROPOSED_NOTES = [
   'Prices are monthly, per company or organization, VAT-exclusive. They are set in US dollars and billed in pesos at the ' +
     'BSP weighted average rate of the previous month; the peso amounts shown use the October 2026 rate. Pay annually and ' +
-    'get 2 months free. Setup is optional - you can set up on your own at no cost.',
+    'get 2 months free. Setup is a one-time fee on top of the monthly subscription, billed with the first month - and ' +
+    'optional: you can set up on your own at no cost.',
   'Users and tickets per month are allowances, not hard limits: above them you keep working and pay add-on blocks, ' +
     'without changing plan. Tickets are counted on a 3-month average, so one busy month (payroll cut-off, year-end) isn\'t ' +
     'charged on its own. You can choose to stop at the allowance or set a monthly spending cap instead.',
