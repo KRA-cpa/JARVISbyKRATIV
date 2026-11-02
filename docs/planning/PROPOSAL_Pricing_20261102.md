@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PROPOSAL_Pricing_20261102.md | Author: Kenneth R. Advento | Version: 0.5.0
+Document: PROPOSAL_Pricing_20261102.md | Author: Kenneth R. Advento | Version: 0.6.0
 Created: 2 November 2026 UTC+8 (Philippine Standard Time) | Modified: 2 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Peso cost of the cloud services Daloy runs on + a proposed price list (plans, add-ons, one-time fees) for the four plans (PLAN_PlanTiers U9 / U10) | Status: PROPOSAL - not decided; website decision W2 ("no prices yet") still stands until approved
 REVISION HISTORY:
+- v0.6.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Setup fees set by the user: ₱3,490 / ₱5,590 / ₱16,990 / ₱44,990; recheck table; PR7 note (annual waiver = 11-22% of the first year)
 - v0.5.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | PR8: provider price changes reflected from the next billing cycle (user)
 - v0.4.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Projections at a conservative PLANNING rate of ₱66 / USD (user: "so we are already accounting for high USD rate"); billing still at the previous month's BSP rate
 - v0.3.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Monthly subscription + add-ons priced in USD, billed in PHP at last month's BSP rate (user; General Terms §5.1a); USD list added; one-time fees stay in PHP
@@ -112,16 +113,28 @@ list below is the PHP proposal ÷ ₱63.10 (Oct 2026), rounded.
 **Charged to the customer** (one-time, on the first invoice, VAT-exclusive; waivable by credit memo or discount):
 | Plan / item | Setup fee | What it covers |
 |---|---|---|
-| Basic | **₱3,000** | company + region set-up, adopting up to 5 templates, roles mapped, admin onboarding call, first 25 users invited |
-| Basic+ | **₱5,000** | the above + Payroll and HR packs configured (leave types, approvers, windows) |
-| Advanced | **₱15,000** | the above + up to 10 custom ticket types / workflows built with the customer, SLA rules, email settings, a training session |
-| Enterprise | **by quote** (from ₱40,000) | migration / upload of existing tickets, Restricted set-up, several companies, integration (webhooks) |
+| Basic | **₱3,490** | company + region set-up, adopting up to 5 templates, roles mapped, admin onboarding call, first 25 users invited |
+| Basic+ | **₱5,590** | the above + Payroll and HR packs configured (leave types, approvers, windows) |
+| Advanced | **₱16,990** | the above + up to 10 custom ticket types / workflows built with the customer, SLA rules, email settings, a training session |
+| Enterprise | **from ₱44,990** (quote above for migrations / many companies) | migration / upload of existing tickets, Restricted set-up, several companies, integration (webhooks) |
 | Own Google Sheet bridge (template copy + checks, PLAN_ServerCore §4a) | **₱5,000** | with the customer's Workspace admin |
 | Data import (ticket uploader, on behalf) | **₱2,000 per 1,000 rows** | mapping + checks |
 | Self-serve set-up (customer does it alone) | **₱0** | trial → adopt templates without help |
 
-Proposed: the setup fee is **waived for annual prepayment** (PR7) - it rewards the commitment and covers the work out of
-the prepaid year.
+Setup fees set by the user (2 Nov 2026), in PHP, VAT-exclusive, not rate-linked. **Recheck** (at the ₱66 planning rate):
+| Plan | Setup | = months of the monthly fee | % of an annual prepayment (10 months) | with 12% VAT (if registered) |
+|---|---|---|---|---|
+| Basic | ₱3,490 | 2.2 | 22% | ₱3,909 |
+| Basic+ | ₱5,590 | 2.2 | 22% | ₱6,261 |
+| Advanced | ₱16,990 | 1.6 | 16% | ₱19,029 |
+| Enterprise | from ₱44,990 | 1.1 | 11% | from ₱50,389 |
+
+- The steps are consistent: Basic+ − Basic = ₱2,100 for configuring the two packs.
+- Basic / Basic+ setup ≈ 2 months of fees - fine because it is **optional** (self-serve set-up is ₱0).
+- Enterprise is the lightest relative to its fee (1.1 months) while its work is the heaviest (migration, several
+  companies, Restricted, webhooks) - keep it **"from"** and quote above it when the scope is large.
+- Annual prepayment: waiving the whole fee (PR7) on top of "pay 10 for 12" gives Basic / Basic+ ~36% off the first
+  year - see PR7.
 
 **KRATIV's own one-time costs to launch** ([[not researched - estimates to fill in with actual quotes]]):
 | Item | Estimate |
@@ -131,7 +144,7 @@ the prepaid year.
 | Lawyer review: General Terms, DPA, Privacy Policy | [[₱ - quote]] |
 | NPC registration / DPO appointment (if required - privacy plan D4) | [[₱ - if any]] |
 | Domain + email set-up, logo / brand clearance (trademark search - IPOPHL) | [[₱ - actual]] |
-| **Payback:** at ₱5,000 setup + ₱2,490 / month per Basic+ customer, one-time launch costs of ₱X are recovered after **X ÷ (setup + 12 × monthly margin)** customers - fill in once the quotes are in | |
+| **Payback:** at ₱5,590 setup + $39 (₱2,574 at ₱66) / month per Basic+ customer, one-time launch costs of ₱X are recovered after **X ÷ (setup + 12 × monthly margin)** customers - fill in once the quotes are in | |
 
 ## §4 Things to settle (P-decisions)
 | # | Question | Proposed default |
@@ -142,7 +155,7 @@ the prepaid year.
 | PR4 | Payment channels | Bank transfer + e-wallet / card via a local gateway [[fees not researched - typically a few %]] |
 | PR5 | Founding-customer price | First [[10]] customers: Basic+ at ₱1,990 for 12 months (discount line on the invoice) |
 | PR6 | Currency risk | ✅ **Decided (user):** USD prices billed in PHP at the BSP weighted average rate of the previous month - the FX risk on USD costs passes to the customer month by month; the Usage & charges page shows the coming month's rate in advance (no bill shock) |
-| PR7 | Setup fee on annual prepayment | Waived (discount line on the invoice) |
+| PR7 | Setup fee on annual prepayment | Waiving it fully = 11-22% of the first year on top of the 2-months-free annual price. **Recommendation: 50% off the setup fee** with annual prepayment (discount line on the invoice) [[confirm]] |
 | PR8 | Provider price changes (Google, Vercel, Neon, email) | ✅ **Decided (user):** reflected in Daloy's USD prices **from the next billing cycle**, after [[30]] days' notice; prepaid periods keep their price; customers may leave before it applies (General Terms §5.1b). Review the §1 cost table whenever a provider announces a change |
 
 ## Sources (2 Nov 2026)
