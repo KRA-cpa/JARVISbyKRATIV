@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PROPOSAL_Pricing_20261102.md | Author: Kenneth R. Advento | Version: 0.6.0
+Document: PROPOSAL_Pricing_20261102.md | Author: Kenneth R. Advento | Version: 0.7.0
 Created: 2 November 2026 UTC+8 (Philippine Standard Time) | Modified: 2 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Peso cost of the cloud services Daloy runs on + a proposed price list (plans, add-ons, one-time fees) for the four plans (PLAN_PlanTiers U9 / U10) | Status: PROPOSAL - not decided; website decision W2 ("no prices yet") still stands until approved
 REVISION HISTORY:
+- v0.7.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §3b first-year cost with setup ON TOP of the monthly fee (user); Basic+ options $39 / $35 / $33 / $31 - prices unchanged until decided (PR9)
 - v0.6.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Setup fees set by the user: ₱3,490 / ₱5,590 / ₱16,990 / ₱44,990; recheck table; PR7 note (annual waiver = 11-22% of the first year)
 - v0.5.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | PR8: provider price changes reflected from the next billing cycle (user)
 - v0.4.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Projections at a conservative PLANNING rate of ₱66 / USD (user: "so we are already accounting for high USD rate"); billing still at the previous month's BSP rate
@@ -146,6 +147,32 @@ Setup fees set by the user (2 Nov 2026), in PHP, VAT-exclusive, not rate-linked.
 | Domain + email set-up, logo / brand clearance (trademark search - IPOPHL) | [[₱ - actual]] |
 | **Payback:** at ₱5,590 setup + $39 (₱2,574 at ₱66) / month per Basic+ customer, one-time launch costs of ₱X are recovered after **X ÷ (setup + 12 × monthly margin)** customers - fill in once the quotes are in | |
 
+## §3b First-year cost to the customer - setup is ON TOP of the monthly fee (user, 2 Nov 2026)
+At the ₱66 planning rate; per user = at the full user allowance.
+| Plan | Monthly | Year 1 monthly + setup | Year 1 annual (10 mo) + setup | Year 1 self-serve | **₱ / user / month, year 1 with setup** | year 1 self-serve | year 2+ |
+|---|---|---|---|---|---|---|---|
+| Basic | ₱1,584 | ₱22,498 | ₱19,330 | ₱19,008 | **₱75** | ₱63 | ₱63 |
+| Basic+ | ₱2,574 | ₱36,478 | ₱31,330 | ₱30,888 | **₱122** | ₱103 | ₱103 |
+| Advanced | ₱10,494 | ₱142,918 | ₱121,930 | ₱125,928 | **₱60** | ₱52 | ₱52 |
+| Enterprise | ₱40,854 | ₱535,238 | ₱453,530 | ₱490,248 | **₱22** | ₱20 | ₱20 |
+
+**Finding:** only **Basic+** leaves the ₱40-100 per user target (§2) - **₱122** in year 1 with setup, ₱103 even
+self-serve - and the buyer of Basic+ compares it with HR apps whose entry tiers include leave / OT filing
+(WORKSPHR Starter ₱79 per employee). Basic, Advanced and Enterprise stay inside or below the band.
+
+**Basic+ options** (setup ₱5,590 unchanged):
+| Basic+ | ₱ / month @ ₱66 | Year 1 with setup, ₱ / user | Self-serve / year 2+, ₱ / user | Year 1 annual + setup |
+|---|---|---|---|---|
+| $39 (current) | ₱2,574 | ₱122 | ₱103 | ₱31,330 |
+| **$35** | ₱2,310 | ₱111 | ₱92 | ₱28,690 |
+| $33 | ₱2,178 | ₱106 | ₱87 | ₱27,370 |
+| $31 | ₱2,046 | ₱100 | ₱82 | ₱26,050 |
+
+**Recommendation (PR9):** **Basic+ $35** - back inside the band from year 2 / self-serve (₱92), year 1 with setup
+₱111; still well above Basic ($24), so the packs keep a clear price. Pitch it as "every request type, with payroll and
+HR packs" rather than as an HR app. With PR7 (50% off setup on annual prepayment) a Basic+ annual year 1 is
+₱25,895 (₱86 / user). Floor check at $35: cloud-server stage ₱9,100 / ₱2,310 → still **4 Basic+** customers.
+
 ## §4 Things to settle (P-decisions)
 | # | Question | Proposed default |
 |---|---|---|
@@ -157,6 +184,7 @@ Setup fees set by the user (2 Nov 2026), in PHP, VAT-exclusive, not rate-linked.
 | PR6 | Currency risk | ✅ **Decided (user):** USD prices billed in PHP at the BSP weighted average rate of the previous month - the FX risk on USD costs passes to the customer month by month; the Usage & charges page shows the coming month's rate in advance (no bill shock) |
 | PR7 | Setup fee on annual prepayment | Waiving it fully = 11-22% of the first year on top of the 2-months-free annual price. **Recommendation: 50% off the setup fee** with annual prepayment (discount line on the invoice) [[confirm]] |
 | PR8 | Provider price changes (Google, Vercel, Neon, email) | ✅ **Decided (user):** reflected in Daloy's USD prices **from the next billing cycle**, after [[30]] days' notice; prepaid periods keep their price; customers may leave before it applies (General Terms §5.1b). Review the §1 cost table whenever a provider announces a change |
+| PR9 | Basic+ monthly price, given setup is on top | **$35** (§3b) - or keep $39 if Basic+ is sold mainly with the packs' value, not against HR apps [[decide]] |
 
 ## Sources (2 Nov 2026)
 - Exchange rate: philnews.ph USD to PHP exchange rate today, 2 Nov 2026 (October 2026 average ₱63.100, citing BSP); BSP Table 12 (bsp.gov.ph/statistics/external/tab12_pus_data.aspx - to confirm)
