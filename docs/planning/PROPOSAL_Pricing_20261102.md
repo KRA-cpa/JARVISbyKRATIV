@@ -28,11 +28,11 @@ fee on top. Update this rate each month (or at each price review) from the BSP t
 | **Google Workspace Business Starter** (platform account) | Apps Script owner, Sheets, mail (1,500 recipients / day vs 100 on Gmail) | $7 / user (annual) - $8.40 (flexible) | **₱442-530** + 12% VAT = **₱495-594** | 1 user is enough today |
 | **Firebase Authentication** | Google sign-in | free up to **50,000 MAU** (Blaze) | **₱0** | Spark (free plan) caps at 3,000 daily active users - use Blaze, still ₱0 at our size |
 | Domain (.com / .ph) | daloy.* | ~$12-40 / year | **~₱63-210** / month | decision W4 |
-| **Today (Apps Script stage) - total** | | | **≈ ₱1,900 / month** | |
+| **Today (Apps Script stage) - total** | | | **≈ ₱1,800-2,100 / month** | |
 | **Neon Postgres - Launch** (cloud server, PLAN_ServerCore) | database | usage: $0.106 / CU-hour + $0.35 / GB-month; small apps ~$15 | **₱947-2,524** ($15-40) | scale-to-zero keeps it low; an always-on 4-CU DB would be ~$345 - not needed |
 | **Resend Pro** (or similar) | email from the cloud server | $20 / 50,000 emails | **₱1,262** | free tier 3,000 / month may do at first |
 | Accounting / billing system | invoices, credit memos, BIR | [[not researched]] | [[₱1,500-3,000]] | issues the BIR-compliant invoices (plans §2c) |
-| **Cloud-server stage - total** | | | **≈ ₱5,600-8,700 / month** | before growth |
+| **Cloud-server stage - total** | | | **≈ ₱5,500-8,900 / month** | before growth |
 
 **VAT on these:** foreign digital services sold to Philippine buyers now carry **12% VAT** (RA 12023) - expect it on
 Vercel / Neon / Resend bills *(verify how each vendor charges it)*.
@@ -82,7 +82,7 @@ request type, not only HR). Benchmark: **₱40-100 per user per month**, below f
 - **Basic+ vs the closest rival:** 25 users on Basic+ = ₱2,490 vs Hier ESS ₱50 × 25 = ₱1,250 **plus** its ₱150-200 base
   plan per employee (₱5,000+). Daloy is cheaper as a stand-alone request layer and includes approval chains for any
   request, not only HR.
-- **Floor:** cloud-server stage ≈ ₱8,700 / month → **covered by 4 Basic+ or 1 Advanced** customer.
+- **Floor:** cloud-server stage ≈ ₱8,900 / month → **covered by 4 Basic+ or 1 Advanced** customer.
 - **Upgrade point recomputed:** Basic+ ₱2,490 + ₱400 per 5 users passes Advanced's ₱9,900 at **120 users**.
 - **Late penalty** (Terms §5.3b) on ₱2,490 = ₱25 / month - small enough to be fair, big enough to matter.
 
