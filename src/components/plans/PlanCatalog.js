@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import Icons from '../shared/Icons';
+import { BRAND_NAME, CONTACT, contactMailto } from '../../config/site';
 import {
   PLAN_ORDER, PLAN_NAMES, PLAN_TAGLINES, CORE_FEATURES, PLAN_FEATURE_GROUPS, PLAN_LIMIT_LABELS, PLAN_CATALOG_COPY,
   formatPlanLimit
@@ -49,6 +50,12 @@ const FoundingBanner = () => {
         <strong>{PROPOSED_PLAN_NAMES[planKey]} at {usd(f.usd)} / month</strong> (≈ {pesoOf(f.usd)}) for your first {f.months} months,
         instead of {usd(price.usd)} - for the first {f.customers} customers only.
       </span>
+      {CONTACT.salesEmail && (
+        <a href={contactMailto(CONTACT.salesEmail, `Founding customer - ${PROPOSED_PLAN_NAMES[planKey]}`, `${PROPOSED_PLAN_NAMES[planKey]} (founding customer)`)}
+          className="ml-auto rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600">
+          Claim a founding spot
+        </a>
+      )}
     </div>
   );
 };
@@ -123,7 +130,7 @@ const PlanCatalog = ({ signedIn = false, proposed = false }) => {
         // Subgrid (user, 2 Nov 2026: "make it aligned"): every card spans the same rows of the section grid, so name,
         // price, summary, "Included" and "Need more?" start at the same height in every card of a row
         <div key={plan.plan}
-          className={`grid grid-rows-subgrid gap-y-0 ${proposed ? 'row-span-5' : 'row-span-3'} rounded-xl border-2 bg-white p-6 shadow-sm dark:bg-gray-800 ${PLAN_ACCENTS[plan.plan] || PLAN_ACCENTS.basic}`}>
+          className={`grid grid-rows-subgrid gap-y-0 ${proposed ? 'row-span-6' : 'row-span-4'} rounded-xl border-2 bg-white p-6 shadow-sm dark:bg-gray-800 ${PLAN_ACCENTS[plan.plan] || PLAN_ACCENTS.basic}`}>
           <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">{plan.name || PLAN_NAMES[plan.plan]}</h2>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{taglines[plan.plan]}</p>
@@ -166,6 +173,18 @@ const PlanCatalog = ({ signedIn = false, proposed = false }) => {
               )}
             </div>
           )}
+          {/* Inquire (user, 2 Nov 2026): a pre-filled email to sales about this plan; hidden without a sales address (F4) */}
+          <div className="mt-4 self-end">
+            {CONTACT.salesEmail && (
+              <a href={contactMailto(CONTACT.salesEmail, `${BRAND_NAME} ${plan.name} plan inquiry`, plan.name)}
+                className={`flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold ${plan.plan === 'enterprise'
+                  ? 'bg-gray-900 text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
+                <Icons.Comment size={16} />
+                {plan.plan === 'enterprise' ? 'Talk to sales' : `Ask about ${plan.name}`}
+              </a>
+            )}
+          </div>
         </div>
       ))}
     </section>

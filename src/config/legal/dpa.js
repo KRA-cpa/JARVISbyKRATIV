@@ -12,9 +12,9 @@
 
 export const DATA_PROCESSING_AGREEMENT = {
   status: 'draft',
-  version: '0.1',
+  version: '0.2',
   effectiveDate: '',
-  lastUpdated: '1 November 2026',
+  lastUpdated: '2 November 2026',
   title: 'Data Processing Agreement',
   pendingChange: null,
   draftNotice: 'DRAFT for review - not in effect. This proposed agreement still has to be reviewed by counsel and our Data ' +
@@ -159,7 +159,7 @@ export const DATA_PROCESSING_AGREEMENT = {
       body: 'This DPA applies as long as KRATIV processes Customer Data. Changes follow the General Terms of Service: a major change - one ' +
         'that materially diminishes the rights of the Customer or of KRATIV - is notified at least [[30]] days ahead and an ' +
         'administrator accepts the new version; earlier versions are kept.\n\n' +
-        'Data Protection Officer: jarvis.dpo@blueknight.xyz, [[mailing address]].'
+        'Data Protection Officer: KRATIV.dpo@blueknight.xyz, [[mailing address]].'
     }
   ]
 };

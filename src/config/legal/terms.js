@@ -13,7 +13,7 @@
 
 export const TERMS_OF_SERVICE = {
   status: 'draft', // 'draft' | 'published'
-  version: '0.14', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
+  version: '0.15', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
   effectiveDate: '',
   lastUpdated: '2 November 2026',
   title: 'General Terms of Service',
@@ -267,7 +267,7 @@ export const TERMS_OF_SERVICE = {
     {
       id: 'contact',
       heading: 'Contact',
-      body: 'KRATIV Solutions [[placeholder]], [[address]] - [[support email]]. Data Protection Officer: jarvis.dpo@blueknight.xyz.'
+      body: 'KRATIV Solutions [[placeholder]], [[address]] - [[support email]]. Data Protection Officer: KRATIV.dpo@blueknight.xyz.'
     }
   ]
 };

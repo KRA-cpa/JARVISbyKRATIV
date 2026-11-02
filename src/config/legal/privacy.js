@@ -15,7 +15,7 @@ export const PRIVACY_POLICY = {
   status: 'draft', // 'draft' | 'published'
   version: '',
   effectiveDate: '',
-  lastUpdated: '1 November 2026', // change on every text change (user, 1 Nov 2026: "add last updated")
+  lastUpdated: '2 November 2026', // change on every text change (user, 1 Nov 2026: "add last updated")
   title: 'Privacy Policy',
   draftPath: '/privacy/draft',
   // Notice of a MAJOR change before it takes effect (user, 1 Nov 2026). null = none. When set, /privacy shows an
@@ -25,7 +25,7 @@ export const PRIVACY_POLICY = {
   placeholderIntro: 'Our Privacy Policy is being prepared in line with the Philippine Data Privacy Act of 2012 (Republic Act No. 10173). ' +
     'It will be published here before we collect personal information beyond what is needed to sign in to the app.',
   placeholderContact: 'If you have a question about your personal information in the meantime, contact our Data Protection ' +
-    'Officer at jarvis.dpo@blueknight.xyz or the administrator of your organization. You may also reach the National Privacy ' +
+    'Officer at KRATIV.dpo@blueknight.xyz or the administrator of your organization. You may also reach the National Privacy ' +
     'Commission at privacy.gov.ph.',
   draftNotice: 'DRAFT for review - not in effect. This proposed text follows the Philippine Data Privacy Act of 2012 (RA 10173) and ' +
     'still has to be reviewed by counsel and our Data Protection Officer. Highlighted items are decisions that are still open.',
@@ -36,7 +36,7 @@ export const PRIVACY_POLICY = {
       body: 'This Privacy Policy explains how KRATIV Solutions [[placeholder - confirm the registered name]] ("Daloy", "we", "us"), ' +
         'with address at [[registered business address]], collects, uses, shares and protects personal information when you visit ' +
         'our website or use the Daloy application.\n\n' +
-        'Our Data Protection Officer (DPO) can be reached at jarvis.dpo@blueknight.xyz or by mail at [[DPO mailing address]]. ' +
+        'Our Data Protection Officer (DPO) can be reached at KRATIV.dpo@blueknight.xyz or by mail at [[DPO mailing address]]. ' +
         'Please contact the DPO for any question or request about your personal information.'
     },
     {
@@ -124,7 +124,7 @@ export const PRIVACY_POLICY = {
       body: 'Under the Data Privacy Act you have the right to be informed, to access your personal information, to object, to have ' +
         'inaccurate information corrected, to have it erased or blocked, to data portability, to claim damages, and to file a ' +
         'complaint with the National Privacy Commission (privacy.gov.ph).\n\n' +
-        'To exercise a right, contact our DPO at jarvis.dpo@blueknight.xyz. For content your organization put into Daloy, you may also ' +
+        'To exercise a right, contact our DPO at KRATIV.dpo@blueknight.xyz. For content your organization put into Daloy, you may also ' +
         'contact your organization\'s administrator. We will verify your identity and respond within [[15 working days - confirm the ' +
         'period]]. Where a record must be kept, erasure means we remove or replace your personal details while keeping the record.'
     },

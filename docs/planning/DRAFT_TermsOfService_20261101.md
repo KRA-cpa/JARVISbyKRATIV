@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.14.0
+Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.15.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 2 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: DRAFT General Terms of Service for Daloy (B2B subscription), aligned with the plan, usage, data and privacy decisions so far | Status: DRAFT - not legal advice, not in effect; for review by counsel; [[...]] = pending decision (§0)
 REVISION HISTORY:
+- v0.15.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | DPO email KRATIV.dpo@blueknight.xyz (user)
 - v0.14.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.1b price changes (user: "pricing of base services will be reflected on next cycle"): from the next billing cycle after [[30]] days' notice; prepaid periods keep their price; right to leave; FX is not a price change
 - v0.13.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.1a currency: USD-priced subscription billed in PHP at the previous month's BSP weighted average rate (user); T4
 - v0.12.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.3b late-payment penalty (user: "penalties on overdue subs, unless agreed upon otherwise or waived via credit memo or in writing"); T5
@@ -286,4 +287,4 @@ the "Last updated" date and the version history show them.
   [[30]] days; if not settled, the dispute goes exclusively to the proper courts of **Mandaluyong City, Metro Manila**.
 - **Language:** English prevails over any translation ([[T12]]).
 
-**Contact:** KRATIV Solutions [[placeholder]], [[address]] · [[support email]] · Data Protection Officer: jarvis.dpo@blueknight.xyz
+**Contact:** KRATIV Solutions [[placeholder]], [[address]] · [[support email]] · Data Protection Officer: KRATIV.dpo@blueknight.xyz

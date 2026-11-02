@@ -82,7 +82,9 @@ export const STATUS = {
 export const CONTACT = {
   title: 'Contact us',
   intro: `Questions about ${BRAND_NAME}, or ready to try it with your team? Write to us and we will get back to you.`,
-  salesEmail: (process.env.REACT_APP_CONTACT_EMAIL || '').trim(),
+  // Sales address (decision W5): the REACT_APP_CONTACT_EMAIL env var wins; otherwise the proposed role mailbox (user,
+  // 2 Nov 2026: "propose sales email @blueknight.xyz") - CREATE the mailbox before production shows it
+  salesEmail: (process.env.REACT_APP_CONTACT_EMAIL || 'KRATIV.sales@blueknight.xyz').trim(),
   salesMissing: 'Our sales email address will be listed here soon.',
   requests: [
     {
@@ -108,12 +110,17 @@ export const CONTACT = {
   customerText: `For access, roles or a ticket, contact your organization's ${BRAND_NAME} administrator first: they can invite ` +
     'people, assign roles and change your company\'s settings.',
   privacyHeading: 'Privacy questions',
-  privacyEmail: 'jarvis.dpo@blueknight.xyz', // the same DPO address as src/config/legal/privacy.js - change both together
+  privacyEmail: 'KRATIV.dpo@blueknight.xyz', // the same DPO address as src/config/legal/privacy.js - change both together
   privacyText: 'For a question or request about your personal information, contact our Data Protection Officer.'
 };
 
-/** mailto: link with a subject and the pre-filled body (encoded). */
-export function contactMailto(email, subject) {
-  const body = CONTACT.emailBodyLines.join('\n');
+/**
+ * mailto: link with a subject and the pre-filled body (encoded).
+ * @param {string} plan - optional: a plan name to pre-fill "Plan of interest" (the plan buttons on /plans)
+ */
+export function contactMailto(email, subject, plan = '') {
+  const lines = plan ? CONTACT.emailBodyLines.map(line => (line.startsWith('Plan of interest') ? `Plan of interest: ${plan}` : line))
+    : CONTACT.emailBodyLines;
+  const body = lines.join('\n');
   return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
