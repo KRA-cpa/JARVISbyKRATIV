@@ -13,7 +13,7 @@
 
 export const TERMS_OF_SERVICE = {
   status: 'draft', // 'draft' | 'published'
-  version: '0.13', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
+  version: '0.14', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
   effectiveDate: '',
   lastUpdated: '2 November 2026',
   title: 'General Terms of Service',
@@ -109,6 +109,7 @@ export const TERMS_OF_SERVICE = {
       body: 'Fees are as stated in the Subscription details [[T4: prices, VAT treatment]]. Plans are billed per period in advance; ' +
         'Usage Add-ons are billed in arrears.\n\n' +
         'Currency. The monthly subscription fee and the monthly Usage Add-ons are priced in US dollars and billed in Philippine pesos. Each statement converts them at the Bangko Sentral ng Pilipinas (BSP) weighted average peso-dollar rate for the calendar month before the statement month, and shows the rate used. One-time fees (such as setup) are stated and billed in pesos unless the Subscription details say otherwise. The rate for the coming month is shown on the Customer\'s Usage & charges page as soon as the BSP publishes it, so the peso amount is known before the statement.\n\n' +
+        'Price changes. We may change our prices, including to reflect changes in the prices of the services the Service runs on (such as Google, Vercel, database and email providers). A price change applies from the start of the next billing cycle after we give the Customer\'s administrators at least [[30]] days\' notice in the Service or by email - never in the middle of a cycle. A prepaid period (for example an annual prepayment) keeps its price until it ends. A Customer that does not accept a price increase may end its subscription before it takes effect, without penalty. Changes in the exchange rate under the Currency clause are not price changes.\n\n' +
         'We send a usage statement each month. Official invoices are issued [[through our accounting / billing system, in ' +
         'compliance with BIR rules]].\n\n' +
         'Payment is due within [[15]] days. Fees are [[exclusive]] of VAT and other taxes.\n\n' +

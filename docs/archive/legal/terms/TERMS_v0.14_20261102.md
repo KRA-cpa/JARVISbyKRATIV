@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.13.0
+Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.14.0
 Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 2 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: DRAFT General Terms of Service for Daloy (B2B subscription), aligned with the plan, usage, data and privacy decisions so far | Status: DRAFT - not legal advice, not in effect; for review by counsel; [[...]] = pending decision (§0)
 REVISION HISTORY:
+- v0.14.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.1b price changes (user: "pricing of base services will be reflected on next cycle"): from the next billing cycle after [[30]] days' notice; prepaid periods keep their price; right to leave; FX is not a price change
 - v0.13.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.1a currency: USD-priced subscription billed in PHP at the previous month's BSP weighted average rate (user); T4
 - v0.12.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.3b late-payment penalty (user: "penalties on overdue subs, unless agreed upon otherwise or waived via credit memo or in writing"); T5
 - v0.11.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §10.2 provider outages (user: "add google status / google downtimes"): not a Service failure, fees due, Status page /status, admin notice after [[1 hour]], discretionary goodwill credit after [[24 h / month]]
@@ -148,6 +149,7 @@ on or off. Turning a pack off stops new requests of its types; existing requests
 5.1 Fees are as stated on the order form or Plans page [[T4]]. Plans are billed per period in advance; Usage
 Add-ons are billed in arrears (§6).
 5.1a **Currency.** The monthly subscription fee and the monthly Usage Add-ons are priced in US dollars and billed in Philippine pesos. Each statement converts them at the Bangko Sentral ng Pilipinas (BSP) weighted average peso-dollar rate for the calendar month before the statement month, and shows the rate used. One-time fees (such as setup) are stated and billed in pesos unless the Subscription details say otherwise. The rate for the coming month is shown on the Customer's Usage & charges page as soon as the BSP publishes it, so the peso amount is known before the statement. *(verify: invoice currency / peso equivalent requirements under BIR rules)*
+5.1b **Price changes.** We may change our prices, including to reflect changes in the prices of the services the Service runs on (such as Google, Vercel, database and email providers). A price change applies from the start of the next billing cycle after we give the Customer's administrators at least [[30]] days' notice in the Service or by email - never in the middle of a cycle. A prepaid period (for example an annual prepayment) keeps its price until it ends. A Customer that does not accept a price increase may end its subscription before it takes effect, without penalty. Changes in the exchange rate under the Currency clause are not price changes.
 5.2 We send a **usage statement** each month. Official invoices are issued [[through our accounting / billing
 system, in compliance with BIR rules]] *(verify the EOPT Act invoicing requirements)*.
 5.3 Payment is due within [[15]] days ([[T5]]). Fees are [[exclusive]] of VAT and other taxes.

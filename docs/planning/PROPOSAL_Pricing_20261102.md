@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PROPOSAL_Pricing_20261102.md | Author: Kenneth R. Advento | Version: 0.4.0
+Document: PROPOSAL_Pricing_20261102.md | Author: Kenneth R. Advento | Version: 0.5.0
 Created: 2 November 2026 UTC+8 (Philippine Standard Time) | Modified: 2 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Peso cost of the cloud services Daloy runs on + a proposed price list (plans, add-ons, one-time fees) for the four plans (PLAN_PlanTiers U9 / U10) | Status: PROPOSAL - not decided; website decision W2 ("no prices yet") still stands until approved
 REVISION HISTORY:
+- v0.5.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | PR8: provider price changes reflected from the next billing cycle (user)
 - v0.4.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Projections at a conservative PLANNING rate of ₱66 / USD (user: "so we are already accounting for high USD rate"); billing still at the previous month's BSP rate
 - v0.3.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Monthly subscription + add-ons priced in USD, billed in PHP at last month's BSP rate (user; General Terms §5.1a); USD list added; one-time fees stay in PHP
 - v0.2.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Rate basis = BSP weighted average for the previous month (user): October 2026 ₱63.10 / USD; costs recomputed; one-time setup fees per plan + KRATIV's own one-time launch costs (user: "add one time setup cost")
@@ -142,6 +143,7 @@ the prepaid year.
 | PR5 | Founding-customer price | First [[10]] customers: Basic+ at ₱1,990 for 12 months (discount line on the invoice) |
 | PR6 | Currency risk | ✅ **Decided (user):** USD prices billed in PHP at the BSP weighted average rate of the previous month - the FX risk on USD costs passes to the customer month by month; the Usage & charges page shows the coming month's rate in advance (no bill shock) |
 | PR7 | Setup fee on annual prepayment | Waived (discount line on the invoice) |
+| PR8 | Provider price changes (Google, Vercel, Neon, email) | ✅ **Decided (user):** reflected in Daloy's USD prices **from the next billing cycle**, after [[30]] days' notice; prepaid periods keep their price; customers may leave before it applies (General Terms §5.1b). Review the §1 cost table whenever a provider announces a change |
 
 ## Sources (2 Nov 2026)
 - Exchange rate: philnews.ph USD to PHP exchange rate today, 2 Nov 2026 (October 2026 average ₱63.100, citing BSP); BSP Table 12 (bsp.gov.ph/statistics/external/tab12_pus_data.aspx - to confirm)
