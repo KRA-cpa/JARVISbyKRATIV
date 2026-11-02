@@ -70,7 +70,7 @@ export const TermsVersionsPage = ({ notFound = '' }) => {
             </tbody>
           </table>
           <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
-            Earlier drafts (0.1-0.12) were never in effect; their snapshots and history are in the project records.
+            Earlier drafts (0.1-0.13) were never in effect; their snapshots and history are in the project records.
           </p>
         </article>
       </main>
