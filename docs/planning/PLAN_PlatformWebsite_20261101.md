@@ -41,6 +41,7 @@ This plan turns that into a small website around the app.
 |---|---|---|
 | W4 | Domain | TBD. Until there is one, the site runs on the Vercel URL. (Brand name decided - W4a above) |
 | W5 | Where "Talk to us" goes | W1 phase: a `mailto:` to one sales address (env `REACT_APP_CONTACT_EMAIL`; the button is hidden while it isn't set). W2 phase: the lead form (§4) |
+| W5a | Sales address (2 Nov 2026) | ✅ `KRATIV.sales@blueknight.xyz` (user), a forwarding address to an existing mailbox; default in `src/config/site.js` (`REACT_APP_CONTACT_EMAIL` overrides). Used by the Contact page and the plan-card inquiry buttons. Reply **as** KRATIV.sales@ (send-as) |
 | W6 | Trial requests: self-serve or reviewed | **Reviewed:** a request becomes a lead; a platform admin creates the company and starts the trial (`startTrial`, v10.2 P2). Self-serve sign-up is later (§9) |
 | W7 | Legal pages (terms, privacy) | Pages and routes are built with a clearly marked placeholder; **the text comes from the business / its counsel**, not from code |
 | W8 | SEO depth | Phase W1: per-page title / description, sitemap, robots. Phase W4: prerendered HTML for the public routes |

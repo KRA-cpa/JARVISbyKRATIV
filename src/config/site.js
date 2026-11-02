@@ -83,7 +83,8 @@ export const CONTACT = {
   title: 'Contact us',
   intro: `Questions about ${BRAND_NAME}, or ready to try it with your team? Write to us and we will get back to you.`,
   // Sales address (decision W5): the REACT_APP_CONTACT_EMAIL env var wins; otherwise the proposed role mailbox (user,
-  // 2 Nov 2026: "propose sales email @blueknight.xyz") - CREATE the mailbox before production shows it
+  // 2 Nov 2026: "propose sales email @blueknight.xyz"). KRATIV.sales@ and KRATIV.dpo@ are live forwarding addresses to
+  // existing mailboxes (user, 2 Nov 2026)
   salesEmail: (process.env.REACT_APP_CONTACT_EMAIL || 'KRATIV.sales@blueknight.xyz').trim(),
   salesMissing: 'Our sales email address will be listed here soon.',
   requests: [
