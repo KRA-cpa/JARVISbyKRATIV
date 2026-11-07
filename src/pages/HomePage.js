@@ -5,7 +5,7 @@ import Footer from '../components/shared/Footer';
 import PromoBanner from '../components/shared/PromoBanner';
 import Icons from '../components/shared/Icons';
 import { PLAN_ORDER, PLAN_NAMES } from '../config/plans';
-import { PROPOSED_PLAN_ORDER, PROPOSED_PLAN_NAMES } from '../config/plansProposed';
+import { PROPOSED_PLANS_LIVE, PROPOSED_PLAN_ORDER, PROPOSED_PLAN_NAMES } from '../config/plansProposed';
 import { BRAND_NAME, BRAND_PARENT_LINE, BRAND_TAGLINE, BRAND_MEANING } from '../config/site';
 // Hero animation (docs/design/daloy-hero/ - request creation + approval flow; the ticket-only version is archived in
 // docs/archive/2026-11/ticketflow-hero/): CSS-only SVG, no script; it stops on its final frame
@@ -15,9 +15,9 @@ import heroLight from '../assets/hero/daloy-hero-light.svg';
 import heroDark from '../assets/hero/daloy-hero-dark.svg';
 
 // Preview builds list the PROPOSED plans (Basic / Basic+ / Advanced / Enterprise - PLAN_PlanTiers U9), like /plans;
-// production lists the live catalogue, which must match the server (compliance F1)
+// production too while PROPOSED_PLANS_LIVE is true (src/config/plansProposed.js), else the live catalogue (compliance F1)
 const IS_PREVIEW_BUILD = process.env.NODE_ENV === 'development' || process.env.REACT_APP_VERCEL_ENV === 'preview';
-const HOME_PLANS = IS_PREVIEW_BUILD
+const HOME_PLANS = (IS_PREVIEW_BUILD || PROPOSED_PLANS_LIVE)
   ? PROPOSED_PLAN_ORDER.map(plan => PROPOSED_PLAN_NAMES[plan]).join(' · ')
   : PLAN_ORDER.map(plan => PLAN_NAMES[plan]).join(' · ');
 

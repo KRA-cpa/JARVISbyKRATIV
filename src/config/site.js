@@ -106,7 +106,7 @@ export const CONTACT = {
     }
   ],
   // Pre-filled lines in the email body, so a request arrives with what we need to reply
-  emailBodyLines: ['Name:', 'Company:', 'Country:', 'Team size:', 'Plan of interest (Basic / Advanced / Enterprise):', '', 'Message:'],
+  emailBodyLines: ['Name:', 'Company:', 'Country:', 'Team size:', 'Plan of interest (Basic / Basic+ / Advanced / Enterprise):', '', 'Message:'],
   customerHeading: `Already using ${BRAND_NAME}?`,
   customerText: `For access, roles or a ticket, contact your organization's ${BRAND_NAME} administrator first: they can invite ` +
     'people, assign roles and change your company\'s settings.',

@@ -4,6 +4,7 @@ import Header from '../components/shared/Header';
 import PublicHeader from '../components/shared/PublicHeader';
 import Footer from '../components/shared/Footer';
 import PlanCatalog from '../components/plans/PlanCatalog';
+import { PROPOSED_PLANS_LIVE } from '../config/plansProposed';
 
 /**
  * PlansPage - /plans, PUBLIC (AppScript v10.2, docs/planning/PLAN_PlanTiers_Subscriptions_20261031.md)
@@ -12,8 +13,9 @@ import PlanCatalog from '../components/plans/PlanCatalog';
  * rendered from the display copy in src/config/plans.js and makes no API call (no sign-in needed). Signed-in users get
  * the app header, visitors the public one. Part of the future platform website.
  * PREVIEW builds (Vercel preview, local development) show the PROPOSED four-plan line-up (Basic / Basic+ / Advanced /
- * Enterprise - PLAN_PlanTiers U9) with a banner and a switch back to the live plans; production shows the live catalogue
- * only, because it must match the server (compliance F1).
+ * Enterprise - PLAN_PlanTiers U9) with a banner and a switch back to the live plans. Production shows the proposed
+ * line-up while PROPOSED_PLANS_LIVE (src/config/plansProposed.js) is true, else the live catalogue; either way the server
+ * decides what a company can do (compliance F1). Prices follow SHOW_PRICES (src/config/pricing.js).
  * Layer: page (imports shared + feature components only, per docs/reference/DEPENDENCY_MAPPING.md).
  */
 // Build-time flag (Create React App inlines it): Vercel exposes REACT_APP_VERCEL_ENV = production | preview | development
@@ -22,7 +24,8 @@ const IS_PREVIEW_BUILD = process.env.NODE_ENV === 'development' || process.env.R
 const PlansPage = () => {
   const { user, userRoles, isAuthenticated, loading } = useUser();
   const [showProposed, setShowProposed] = useState(true);
-  const proposed = IS_PREVIEW_BUILD && showProposed;
+  // previews: the switch below; production: PROPOSED_PLANS_LIVE
+  const proposed = IS_PREVIEW_BUILD ? showProposed : PROPOSED_PLANS_LIVE;
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -34,8 +37,9 @@ const PlansPage = () => {
             <span>
               <strong>Preview.</strong>{' '}
               {proposed
-                ? 'Proposed plans (Basic+ with the Payroll and HR packs) - not live yet; production shows the current plans.'
-                : 'Current plans, as live in production.'}
+                ? `Proposed plans (Basic+ with the Payroll and HR packs) - ${PROPOSED_PLANS_LIVE
+                  ? 'production shows these too.' : 'not live yet; production shows the current plans.'}`
+                : `Current plans (the server catalogue)${PROPOSED_PLANS_LIVE ? '.' : ', as live in production.'}`}
             </span>
             <button type="button" onClick={() => setShowProposed(!showProposed)}
               className="rounded-md border border-amber-400 bg-white px-3 py-1 font-medium hover:bg-amber-100 dark:border-amber-600 dark:bg-gray-800 dark:hover:bg-gray-700">

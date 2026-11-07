@@ -1,12 +1,21 @@
 /**
  * PROPOSED plan line-up (PLAN_PlanTiers_Subscriptions_20261031.md U9 / §2b, 1 Nov 2026) - shown on PREVIEW builds of the
- * public /plans page only. NOT the live catalogue: the server (AppScript v10.2 PLAN_CATALOG) still has three plans, and
+ * public /plans page, and in production while PROPOSED_PLANS_LIVE is true. NOT the server catalogue: the server (AppScript v10.2 PLAN_CATALOG) still has three plans, and
  * src/config/plans.js must keep matching it (`npm run check:api-contract`). When U9 is built on the server, this file's
  * content moves into plans.js and this file is deleted.
  * Names here deliberately avoid the literals the contract check reads (TIERS, LIMITS, PLAN_ORDER).
  * Layer: config (imports config/pricing only - the SHOW_PRICES switch).
  */
 import { SHOW_PRICES } from './pricing';
+
+/**
+ * Production switch for this line-up (user, 8 Nov 2026: "ready the 4 tier plan + promo banner to main3").
+ *   true  = production shows the four plans too (/plans and the home page plan list), without the preview note / switch.
+ *   false = production shows the live three-plan catalogue (src/config/plans.js); previews keep the proposed / current switch.
+ * Display only: the server's PLAN_CATALOG still decides what a company can do (compliance F1) - Basic+ and the packs are
+ * not on the server yet (PLAN_PlanTiers U9), so a Basic+ customer is set up by hand until then. Prices: SHOW_PRICES.
+ */
+export const PROPOSED_PLANS_LIVE = true;
 
 export const PROPOSED_PLAN_ORDER = ['basic', 'basic_plus', 'advanced', 'enterprise'];
 

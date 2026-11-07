@@ -4,8 +4,8 @@
  *
  * To change it, edit this object and redeploy:
  *   - enabled   true / false. The Vercel env var REACT_APP_PROMO_BANNER = on | off overrides it (no code change; redeploy).
- *   - showOn    'preview' = Vercel previews + local development only (prices are not public yet - website decision W2);
- *               'all'     = production too (once prices are approved)
+ *   - showOn    'preview' = Vercel previews + local development only;
+ *               'all'     = production too (safe while prices are hidden: the text then has the % saving only)
  *   - pages     where it appears: 'home', 'plans'
  *   - endsOn    optional last day 'YYYY-MM-DD' (company calendar, PH): from the next day it hides itself; '' = no end
  *   - badge, text, cta - the words. Keep the numbers in `text` in line with the founding price (PROPOSAL_Pricing PR5,
@@ -20,7 +20,7 @@ import { SHOW_PRICES } from './pricing';
 
 export const PROMO_BANNER = {
   enabled: true,
-  showOn: 'preview', // 'preview' | 'all'
+  showOn: 'all', // 'preview' | 'all' - 'all' from 8 Nov 2026 (user: "ready the 4 tier plan + promo banner to main3")
   pages: ['home', 'plans'],
   endsOn: '',
   badge: 'Founding customers',
