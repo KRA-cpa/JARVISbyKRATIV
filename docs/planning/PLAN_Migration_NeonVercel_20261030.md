@@ -2,14 +2,15 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_NeonVercel_20261030.md | Author: Kenneth R. Advento | Version: 1.2.1
-Created: 30 October 2026 UTC+8 (Philippine Standard Time) | Modified: 31 October 2026 UTC+8 (Philippine Standard Time)
+Document: PLAN_Migration_NeonVercel_20261030.md | Author: Kenneth R. Advento | Version: 1.3.0
+Created: 30 October 2026 UTC+8 (Philippine Standard Time) | Modified: 8 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Plan to move the backend from Google Sheets + Apps Script to Vercel functions + Neon Postgres (+ Cloudflare R2), designed for heavy use, without changing the frontend's API contract | Status: Draft — for review; Phase 0 starts after AppScript v9.4 / v9.5 are live
 REVISION HISTORY:
 - v1.0.0 | 30 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Initial plan (session 7e008704), from the reco (19 Oct 2026) and docs/planning/REVIEW_AppScriptReco_20261030.md
 - v1.1.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §11 future option: client-hosted SQL database (shapes, pros / cons, decisions to keep the path open, testing without the client database)
 - v1.2.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §12 v10 features on Postgres (pointer to PLAN_FeatureGaps_Volume_20261031.md §6; session 2d369f00)
 - v1.2.1 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §12: the notification partition drop approved by the user
+- v1.3.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Asia rule + hosting check (session 61523343): servers must be in Asia; Firebase Auth is US-only and Vercel functions default to iad1 (US); recommended cheapest all-Asia stack (Cloud Run Singapore + Neon Singapore + Better Auth + SES Singapore) pending the user's confirmation - CHECK_HostingPricing_20261108.md; chronological deploy steps - docs/guides/CHECKLIST_Deploy_PostgresNeon_20261108.md
 ===============================================================================
 -->
 
@@ -18,6 +19,7 @@ REVISION HISTORY:
 > **Inputs:** the reco "TicketFlow: Apps Script Recommendations & Migration Plan" (19 Oct 2026) and its review `docs/planning/REVIEW_AppScriptReco_20261030.md`.
 > **Decisions (user, 30 Oct 2026):** design for **heavy use** → reco **Option A** (mirror Sheets into Postgres, move reads first, then freeze writes and flip them); **both** auth providers (Firebase now, Auth.js / Better Auth later).
 > **Phase gates:** the non-functional targets in `Claude.md` (latency, query budgets, correctness rules). A phase is done only when its actions meet them.
+> **Asia rule + hosting check (user, 8 Nov 2026; v1.3.0):** servers must be in Asia, ranked Philippines > Southeast Asia > rest of Asia > cheapest. No provider checked has a Philippine database or app region. Two parts of this plan fail the rule as written: **Firebase Authentication runs only in US data centers** (§3 "Firebase now") and **Vercel functions default to `iad1` (US)** (§2 pins `sin1` - keep it). The cheapest all-Asia stack is **Cloud Run Singapore + Neon Singapore + Better Auth in Neon + SES Singapore** (runner-up: Cloudflare; then Vercel Pro `sin1`) - `docs/planning/CHECK_HostingPricing_20261108.md` §6, with its catches and the DPA / Terms / Privacy changes (§7). **Pending the user's confirmation**; the phases below stay valid on any of the three hosts. Step-by-step order: `docs/guides/CHECKLIST_Deploy_PostgresNeon_20261108.md`.
 
 ---
 
@@ -187,7 +189,8 @@ create table auth_identities (
 | Item | Note |
 |---|---|
 | Data privacy | If employer data is in TicketFlow, get IT / Data Privacy Act clearance before moving it to Neon / R2 |
-| Plans and cost | Vercel Hobby forbids commercial use - Pro before charging customers; Neon Launch (no scale-to-zero cold starts) |
+| Plans and cost | Vercel Hobby forbids commercial use, including *"Advertising the sale of a product or service"* - the live site's /plans page and founding offer already count, so Pro **now** if the site stays on Vercel (8 Nov 2026 check); Neon Launch before the first paying customer (Free suspends compute at its limit). Prices per location: `CHECK_HostingPricing_20261108.md` |
+| Server location (8 Nov 2026) | Servers must be in Asia: Neon `aws-ap-southeast-1`, functions in Singapore, SES `ap-southeast-1`; Firebase Auth (US-only) replaced by Better Auth before the cutover; the DPA's new-sub-processor notice ≥ [[30]] days before it |
 | IP ownership | Check the invention-assignment clause of the employment contract before commercializing |
 | SLA day logic | Postgres stores UTC; "Due Today", business days and holidays in Asia/Manila |
 | Open S1 part 3 | Admin-only routes need server-side checks before Phase 2 (they are written that way in the new handlers; REVIEW §4) |

@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PROPOSAL_Pricing_20261102.md | Author: Kenneth R. Advento | Version: 0.9.0
-Created: 2 November 2026 UTC+8 (Philippine Standard Time) | Modified: 2 November 2026 UTC+8 (Philippine Standard Time)
+Document: PROPOSAL_Pricing_20261102.md | Author: Kenneth R. Advento | Version: 0.10.0
+Created: 2 November 2026 UTC+8 (Philippine Standard Time) | Modified: 8 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Peso cost of the cloud services Daloy runs on + a proposed price list (plans, add-ons, one-time fees) for the four plans (PLAN_PlanTiers U9 / U10) | Status: PROPOSAL - not decided; website decision W2 ("no prices yet") still stands until approved
 REVISION HISTORY:
+- v0.10.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Costs checked on the providers' own pages (CHECK_HostingPricing_20261108.md, session 61523343): servers must be in Asia; cheapest all-Asia stack added to §1; Firebase Spark line corrected (50K MAU on Spark too; and Firebase Auth is US-only); email → SES Singapore
 - v0.9.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User approved: Basic+ $35 (PR9) and the founding-customer price $29 / month for 12 months (PR5); PR10 still open
 - v0.8.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §3c add-on crossover projection vs the next plan (user); users about right, tickets too cheap; proposed ticket add-ons $10 / 250 and $25 / 1,000 (PR10)
 - v0.7.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §3b first-year cost with setup ON TOP of the monthly fee (user); Basic+ options $39 / $35 / $33 / $31 - prices unchanged until decided (PR9)
@@ -37,13 +38,14 @@ previous month's BSP rate (General Terms §5.1a); when BSP is below ₱66, state
 |---|---|---|---|---|
 | **Vercel Pro** | website, app, proxy / server | $20 / month, 1 deploying seat, incl. $20 usage credit; +$20 per extra deploying seat; usage above the credit is metered | **₱1,320** | Hobby (free) is **non-commercial only** - Pro is required once customers pay |
 | **Google Workspace Business Starter** (platform account) | Apps Script owner, Sheets, mail (1,500 recipients / day vs 100 on Gmail) | $7 / user (annual) - $8.40 (flexible) | **₱462-554** + 12% VAT = **₱517-621** | 1 user is enough today |
-| **Firebase Authentication** | Google sign-in | free up to **50,000 MAU** (Blaze) | **₱0** | Spark (free plan) caps at 3,000 daily active users - use Blaze, still ₱0 at our size |
+| **Firebase Authentication** | Google sign-in | free up to **50,000 MAU** (Spark and Blaze - firebase.google.com/pricing, checked 8 Nov 2026; the earlier "Spark caps at 3,000 DAU" note is superseded) | **₱0** | **US-only** (*"run only from US data centers"*) - fails the Asia rule; replaced by Better Auth in Neon at the cloud-server stage |
 | Domain (.com / .ph) | daloy.* | ~$12-40 / year | **~₱66-220** / month | decision W4 |
 | **Today (Apps Script stage) - total** | | | **≈ ₱1,900-2,200 / month** | |
 | **Neon Postgres - Launch** (cloud server, PLAN_ServerCore) | database | usage: $0.106 / CU-hour + $0.35 / GB-month; small apps ~$15 | **₱990-2,640** ($15-40) | scale-to-zero keeps it low; an always-on 4-CU DB would be ~$345 - not needed |
 | **Resend Pro** (or similar) | email from the cloud server | $20 / 50,000 emails | **₱1,320** | free tier 3,000 / month may do at first |
 | Accounting / billing system | invoices, credit memos, BIR | [[not researched]] | [[₱1,500-3,000]] | issues the BIR-compliant invoices (plans §2c) |
 | **Cloud-server stage - total** | | | **≈ ₱5,700-9,100 / month** | before growth |
+| ⭐ **Cloud-server stage, cheapest all-Asia stack** (8 Nov 2026 check) | Cloud Run Singapore (website + API) + Neon Singapore + Better Auth + **SES Singapore** ($0.10 / 1,000 emails) | ≈ $0.15 pilot / ≈ $12 at 1-3 companies / ≈ $42-47 at 10 companies (Cloud Run Tier 2 + egress UNVERIFIED) | **≈ ₱10 / ₱790 / ₱2,770-3,100** + Workspace, domain, accounting as above | `docs/planning/CHECK_HostingPricing_20261108.md` §6 - replaces Vercel Pro + Resend in this stage if confirmed; runner-up Cloudflare (+$5) |
 
 **VAT on these:** foreign digital services sold to Philippine buyers now carry **12% VAT** (RA 12023) - expect it on
 Vercel / Neon / Resend bills *(verify how each vendor charges it)*.
