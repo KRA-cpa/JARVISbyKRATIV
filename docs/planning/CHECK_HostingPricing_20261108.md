@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: CHECK_HostingPricing_20261108.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: CHECK_HostingPricing_20261108.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 8 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Answer to docs/guides/PROMPT_CheckHostingPricing.md - current prices, free-tier limits, terms and SERVER LOCATIONS of the services Daloy can run on, ranked Philippines > Southeast Asia > rest of Asia > cheapest elsewhere; the cheapest all-Asia stack with its catches and its DPA / Terms / Privacy Policy implications | Status: Active - recommendation pending the user's confirmation and the UNVERIFIED items (§4)
 REVISION HISTORY:
+- v1.1.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User decided: production → Cloud Run Singapore behind Firebase Hosting (daloy.blueknight.xyz), previews stay on Vercel Hobby (risk accepted); custom-domain options checked (§4) - Firebase Hosting chosen
 - v1.0.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 61523343). User rules: servers must be in Asia; PH > SEA > Asia > cheapest; recommend the cheapest overall + catches + legal implications
 ===============================================================================
 -->
@@ -87,8 +88,14 @@ REVISION HISTORY:
 
 ## §4 Changed or uncertain
 - **UNVERIFIED - check before committing:** Cloud Run Tier 2 (Singapore) per-unit rates; Cloud Run internet egress rates;
-  Cloud Run **custom domain** options in `asia-southeast1` (domain mapping vs a paid load balancer vs Firebase Hosting
-  rewrites); AWS Manila EC2 prices; local PH provider prices.
+  AWS Manila EC2 prices; local PH provider prices.
+- **Custom domain - checked (v1.1.0):** Cloud Run domain mapping supports `asia-southeast1` but *"Cloud Run domain mappings
+  are in the preview launch stage"* and *"not production-ready"* (docs.cloud.google.com/run/docs/mapping-custom-domains).
+  **Firebase Hosting** rewrites to Cloud Run in `asia-southeast1` (firebase.google.com/docs/hosting/cloud-run), needs a
+  billing account (Blaze), *"60-second request timeout"*; Hosting includes *"10 GB"* storage and *"360 MB/day"* transfer at
+  no cost, then $0.026 / GB stored and $0.15 / GB transferred (firebase.google.com/pricing); *"Only the specially-named
+  `__session` cookie is permitted to pass through"* (firebase.google.com/docs/hosting/manage-cache). → **Chosen: Firebase
+  Hosting** in front of Cloud Run.
 - Neon Free storage: **0.5 GB** per project on the plans page vs *"1 GB/project"* in the pricing summary - confirm in the console.
 - **Firebase Spark:** the pricing page now shows 50K MAU at no cost on Spark too; `PROPOSAL_Pricing` says Spark *"caps at
   3,000 daily active users"* - corrected there.
@@ -128,6 +135,10 @@ C = 400 users, 60,000, 3 GB. Working hours Mon–Fri 10 / 12 / 14 h. Jobs every 
 Add **Neon Scale (~+$40 at C)** only if Daloy promises an uptime SLA. Neon: Free with jobs every 30 min at A, **Launch
 before the first paying customer**.
 
+**Decided (user, 8 Nov 2026, v1.1.0):** production moves off Vercel to **Cloud Run `asia-southeast1` behind Firebase
+Hosting at `daloy.blueknight.xyz`**; **Vercel keeps the previews on Hobby** (the user accepts the commercial-use risk);
+backend stays Apps Script until the Postgres steps. How: `docs/guides/GUIDE_Deploy_CloudRun_FirebaseHosting.md`.
+
 **Recommendation:** ⭐ the Cloud Run Singapore stack - the cheapest at every stage, all in Singapore. If the UNVERIFIED Cloud
 Run items (§4) come out worse, or containers are unwanted, take the Cloudflare runner-up ($5 more per month, all prices
 verified).
@@ -137,7 +148,8 @@ verified).
 2. Google Cloud billing account with a card; the free tier is a spending discount → set budget alerts.
 3. Containers (Dockerfile, Artifact Registry, a deploy pipeline). **No automatic per-branch preview links** like Vercel's
    (today's preview-before-push habit) - use Cloud Run revision tags instead.
-4. Custom domain in `asia-southeast1` UNVERIFIED; the address changes from `jarvis-by-erp.vercel.app`.
+4. Custom domain via Firebase Hosting (checked, §4): 60 s request limit, only the `__session` cookie passes; the address
+   changes from `jarvis-by-erp.vercel.app` to `daloy.blueknight.xyz`.
 5. Cold starts: Cloud Run scales to zero and Neon suspends after 5 min - the first request after idle is slower (not measured).
 6. Neon Free suspends compute at its limit (never for a paying customer); **no uptime SLA below Neon Scale**.
 7. Sign-in moves off Firebase - session security becomes ours (Better Auth).

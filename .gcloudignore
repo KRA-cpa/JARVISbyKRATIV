@@ -1,0 +1,14 @@
+# Files uploaded by `gcloud run deploy --source .` (Cloud Build). Without this file gcloud falls back to .gitignore,
+# which excludes /build - the image needs it. Upload only what the Dockerfile copies.
+**
+!Dockerfile
+!server/
+!server/**
+!api/
+!api/_lib/
+!api/_lib/**
+!build/
+!build/**
+# Never upload these even if a negation above matches
+**/.env*
+**/node_modules/

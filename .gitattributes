@@ -1,0 +1,2 @@
+# Shell scripts must keep LF endings in the working tree, or Git Bash fails on "$'\r'" (scripts/*.sh)
+*.sh text eol=lf

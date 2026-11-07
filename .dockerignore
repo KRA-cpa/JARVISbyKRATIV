@@ -1,0 +1,12 @@
+# Local `docker build .` - same idea as .gcloudignore: only what the Dockerfile copies
+**
+!Dockerfile
+!server/
+!server/**
+!api/
+!api/_lib/
+!api/_lib/**
+!build/
+!build/**
+**/.env*
+**/node_modules/

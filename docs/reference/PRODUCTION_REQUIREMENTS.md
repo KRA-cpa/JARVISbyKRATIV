@@ -1,7 +1,7 @@
 # JarvisByERP Production Requirements
 
-**Date**: September 17, 2025
-**Version**: 1.0
+**Date**: September 17, 2025 (production host move noted 8 November 2026)
+**Version**: 1.1
 **Status**: Current Production Stack Documentation
 
 ## Runtime Environment Requirements
@@ -10,7 +10,7 @@
 - **Current Version**: Node.js v22.14.0
 - **Minimum Required**: Node.js v18.0.0 or higher
 - **Package Manager**: npm v10.9.2
-- **Deployment Platform**: Vercel (React SPA deployment)
+- **Deployment Platform**: Vercel (React SPA deployment) - **moving (user, 8 Nov 2026):** production → Google Cloud Run `asia-southeast1` behind Firebase Hosting (`daloy.blueknight.xyz`), Vercel keeps previews; see *Deployment Platform* below
 
 ### **Browser Support**
 **Production Targets:**
@@ -45,6 +45,7 @@
 }
 ```
 - **`jose`** *(added 30 Oct 2026, AppScript v9.4)*: used only by the Vercel function `api/appscript-proxy.js` (never bundled into the React app) to verify the Firebase ID token against Google's securetoken JWKS before forwarding to Apps Script (compliance F6). v5 runs on Node 18+ (Vercel's Node runtime) in both ESM and CJS.
+- **`express` + `jose` in the Cloud Run image** *(8 Nov 2026, no new packages)*: `server/app.js` (Express 5) serves the same `api/_lib/proxyCore.js` handler and the React build on Cloud Run. The image installs only these two from `server/package.json` (exact versions **5.1.0 / 5.9.6**, kept equal to the root `package.json` - change both together). Test: `node scripts/test-cloudrun-server.js` (13).
 
 ### **UI Framework & Styling**
 ```json
@@ -161,6 +162,7 @@ npm run eject  # Eject from CRA (not recommended)
 - **Primary**: Vercel (static React deployment)
 - **CDN**: Vercel Edge Network
 - **Environment Variables**: Configured via Vercel dashboard
+- **Production move (user, 8 Nov 2026 - servers must be in Asia; cheapest all-Asia option, `docs/planning/CHECK_HostingPricing_20261108.md`):** production → **Google Cloud Run `asia-southeast1` (Singapore)**, service `daloy` (`server/app.js`, `Dockerfile`, `scripts/deploy-cloudrun.sh`), behind **Firebase Hosting** (`firebase.json`: static build + `/api/**` rewrite to Cloud Run) at **`daloy.blueknight.xyz`**; secrets `PROXY_SECRET` / `APPS_SCRIPT_URL` in Secret Manager; same proxy env otherwise. **Vercel keeps the previews** (Hobby - the user accepts the commercial-use risk) and the old production `/api/appscript-proxy`. Limits: Firebase Hosting 60 s per request; only the `__session` cookie reaches Cloud Run. Steps: `docs/guides/GUIDE_Deploy_CloudRun_FirebaseHosting.md`
 - **Proxy env (from AppScript v9.4)**: `APPS_SCRIPT_URL` (the web app exec URL), `PROXY_SECRET` (same value as the Apps Script Script Property), `AUTH_MODE` (`off` | `warn` | `enforce`), `FIREBASE_PROJECT_ID`. Without `APPS_SCRIPT_URL` the proxy falls back to the deployment URL in the file
 
 ## Architecture Requirements

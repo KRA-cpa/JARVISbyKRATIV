@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: CHECKLIST_Deploy_PostgresNeon_20261108.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: CHECKLIST_Deploy_PostgresNeon_20261108.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 8 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Chronological checklist to move Daloy from Google Sheets + Apps Script to Postgres on Neon, on the cheapest all-Asia stack (Cloud Run Singapore + Neon Singapore + Better Auth + SES Singapore) | Status: Draft - starts when the user confirms the stack (step 0)
 REVISION HISTORY:
+- v1.1.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Step H: host move first (user: "move production to not vercel, preview in vercel"; previews on Vercel Hobby; domain daloy.blueknight.xyz via Firebase Hosting) - GUIDE_Deploy_CloudRun_FirebaseHosting.md; Better Auth cookie must be __session
 - v1.0.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 61523343) from PLAN_Migration_NeonVercel_20261030.md §6-§9 and CHECK_HostingPricing_20261108.md §6-§7 (user: "create a checklist of chronological steps to deploy to postgres/neon", "based on the cheapest option")
 ===============================================================================
 -->
@@ -26,17 +27,26 @@ tests, docs. **Gate** = must be true before the next step starts.
 
 ---
 
+## H. Host move first (decided 8 Nov 2026) - production off Vercel, backend unchanged
+- [x] **You** - Production moves to Cloud Run Singapore behind **Firebase Hosting** at **`daloy.blueknight.xyz`**;
+      **previews stay on Vercel Hobby** (commercial-use risk accepted); front door = Firebase Hosting (Cloud Run domain
+      mapping is Preview / "not production-ready" - `CHECK_HostingPricing` §4).
+- [ ] **You + Claude** - run `docs/guides/GUIDE_Deploy_CloudRun_FirebaseHosting.md` A → D (set-up, test revision,
+      domain, Vercel to previews only). Code is ready: `server/app.js`, `Dockerfile`, `firebase.json`,
+      `scripts/deploy-cloudrun.sh`; test `node scripts/test-cloudrun-server.js` (13).
+- **Gate:** `daloy.blueknight.xyz` serves production; Vercel builds previews only. Steps 1–13 below then run behind
+  the same address (step 9's domain switch is already done; step 12 keeps Vercel for previews).
+
 ## 0. Decide and verify (before anything is built)
-- [ ] **You** - Confirm the stack above (it replaces Vercel + Firebase in `PLAN_Migration`, and settles cloud choice O11 in
-      `PLAN_ServerCore_OrgSheetBridge_20261101.md` §5a).
+- [x] **You** - Stack confirmed for hosting (Cloud Run Singapore, step H). Still to confirm for the data move: Neon
+      Singapore + Better Auth + SES (settles cloud choice O11 in `PLAN_ServerCore_OrgSheetBridge_20261101.md` §5a).
 - [ ] **You + Claude** - Verify the UNVERIFIED items in `CHECK_HostingPricing` §4: Cloud Run Tier 2 (Singapore) rates and
-      egress in the Google pricing calculator; the custom-domain option in `asia-southeast1`. If they come out worse, switch
-      to the Cloudflare runner-up.
+      egress in the Google pricing calculator (the custom domain is settled: Firebase Hosting). Watch the budget alerts
+      after step H.
 - [ ] **You** - Data Privacy Act / IT clearance to move company data to Singapore; the IP / invention-assignment clause
       (`PLAN_Migration` §10).
 - [ ] **You** - A lawyer reviews the DPA / Privacy / Terms changes (`CHECK_HostingPricing` §7).
-- [ ] **You** - Meanwhile, the live site advertises plans (commercial use): put the Vercel team on **Pro** now, or plan the
-      domain move (step 9) sooner.
+- [x] **You** - Vercel: production leaves Vercel in step H; previews stay on Hobby (risk accepted, 8 Nov 2026).
 - **Gate:** stack confirmed, prices verified, clearance given.
 
 ## 1. Accounts and environment (You)
@@ -83,7 +93,8 @@ tests, docs. **Gate** = must be true before the next step starts.
   events).
 
 ## 6. Sign-in move (Claude)
-- [ ] Better Auth with **Google sign-in**; its tables in Neon; the `authjs` adapter in the identity layer.
+- [ ] Better Auth with **Google sign-in**; its tables in Neon; the `authjs` adapter in the identity layer. Its session
+      cookie must be named **`__session`** - the only cookie Firebase Hosting passes to Cloud Run.
 - [ ] `users` + `auth_identities`: the **Firebase uid stays the user id** (no re-keying of `requester_id` etc.); linking a
       second provider only after admin approval (`PLAN_Migration` §3).
 - [ ] Sign-in allow-list + invites carried over (v9.6 rules).
@@ -129,8 +140,8 @@ tests, docs. **Gate** = must be true before the next step starts.
 - [ ] **Neon Launch before the first paying customer** (Free suspends at its limit); decide scale-to-zero for production.
 - [ ] Remove the Apps Script fallback and `READ_ONLY` handling; Row-Level Security on `company_id`.
 - [ ] Scheduled backups; monitoring + alerts.
-- [ ] Retire **Firebase Auth**, the **Vercel** project (remove `@vercel/speed-insights`) and the **Apps Script**
-      deployment (after the 2 weeks).
+- [ ] Retire **Firebase Auth** and the **Apps Script** deployment (after the 2 weeks). **Vercel stays for previews**
+      (step H); `@vercel/speed-insights` only reports on Vercel - keep or remove.
 - [ ] Update `docs/reference/PRODUCTION_REQUIREMENTS.md`, the deploy guide and `Claude.md`.
 
 ## 13. Ongoing

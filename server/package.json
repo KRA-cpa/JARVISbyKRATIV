@@ -1,0 +1,16 @@
+{
+  "name": "daloy-server",
+  "private": true,
+  "description": "Runtime dependencies of the Cloud Run image only (server/ + api/_lib/). Versions match the root package.json; change both together.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "express": "5.1.0",
+    "jose": "5.9.6"
+  }
+}
