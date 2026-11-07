@@ -1,10 +1,17 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import Icons from '../shared/Icons';
+import PromoBanner from '../shared/PromoBanner';
+import { BRAND_NAME, CONTACT, contactMailto } from '../../config/site';
 import {
   PLAN_ORDER, PLAN_NAMES, PLAN_TAGLINES, CORE_FEATURES, PLAN_FEATURE_GROUPS, PLAN_LIMIT_LABELS, PLAN_CATALOG_COPY,
   formatPlanLimit
 } from '../../config/plans';
+import {
+  PROPOSED_PLAN_ORDER, PROPOSED_PLAN_NAMES, PROPOSED_PLAN_TAGLINES, PROPOSED_ADDED_FEATURES, PROPOSED_PACK_GROUP,
+  PROPOSED_BASIC_PLUS_LIMITS, PROPOSED_NOTES, PROPOSED_ALLOWANCE_KEYS, PROPOSED_ADDON_BLOCKS, PROPOSED_RATE, PROPOSED_PRICES,
+  PROPOSED_ADDON_PRICES_USD
+} from '../../config/plansProposed';
 
 /**
  * PlanCatalog - the Basic / Advanced / Enterprise catalogue (AppScript v10.2) for the public /plans page. Static: it renders
@@ -13,50 +20,150 @@ import {
  * the server catalogue differ. A company's own plan + usage is shown on Company -> Plan & usage (v10.2 P5), not here.
  * Layer: feature component (shared + config only, per docs/reference/DEPENDENCY_MAPPING.md). Mounted by PlansPage.
  * @param {boolean} signedIn - shows Sign in (visitors) or Go to dashboard (signed-in users) in the closing line
+ * @param {boolean} proposed - the PROPOSED four-plan line-up (src/config/plansProposed.js, PLAN_PlanTiers U9), shown on
+ *   preview builds only (PlansPage); the default is the live catalogue copy
  */
 
 const PLAN_ACCENTS = {
   basic: 'border-gray-300 dark:border-gray-600',
   advanced: 'border-blue-500 dark:border-blue-400',
+  basic_plus: 'border-teal-500 dark:border-teal-400',
   enterprise: 'border-purple-500 dark:border-purple-400'
 };
 
 const byKey = Object.fromEntries(PLAN_CATALOG_COPY.plans.map(p => [p.plan, p]));
-const PLANS = PLAN_ORDER.filter(key => byKey[key]).map(key => ({ ...byKey[key], features: new Set(byKey[key].features) }));
 const LIMIT_KEYS = PLAN_CATALOG_COPY.limit_keys;
+
+/** Money for display (compliance F3 v3: thousands separators by hand, no toLocale*). */
+const usd = value => `$${Number.isInteger(value) ? value : value.toFixed(2)}`;
+const pesoOf = valueUsd => `₱${formatPlanLimit(Math.round(valueUsd * PROPOSED_RATE.phpPerUsd))}`;
+
+/** The proposed price block of a plan card (preview only). */
+const PriceBlock = ({ planKey }) => {
+  const price = PROPOSED_PRICES[planKey];
+  if (!price) return null;
+  return (
+    <div className="mt-4">
+      <p className="text-gray-900 dark:text-white">
+        {price.from && <span className="text-sm font-medium text-gray-500 dark:text-gray-400">from </span>}
+        <span className="text-3xl font-bold">{usd(price.usd)}</span>
+        <span className="text-sm text-gray-500 dark:text-gray-400"> / month</span>
+      </p>
+      <p className="text-xs text-gray-500 dark:text-gray-400">≈ {pesoOf(price.usd)} at the {PROPOSED_RATE.month} BSP rate · VAT-exclusive</p>
+      <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+        + {price.from ? 'from ' : ''}₱{formatPlanLimit(price.setupPhp)} one-time setup, billed with the first month{' '}
+        <span className="text-gray-400">(optional)</span>
+      </p>
+    </div>
+  );
+};
+
+/** The live catalogue: plans from the copy of the server catalogue. */
+const LIVE = {
+  plans: PLAN_ORDER.filter(key => byKey[key]).map(key => ({ ...byKey[key], features: new Set(byKey[key].features) })),
+  taglines: PLAN_TAGLINES,
+  groups: PLAN_FEATURE_GROUPS,
+  notes: []
+};
+
+/** The proposed line-up: the live plans + Basic+ (Basic + packs); Advanced and up add the pack on / off switch. */
+const PROPOSED = (() => {
+  let running = [];
+  const plans = PROPOSED_PLAN_ORDER.map(key => {
+    const live = byKey[key];
+    const liveAdded = live ? live.features.filter(f => !running.includes(f)) : [];
+    running = running.concat(PROPOSED_ADDED_FEATURES[key] || [], liveAdded);
+    return {
+      plan: key,
+      name: PROPOSED_PLAN_NAMES[key],
+      features: new Set(running),
+      limits: live ? { ...live.limits } : { ...PROPOSED_BASIC_PLUS_LIMITS }
+    };
+  });
+  return { plans, taglines: PROPOSED_PLAN_TAGLINES, groups: [PROPOSED_PACK_GROUP, ...PLAN_FEATURE_GROUPS], notes: PROPOSED_NOTES };
+})();
 
 const Mark = ({ on }) => (on
   ? <span className="inline-flex text-green-600 dark:text-green-400" aria-label="Included"><Icons.CheckCircle size={18} /></span>
   : <span className="text-gray-300 dark:text-gray-600" aria-label="Not included">—</span>);
 
-const addedCount = index => (index === 0 ? 0 : PLANS[index].features.size - PLANS[index - 1].features.size);
-
-const PlanCatalog = ({ signedIn = false }) => (
+const PlanCatalog = ({ signedIn = false, proposed = false }) => {
+  const { plans: PLANS, taglines, groups, notes } = proposed ? PROPOSED : LIVE;
+  const addedCount = index => (index === 0 ? 0 : PLANS[index].features.size - PLANS[index - 1].features.size);
+  const gridCols = PLANS.length === 4 ? 'md:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-3';
+  return (
   <div className="space-y-8">
     <div>
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Plans</h1>
       <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-        Each company runs on one plan. A higher plan includes everything in the lower ones.
+        Each company runs on one plan, and every plan includes the core flow from request to approval. A higher plan includes
+        everything in the lower ones.
       </p>
     </div>
 
-    <section aria-label="Plans" className="grid grid-cols-1 gap-6 md:grid-cols-3">
+    {/* promotional banner (src/config/promo.js - on / off, where, words); shared with the home page */}
+    <PromoBanner page="plans" />
+
+    <section aria-label="Plans" className={`grid grid-cols-1 gap-6 ${gridCols}`}>
       {PLANS.map((plan, index) => (
+        // Subgrid (user, 2 Nov 2026: "make it aligned"): every card spans the same rows of the section grid, so name,
+        // price, summary, "Included" and "Need more?" start at the same height in every card of a row
         <div key={plan.plan}
-          className={`flex flex-col rounded-xl border-2 bg-white p-6 shadow-sm dark:bg-gray-800 ${PLAN_ACCENTS[plan.plan] || PLAN_ACCENTS.basic}`}>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">{plan.name || PLAN_NAMES[plan.plan]}</h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{PLAN_TAGLINES[plan.plan]}</p>
+          className={`grid grid-rows-subgrid gap-y-0 ${proposed ? 'row-span-6' : 'row-span-4'} rounded-xl border-2 bg-white p-6 shadow-sm dark:bg-gray-800 ${PLAN_ACCENTS[plan.plan] || PLAN_ACCENTS.basic}`}>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">{plan.name || PLAN_NAMES[plan.plan]}</h2>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{taglines[plan.plan]}</p>
+          </div>
+          {proposed && <div><PriceBlock planKey={plan.plan} /></div>}
           <p className="mt-4 text-sm font-medium text-gray-800 dark:text-gray-100">
-            {index === 0 ? 'The core ticket loop' : `Everything in ${PLANS[index - 1].name}, plus ${addedCount(index)} features`}
+            {index === 0 ? 'The core flow' : `Everything in ${PLANS[index - 1].name}, plus ${addedCount(index)} features`}
           </p>
-          <dl className="mt-4 space-y-2 border-t border-gray-100 pt-4 text-sm dark:border-gray-700">
-            {LIMIT_KEYS.map(key => (
-              <div key={key} className="flex justify-between gap-4">
-                <dt className="text-gray-600 dark:text-gray-400">{PLAN_LIMIT_LABELS[key] || key}</dt>
-                <dd className="font-semibold tabular-nums text-gray-900 dark:text-white">{formatPlanLimit(plan.limits[key])}</dd>
-              </div>
-            ))}
-          </dl>
+          <div>
+            {proposed && <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Included</p>}
+            <dl className={`${proposed ? 'mt-2' : 'mt-4'} space-y-2 border-t border-gray-100 pt-4 text-sm dark:border-gray-700`}>
+              {LIMIT_KEYS.map(key => (
+                <div key={key} className="flex justify-between gap-4">
+                  <dt className="text-gray-600 dark:text-gray-400">
+                    {PLAN_LIMIT_LABELS[key] || key}
+                    {proposed && PROPOSED_ALLOWANCE_KEYS.includes(key) && <span className="text-teal-700 dark:text-teal-300"> *</span>}
+                  </dt>
+                  <dd className="font-semibold tabular-nums text-gray-900 dark:text-white">{formatPlanLimit(plan.limits[key])}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+          {proposed && (
+            <div>
+              {PROPOSED_ADDON_BLOCKS[plan.plan] && (
+                // Click to show (user, 2 Nov 2026): native <details>, keyboard and screen-reader friendly, no state
+                <details className="group mt-4 rounded-md bg-teal-50 px-3 py-2 text-xs text-teal-900 dark:bg-teal-900/30 dark:text-teal-100">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 font-semibold [&::-webkit-details-marker]:hidden">
+                    <span>* Need more? Add-ons</span>
+                    <Icons.ChevronDown size={14} className="flex-none transition-transform group-open:rotate-180" />
+                  </summary>
+                  <p className="mt-2">
+                    +{PROPOSED_ADDON_BLOCKS[plan.plan].users} users for {usd(PROPOSED_ADDON_PRICES_USD[plan.plan].users)}
+                    {PROPOSED_ADDON_BLOCKS[plan.plan].tickets_per_month
+                      ? <>; +{formatPlanLimit(PROPOSED_ADDON_BLOCKS[plan.plan].tickets_per_month)} tickets for {usd(PROPOSED_ADDON_PRICES_USD[plan.plan].tickets_per_month)}</>
+                      : <>; for more tickets, talk to us</>}
+                    {' '}- per month, billed only when used.
+                  </p>
+                </details>
+              )}
+            </div>
+          )}
+          {/* Inquire (user, 2 Nov 2026): a pre-filled email to sales about this plan; hidden without a sales address (F4) */}
+          <div className="mt-4 self-end">
+            {CONTACT.salesEmail && (
+              <a href={contactMailto(CONTACT.salesEmail, `${BRAND_NAME} ${plan.name} plan inquiry`, plan.name)}
+                className={`flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold ${plan.plan === 'enterprise'
+                  ? 'bg-gray-900 text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
+                <Icons.Comment size={16} />
+                {plan.plan === 'enterprise' ? 'Talk to sales' : `Ask about ${plan.name}`}
+              </a>
+            )}
+          </div>
         </div>
       ))}
     </section>
@@ -87,7 +194,7 @@ const PlanCatalog = ({ signedIn = false }) => (
                 {PLANS.map(plan => <td key={plan.plan} className="px-4 py-2.5 text-center"><Mark on /></td>)}
               </tr>
             ))}
-            {PLAN_FEATURE_GROUPS.map(group => (
+            {groups.map(group => (
               <React.Fragment key={group.area}>
                 <tr className="bg-gray-50 dark:bg-gray-900/40">
                   <th scope="colgroup" colSpan={PLANS.length + 1} className="px-6 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -108,6 +215,7 @@ const PlanCatalog = ({ signedIn = false }) => (
     </section>
 
     <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400">
+      {notes.map(note => <p key={note}>{note}</p>)}
       <p>
         Trials last {PLAN_CATALOG_COPY.trial_default_days} days unless the platform team sets another end date. When a period ends without a
         renewal, the company keeps its plan for a grace period ({PLAN_CATALOG_COPY.grace_days.paid} days; {PLAN_CATALOG_COPY.grace_days.trial} after a trial),
@@ -123,6 +231,7 @@ const PlanCatalog = ({ signedIn = false }) => (
       </p>
     </div>
   </div>
-);
+  );
+};
 
 export default PlanCatalog;

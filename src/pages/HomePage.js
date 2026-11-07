@@ -2,15 +2,27 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import PublicHeader from '../components/shared/PublicHeader';
 import Footer from '../components/shared/Footer';
+import PromoBanner from '../components/shared/PromoBanner';
 import Icons from '../components/shared/Icons';
 import { PLAN_ORDER, PLAN_NAMES } from '../config/plans';
-// Hero animation (docs/design/ticketflow-hero/, made in claude.ai): CSS-only SVG, no script; it stops on its final frame
+import { PROPOSED_PLAN_ORDER, PROPOSED_PLAN_NAMES } from '../config/plansProposed';
+import { BRAND_NAME, BRAND_PARENT_LINE, BRAND_TAGLINE, BRAND_MEANING } from '../config/site';
+// Hero animation (docs/design/daloy-hero/ - request creation + approval flow; the ticket-only version is archived in
+// docs/archive/2026-11/ticketflow-hero/): CSS-only SVG, no script; it stops on its final frame
 // when the viewer asks for reduced motion. The app's dark mode is a class (tailwind darkMode: 'class'), so the fixed light
 // / dark variants are swapped with dark: classes rather than the OS-following file.
-import heroLight from '../assets/hero/ticketflow-hero-light.svg';
-import heroDark from '../assets/hero/ticketflow-hero-dark.svg';
+import heroLight from '../assets/hero/daloy-hero-light.svg';
+import heroDark from '../assets/hero/daloy-hero-dark.svg';
 
-const HERO_ALT = 'Purchase request moving through Manager, Finance and Done approval, ending Approved';
+// Preview builds list the PROPOSED plans (Basic / Basic+ / Advanced / Enterprise - PLAN_PlanTiers U9), like /plans;
+// production lists the live catalogue, which must match the server (compliance F1)
+const IS_PREVIEW_BUILD = process.env.NODE_ENV === 'development' || process.env.REACT_APP_VERCEL_ENV === 'preview';
+const HOME_PLANS = IS_PREVIEW_BUILD
+  ? PROPOSED_PLAN_ORDER.map(plan => PROPOSED_PLAN_NAMES[plan]).join(' · ')
+  : PLAN_ORDER.map(plan => PLAN_NAMES[plan]).join(' · ');
+
+const HERO_ALT = 'A purchase request is filled in and submitted, becomes ticket PR-2026-00000042, and moves through Manager, ' +
+  'Finance and Done approval, ending Approved';
 
 /**
  * HomePage - "/" for visitors who aren't signed in (signed-in users go to /dashboard - SmartRedirect in App.js).
@@ -21,17 +33,24 @@ const HERO_ALT = 'Purchase request moving through Manager, Finance and Done appr
 const HomePage = () => (
   <div className="min-h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
     <PublicHeader />
+    {/* promotional banner (src/config/promo.js - on / off, where, words); shared with /plans */}
+    <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 empty:hidden">
+      <PromoBanner page="home" />
+    </div>
     <main className="flex-1 flex items-center">
       {/* Text left, animation right from md up; on phones the text comes first, so the headline and the buttons stay
           above the fold and the animation follows */}
       <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-12 items-center">
       <div className="text-center md:text-left">
-        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white">TicketFlow</h1>
-        <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-          Ticketing and workflow orchestration for every company: forms, approval chains, SLAs and reports, set up without code.
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white">{BRAND_NAME}</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{BRAND_MEANING} · {BRAND_PARENT_LINE}</p>
+        <p className="mt-5 text-2xl sm:text-3xl font-semibold text-blue-700 dark:text-blue-300">{BRAND_TAGLINE}</p>
+        <p className="mt-3 text-lg text-gray-600 dark:text-gray-300">
+          Ticketing for requests, tasks and approvals, set up without code. Every request follows a clear path to the right
+          people, with deadlines and a full record.
         </p>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-          Plans: {PLAN_ORDER.map(plan => PLAN_NAMES[plan]).join(' · ')}
+          Plans: {HOME_PLANS}
         </p>
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center md:justify-start gap-3">
           <Link to="/plans"
@@ -53,7 +72,7 @@ const HomePage = () => (
       </div>
       </div>
     </main>
-    <Footer />
+    <Footer publicSite />
   </div>
 );
 

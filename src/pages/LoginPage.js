@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import { clearSessionNotice, takeSessionNotice } from '../utils/sessionGuard';
 import Icons from '../components/shared/Icons';
+import BrandMark from '../components/shared/BrandMark';
 import LoadingScreen from '../components/shared/LoadingScreen';
+import { BRAND_NAME, BRAND_PARENT_LINE, BRAND_DESCRIPTOR, BRAND_TAGLINE } from '../config/site';
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -50,13 +52,19 @@ const LoginPage = () => {
         {/* Header */}
         <div className="text-center">
           <div className="flex justify-center">
-            <Icons.Ticket size={48} className="text-blue-600" />
+            <BrandMark size={56} />
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            TicketFlow
+            {BRAND_NAME}
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Ticketing & Workflow Orchestration System
+          <p className="mt-1 text-xs text-gray-500">
+            {BRAND_PARENT_LINE}
+          </p>
+          <p className="mt-3 text-lg font-semibold text-blue-700">
+            {BRAND_TAGLINE}
+          </p>
+          <p className="mt-1 text-sm text-gray-600">
+            {BRAND_DESCRIPTOR}
           </p>
           <p className="mt-1 text-sm text-gray-500">
             Please sign in to continue

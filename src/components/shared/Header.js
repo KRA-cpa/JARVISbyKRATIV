@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import Icons from './Icons';
+import BrandMark from './BrandMark';
+import { BRAND_NAME, BRAND_BYLINE } from '../../config/site';
 import { HeaderClock } from './LiveClock';
 import DarkModeToggle from './DarkModeToggle';
 import { useNotifications } from '../../hooks/useAPI';
@@ -56,9 +58,12 @@ const Header = ({ user, userRole }) => {
           <div className="flex items-center space-x-8">
             {/* Logo */}
             <Link to="/dashboard" className="flex items-center space-x-2">
-              <Icons.Ticket size={28} className="text-blue-600" />
+              <BrandMark size={28} />
               <span className="text-xl font-bold text-gray-900 dark:text-white">
-                TicketFlow
+                {BRAND_NAME}
+              </span>
+              <span className="hidden sm:inline text-xs text-gray-500 dark:text-gray-400 self-end pb-1">
+                {BRAND_BYLINE}
               </span>
             </Link>
 

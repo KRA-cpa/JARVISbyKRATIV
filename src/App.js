@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
 // Configuration
 import DEV_CONFIG from './config/development';
+import { HOW_IT_WORKS_PATH } from './config/site';
 
 // Context Providers
 import { UserProvider, useUser } from './contexts/UserContext';
@@ -24,12 +25,20 @@ import ReportsPage from './pages/ReportsPage';
 import PlansPage from './pages/PlansPage';
 import HomePage from './pages/HomePage';
 import PrivacyPage from './pages/PrivacyPage';
+import HowItWorksPage from './pages/HowItWorksPage';
+import ContactPage from './pages/ContactPage';
+import RequesterDemoPage from './pages/RequesterDemoPage';
+import TermsPage, { TermsVersionsPage, TermsArchivedPage } from './pages/TermsPage';
+import StatusPage from './pages/StatusPage';
 
 // Shared Components
 import LoadingScreen from './components/shared/LoadingScreen';
 import ErrorBoundary from './components/shared/ErrorBoundary';
 import ErrorBoundary130, { useError130Detection } from './components/shared/ErrorBoundary130';
 import DevPanel from './components/shared/DevPanel';
+
+// Admin-only, code-split: visitors and non-admins never load the DPA (user, 1 Nov 2026)
+const DpaPage = lazy(() => import('./pages/DpaPage'));
 
 // Smart Redirect Component for Root Route
 const SmartRedirect = () => {
@@ -148,6 +157,33 @@ const AppRoutes = () => {
             }
           />
 
+          {/* Public website (docs/planning/PLAN_PlatformWebsite_20261101.md W1) - no sign-in, no API call. The nav label and
+              path live in src/config/site.js; /features opens the same page */}
+          <Route
+            path={HOW_IT_WORKS_PATH}
+            element={
+              <OpenRoute>
+                <HowItWorksPage />
+              </OpenRoute>
+            }
+          />
+          <Route
+            path="/features"
+            element={
+              <OpenRoute>
+                <HowItWorksPage />
+              </OpenRoute>
+            }
+          />
+          <Route
+            path="/contact"
+            element={
+              <OpenRoute>
+                <ContactPage />
+              </OpenRoute>
+            }
+          />
+
           {/* Privacy Policy - public (no sign-in, no API call); placeholder until the approved text is in
               (docs/planning/PLAN_PrivacyPolicy_DPA_20261101.md) */}
           <Route
@@ -155,6 +191,24 @@ const AppRoutes = () => {
             element={
               <OpenRoute>
                 <PrivacyPage />
+              </OpenRoute>
+            }
+          />
+          {/* Provider status (Google, Firebase, Vercel) - public, no API (General Terms §10.2) */}
+          <Route path="/status" element={<OpenRoute><StatusPage /></OpenRoute>} />
+          {/* Data Processing Agreement - company / organization admins only (part of the subscription contract) */}
+          <Route path="/admin/dpa" element={<ProtectedRoute requireAdmin={true}><Suspense fallback={<LoadingScreen />}><DpaPage /></Suspense></ProtectedRoute>} />
+          {/* General Terms of Service (DRAFT_TermsOfService): current, draft, version history, archived versions - public, no API */}
+          <Route path="/terms" element={<OpenRoute><TermsPage /></OpenRoute>} />
+          <Route path="/terms/draft" element={<OpenRoute><TermsPage draft /></OpenRoute>} />
+          <Route path="/terms/versions" element={<OpenRoute><TermsVersionsPage /></OpenRoute>} />
+          <Route path="/terms/v/:version" element={<OpenRoute><TermsArchivedPage /></OpenRoute>} />
+          {/* SAMPLE requester one-pager (PLAN_RequesterOnePager): made-up data, no API call, noindex */}
+          <Route
+            path="/r/demo"
+            element={
+              <OpenRoute>
+                <RequesterDemoPage />
               </OpenRoute>
             }
           />

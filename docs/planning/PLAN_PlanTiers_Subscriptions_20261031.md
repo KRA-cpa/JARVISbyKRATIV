@@ -2,10 +2,16 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_PlanTiers_Subscriptions_20261031.md | Author: Kenneth R. Advento | Version: 1.0.0
-Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 31 October 2026 UTC+8 (Philippine Standard Time)
+Document: PLAN_PlanTiers_Subscriptions_20261031.md | Author: Kenneth R. Advento | Version: 1.3.3
+Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: AppScript v10.2 - Basic / Advanced / Enterprise plans per company: feature + limit catalogue, server gate, subscription lifecycle (trial end, grace, read-only), invoices without payment, owner template library for Basic, ticket uploader | Status: Approved (session ff4c803f), not built
 REVISION HISTORY:
+- v1.3.3 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2c currency: USD prices billed in PHP at the previous month's BSP rate; rate shown on Usage & charges
+- v1.3.2 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2c late-payment penalty (user), shown on Usage & charges
+- v1.3.1 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2c: waivers / deductions as a discount or a credit memo (user)
+- v1.3.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2c: usage visible to company + organization admins (user: "so there will be no bill shock"); what can be measured today; Daloy meters + issues a usage statement, invoices come from a billing / accounting system; O6 = monthly active users; O7-O8
+- v1.2.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | U10 (user): usage above the plan's allowance is billed as add-ons (users per block, tickets above the average) - no forced upgrade; §2c rules, guardrails, build impact; O1-O6 open
+- v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | U9 (user, session 017zmKf6): four plans - Basic, **Basic+** (Basic + Payroll pack + HR pack), Advanced, Enterprise; packs on / off per company / organization on Advanced and Enterprise; §2b packs + build impact (P1 was built with three plans)
 - v1.0.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created from plan ~/.claude/plans/create-a-plan-how-soft-comet.md Part B (session ff4c803f)
 ===============================================================================
 -->
@@ -33,6 +39,8 @@ There is no tier, plan or feature-flag concept in the code today. The closest pa
 | U6 | Ticket uploader: **Advanced = own tickets, Enterprise = on behalf** |
 | U7 | **Settable trial end** |
 | U8 | Per-user display time zone is **Advanced and up** (built in v10.1, gated here) |
+| U10 | *(1 Nov 2026)* **Usage-based add-ons instead of forced upgrades:** going over a plan's **users** or **tickets** allowance is billed as add-ons (users per block of X, tickets above the average use) - the company keeps its plan. Features still need the higher plan - §2c |
+| U9 | *(1 Nov 2026)* **Four plans:** Basic · **Basic+** (= Basic + **Payroll pack** + **HR pack**) · Advanced · Enterprise. Advanced and Enterprise include both packs and can **turn each pack on or off** for a company (and, once organizations exist, an organization) that doesn't need it - §2b |
 
 **Version line:** v10.0 → v10.1 calendars / zones → **v10.2 = this plan** → v10.3 head approval / delegation / bulk → v10.4 comments and the rest. The Advanced features in v10.3 / v10.4 ship already gated.
 
@@ -120,6 +128,150 @@ Keys are stable strings (`conditional_routing`, `sla_escalation`, `restricted`, 
 - **Screen:** Tickets → **Upload tickets** (`<PlanGate feature="bulk_upload">`), with the on-behalf switch behind `bulk_upload_on_behalf`.
 
 ---
+
+## §2b Packs (U9)
+A **pack** is a set of owner templates for one business area, sold as a feature:
+| Pack | Templates | Source |
+|---|---|---|
+| **Payroll pack** (`payroll_pack`) | Leave, Leave cancellation, Overtime (regular / rest day / holiday), Undertime, Official business, Change of schedule, Non-punching authorization, Manual DTR, Payroll concern | `docs/design/TEMPLATES_PayrollRequests_20261101.md` |
+| **HR pack** (`hr_pack`) | Certificate of Employment (CE + CB, or one conditional CE on Advanced+), more to come | `docs/design/TEMPLATES_HRRequests_20261101.md` |
+
+| | Basic | **Basic+** | Advanced | Enterprise |
+|---|---|---|---|---|
+| Payroll pack | – | ✓ always on | ✓ **on / off** | ✓ **on / off** |
+| HR pack | – | ✓ always on | ✓ **on / off** | ✓ **on / off** |
+| Everything else | Basic column of §2 | **same as Basic** | §2 | §2 |
+| Limits | 25 / 5 / 3 / 500 | 25 / 5 / 3 / 500 **+ pack types don't count** toward `ticket_types` (P2) | §2 | §2 |
+
+**Rules (proposed)**
+- **P1 - Toggle:** a company setting per pack (`pack_payroll`, `pack_hr`: on / off), default **on**, editable by the
+  company admin on Advanced / Enterprise. With organizations (`PLAN_ServerCore_OrgSheetBridge_20261101.md`), the
+  organization setting is the default for its companies and a company can turn a pack **off** but not on when the
+  organization has it off.
+- **P2 - Limits:** pack ticket types **don't count** toward the `ticket_types` limit (the pack is what Basic+ pays
+  for). Other limits unchanged; `tickets_per_month` for Basic+ = open (P4).
+- **P3 - Turning a pack off:** its templates can't be adopted; adopted pack ticket types are **deactivated for new
+  tickets** (existing tickets stay readable, in reports and exports, and can finish their workflow); turning it on
+  again reactivates them. No data is deleted.
+- **P4 - Basic+ ticket volume:** payroll / HR requests add volume (25 users × several a month). Proposed: Basic+
+  `tickets_per_month` = **1,000** (Basic 500) - to confirm.
+- **P5 - Shapes:** Basic+ gets the pack templates in their **no-condition shape** (e.g. HR CE + CB as two types);
+  Advanced+ may adopt the conditional shape.
+- **P6 - Packs on Basic as add-ons:** not offered - Basic+ *is* Basic with the packs.
+
+**Build impact (P1 of this plan was built with three plans)**
+| Where | Change |
+|---|---|
+| `PLAN_ORDER`, `PLAN_FEATURE_TIERS`, `PLAN_LIMITS`, `normalizePlan` (AppScript v10.2) | add `basic_plus` between basic and advanced; feature keys `payroll_pack`, `hr_pack` in `basic_plus` (inherited upward) |
+| `src/config/plans.js` + `/plans` page | four columns; `npm run check:api-contract` (plan-copy) must pass |
+| `company_subscriptions.plan` | accepts `basic_plus`; existing rows unchanged |
+| Gate | `requireFeature(company, 'payroll_pack')` **and** the company toggle; adoption refuses an off pack; ticket creation refuses a deactivated pack type |
+| `ticket_types` | a `pack` column (`payroll` / `hr` / empty) so the limit and the toggle know which types belong to a pack |
+| Template library | `template_min_plan` = `basic_plus` for pack templates; conditional shapes = `advanced` |
+| Tests | `ROUTES_TEST_v10.2.js`: Basic refused a pack, Basic+ allowed, Advanced toggle off → adoption refused + creation refused + old ticket readable; limit ignores pack types |
+
+## §2c Usage add-ons (U10)
+Today `requireLimit` **refuses** the next user / ticket at the limit ("upgrade or ask the platform admin"). U10 turns
+the **quantity** limits into **allowances**: above them the company keeps working and pays for what it uses, without
+changing plan. **Features** (conditional routing, SLAs, Restricted...) still come only with the higher plan.
+
+| Limit | Becomes | Billed as (proposal) |
+|---|---|---|
+| `users` (active users) | allowance | **blocks of X users** (O1: X = 5) above the allowance, on the **peak** active users of the month |
+| `tickets_per_month` | allowance | **blocks of N tickets** (O1: N = 250 on Basic / Basic+, 1,000 on Advanced, 5,000 on Enterprise) above the allowance, on the **3-month rolling average** (O2) |
+| `ticket_types` | stays a limit | extra types = the existing **paid custom type** add-on (U5) |
+| `steps_per_type`, `upload_rows` | stay hard | structural / per-upload caps |
+| Technical ceilings (Sheets volume: 50,000 tickets / month; a Sheet organization's 10M cells) | stay **hard** | never sold past - platform storage / Postgres instead |
+
+**"Above average use" (O2):** ticket volume for payroll / HR requests spikes around cut-offs and year-end. Billing
+tickets on the **3-month rolling average** (this month + the two before) charges sustained growth, not one busy
+month. A company that is over in one month and under in the next two pays nothing extra. Users are billed on the
+month's peak (seats are not seasonal).
+
+**Guardrails (customer trust)**
+- **G1 - Choice per company:** `overage_mode` = **allow** (keep working, billed) or **stop** (today's refusal at the
+  allowance). Set at onboarding; the company admin can change it (O3: default).
+- **G2 - Spend cap:** with `allow`, an optional monthly cap (amount or blocks); at the cap it behaves like `stop`
+  until next month or until the admin raises it.
+- **G3 - Warnings:** bell + email to company admins at **80 %** and **100 %** of an allowance and at every new block;
+  *Plan & usage* shows allowance, used, blocks so far and the estimated add-on amount.
+- **G4 - Upgrade hint, never forced:** when the add-ons would cost more than the next plan, *Plan & usage* says so
+  ("Advanced would cost ₱X less this month") - the company decides.
+- **G5 - Prices:** none set yet (website decision W2: no prices). Block prices live in one table per plan
+  (`ADDON_PRICES`), set by the platform admin; per-company overrides as for limits (U2).
+
+**Usage visible to the admins - no bill shock (user, 1 Nov 2026)**
+A *Usage & charges* page, always current, for:
+- **company admins** - their company;
+- **organization admins** (once organizations exist, `PLAN_ServerCore_OrgSheetBridge_20261101.md`) - every company
+  of the organization **and the organization total** (the billing level, ServerCore O3);
+- platform admins - everyone.
+
+| On the page | Detail |
+|---|---|
+| **This month so far** | per allowance: used / included, a bar, add-on blocks started, the amount so far |
+| **Exchange rate** | the BSP weighted average rate used for this month's statement and, once BSP publishes it, the rate for next month - USD prices billed in PHP (General Terms §5.1a) |
+| **Month-end projection** | run rate (used ÷ days elapsed × days in month) → projected blocks and amount, labelled as an estimate |
+| **Tickets: the 3-month average** | the three months used for billing, so a busy month is visibly not charged on its own |
+| **What counts** | plain rules ("users who signed in this month", "tickets created, incl. cancelled") next to each number |
+| **The detail behind every number** | the list of counted users / tickets for the month, downloadable (CSV) - the admin can check every unit |
+| **Settings** | `overage_mode` (allow / stop), the spend cap, alert levels (default 80 % / 100 % / each block) |
+| **History** | 12 months: usage, blocks, statement amounts |
+| **Upgrade hint** | G4 - only when the next plan would cost less; never automatic |
+
+**Alerts:** bell + email to the company admins (and the organization admins for the organization total) at each alert
+level, at every new block, and when the projection crosses the cap; a **weekly digest** while any allowance is above
+80 %. Nothing is ever charged that the page didn't show first.
+
+**What can be measured today (v10.2 code, 1 Nov 2026)**
+| Measure | Today | Needed |
+|---|---|---|
+| Tickets per month | ✅ `usage:<company>:<YYYYMM>` counter (company calendar month), incremented in `createTicket`'s lock - cancelled, uploaded and chained tickets included | billable-rule decision (O7); backfill months before the v10.2 deploy from `tickets.created_at`; the 3-month average needs no new data |
+| Users | ⚠️ point-in-time only (`companyUserIds`: counting roles **+ pending invites**); a user with roles in two companies counts in both | a **monthly active users** record (who signed in in the month) or a daily seat snapshot; pending invites never billed; count once per organization when billing moves there |
+| Prices, blocks, mode, cap | ❌ | new settings / tables |
+
+**Metering vs invoicing (recommendation)**
+- **Daloy meters and states:** counters, the add-on calculation (blocks × price), the *Usage & charges* page, and a
+  monthly **usage statement** per company / organization, exported (CSV / API).
+- **A billing / accounting system issues the invoice:** VAT / non-VAT, BIR rules (since the EOPT Act a
+  computer-generated invoice must come from a BIR-registered system - confirm with the tax adviser), credit notes,
+  payments, collections, 2307 withholding. Daloy's own record stays a *statement*, not an official invoice.
+- Unpaid charges follow the normal grace → read-only rules (U4).
+- **Currency** (user, 2 Nov 2026): monthly subscription + add-ons priced in USD, converted to PHP at the **BSP weighted
+  average rate of the previous month** (a rate table kept by the platform admin, one row per month, source noted);
+  one-time fees in PHP. Each statement line shows USD, rate, PHP.
+- **Late-payment penalty** (General Terms §5.3b): [[1%]] per month or part of a month on overdue amounts from the due
+  date, as a line on the next statement; **not** charged when the subscription details / a written agreement say
+  otherwise, when waived (credit memo or in writing), on amounts disputed in good faith before the due date, or on
+  withheld tax before the BIR 2307 deadline. Independent of grace / read-only (those govern access only). The
+  *Usage & charges* page shows overdue amounts and the penalty accruing, so it is never a surprise.
+- **Waivers / deductions** (platform owner, Terms §6.5): given as a **discount** on the invoice or a **credit memo**
+  issued to the customer from the billing / accounting system; Daloy's statement shows them and links the memo.
+- **Where it is built:** the cloud server (`PLAN_ServerCore` - the Apps Script feature freeze). Until then: limits run
+  in `stop` mode, or the platform team reviews overages by hand from the counters.
+- Trials: no add-ons; a trial at its allowance behaves like `stop` (O5).
+
+**Build impact**
+| Where | Change |
+|---|---|
+| `requireLimit` (AppScript v10.2) | for `users` / `tickets_per_month`: with `overage_mode = allow` and under the spend cap and the technical ceiling → allow and log `PLAN_OVERAGE`; otherwise refuse as today |
+| Usage | `usage:<company>:<YYYYMM>` (tickets, exists) + a **peak users** counter `usage_users:<company>:<YYYYMM>` updated on activation / invite acceptance |
+| `company_subscriptions` | `overage_mode`, `overage_cap`; invoice line kinds `addon_users`, `addon_tickets` |
+| Catalogue copy / `/plans` | each plan card: "Need more? Users in blocks of 5, tickets in blocks of 250 - billed only when used" (`check:api-contract` plan-copy extends to block sizes) |
+| Plan & usage screen | allowance vs used, blocks, estimate, mode + cap setting, upgrade hint |
+| Tests | allow / stop / cap; rolling average (over one month, under two → no charge); peak users; trial = stop; ceiling stays hard |
+
+**Open (O1-O8)**
+| # | Question | Proposed default |
+|---|---|---|
+| O1 | Block sizes | Users: 5. Tickets: 250 (Basic / Basic+), 1,000 (Advanced), 5,000 (Enterprise) |
+| O2 | Tickets on the month or the 3-month rolling average | **Rolling average** (seasonal payroll / HR spikes) |
+| O3 | Default `overage_mode` for new companies | **allow, with a cap agreed at onboarding** (no surprise refusals; no surprise bills) |
+| O4 | Do add-ons apply on every plan? | Yes - Basic, Basic+, Advanced, Enterprise |
+| O5 | Trials | No add-ons; `stop` at the allowance |
+| O6 | Who counts as a billable user | **Monthly active users** (signed in at least once in the month) - fair for occasional requesters (the requester one-pager); needs the sign-in record |
+| O7 | Which tickets are billable | Requester-created tickets incl. cancelled and uploaded; **not** workflow-chained tickets |
+| O8 | Who sees *Usage & charges* | Company admins (own company), organization admins (all its companies + total), platform admins |
 
 ## §3 Schema (v10.2 rebuild apply via `ensureTableSheet`; `rowFromRecord`; `requireColumns`)
 - **`company_subscriptions`:** `id`, `company_id`, `plan` (`basic|advanced|enterprise`), `status` (`trial|active|converted|cancelled`), `period_start`, `period_end`, `trial_end` (for trial rows `period_end` = `trial_end`), `trial_extended_count`, `grace_days` (14 paid / 7 trial), `scheduled_plan`, `scheduled_reason`, `feature_overrides` (json), `limit_overrides` (json), `billing_reference`, `notes`, plus audit columns.
