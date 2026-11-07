@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_ServerCore_OrgSheetBridge_20261101.md | Author: Kenneth R. Advento | Version: 1.6.0
-Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
+Document: PLAN_ServerCore_OrgSheetBridge_20261101.md | Author: Kenneth R. Advento | Version: 1.7.0
+Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 8 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Add ORGANIZATIONS above companies (an organization owns its data store - e.g. its own Google Sheet - and onboards one or more companies); business logic moves to the server; Apps Script shrinks to a thin bridge to the organization's Sheet | Status: Draft (session 017zmKf6), decisions O1-O10 open, not built
 REVISION HISTORY:
+- v1.7.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | O11 DECIDED: Cloud Run asia-southeast1 + Neon Singapore (not Cloud SQL; servers must be in Asia - CHECK_HostingPricing_20261108.md); O1 folded into PLAN_Migration_Unified_20261108.md Phases 0-2 (organizations in the first schema; Vercel Cron → Cloud Scheduler), O2-O6 = its Phase 5; Google Sheets stays a customer option - the bridge + the interim dedicated instance (user)
 - v1.6.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §6b provider (Google) outages: classify vs store unavailable, /status page, banner + notice, billing unaffected, goodwill credits
 - v1.5.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §6a store unavailable: billing / payments always in the platform store (received even when the org store is unreachable), unavailable state + banner, recovery digest, health history, 30-day suspension
 - v1.4.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5a O11 analysis (Vercel + Neon vs Cloud Run + Cloud SQL vs split) - recommendation only, NOT decided (user)
@@ -37,6 +38,12 @@ Google Sheet** can only get a full separate copy of Daloy, and every release mus
 
 This follows `docs/planning/PLAN_Migration_NeonVercel_20261030.md` (handlers in `api/_lib/`, Neon Postgres) and adds
 **storage per organization**: the shared platform store, or the organization's own Google Sheet through the bridge.
+
+**Update 8 Nov 2026 (v1.7.0):** the order and checkboxes are in `docs/planning/PLAN_Migration_Unified_20261108.md`
+(O1 → its Phases 0–2, with `organizations` in the first schema; O2–O6 → its Phase 5). **Google Sheets / Apps Script stays
+a customer option** (user: "there should be leeway for appscript/gsheet customers - this is an option"): long term the
+bridge (§4), and until it ships the **dedicated Apps Script instance** (`GUIDE_Onboarding_GoogleWorkspace.md` §3) -
+frozen at v10.2 features, still fixed. O11 is decided (§5a).
 
 ## §1 The model
 ```
@@ -168,7 +175,12 @@ stays the same). The server supports the current and the previous `BRIDGE_VERSIO
 | Lock-in | Low if handlers stay plain Node | Low (containers) | Low |
 | Billing / consoles | Vercel + Neon + Firebase separately | One Google bill and console with Firebase | Split |
 
-**Recommendation (not a decision):** **A now**, with the handlers in `api/_lib/` kept plain Node (no Vercel imports),
+**DECIDED 8 Nov 2026 (supersedes the recommendation below):** **B with Neon** - the server on **Cloud Run
+`asia-southeast1`** behind Firebase Hosting, the database on **Neon Singapore** (not Cloud SQL), previews on Vercel.
+Reasons: servers must be in Asia and this is the cheapest all-Asia stack (`CHECK_HostingPricing_20261108.md` §6);
+Cloud Run also removes A's long-job limit. Steps: `PLAN_Migration_Unified_20261108.md`.
+
+**Recommendation (1 Nov 2026, superseded):** **A now**, with the handlers in `api/_lib/` kept plain Node (no Vercel imports),
 so moving to Cloud Run later is a container file + a thin HTTP wrapper, not a rewrite.
 1. Shortest path: the proxy, deploys and migration plan already target Vercel; B adds weeks of set-up first.
 2. B's latency argument doesn't survive the numbers: Apps Script itself is the slow part.
@@ -243,7 +255,7 @@ so moving to Cloud Run later is a container file + a thin HTTP wrapper, not a re
 ## §8 Phases
 | Phase | Scope | Depends on |
 |---|---|---|
-| **O1** | Cloud server core: handlers on the server, Postgres with `organizations` + `organization_id`, admin scopes (§2), plan per organization (O3), Vercel Cron | PLAN_Migration_NeonVercel; O11 |
+| **O1** | Cloud server core: handlers on the server, Postgres with `organizations` + `organization_id`, admin scopes (§2), plan per organization (O3), Cloud Scheduler jobs *(8 Nov 2026: folded into PLAN_Migration_Unified Phases 0–2; O2–O6 = its Phase 5)* | PLAN_Migration_Unified; O11 ✅ |
 | **O2** | Organization admin screens: create companies, invite admins, organization switcher (O4) | O1 |
 | **O3** | Storage adapter interface + per-organization routing; Postgres adapter = the O1 code | O1 |
 | **O4** | Bridge v1 (§4) + contract test + Sheet adapter + cache | O3 |

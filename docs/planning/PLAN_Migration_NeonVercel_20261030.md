@@ -2,24 +2,27 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_NeonVercel_20261030.md | Author: Kenneth R. Advento | Version: 1.3.0
+Document: PLAN_Migration_NeonVercel_20261030.md | Author: Kenneth R. Advento | Version: 1.4.0
 Created: 30 October 2026 UTC+8 (Philippine Standard Time) | Modified: 8 November 2026 UTC+8 (Philippine Standard Time)
-Purpose: Plan to move the backend from Google Sheets + Apps Script to Vercel functions + Neon Postgres (+ Cloudflare R2), designed for heavy use, without changing the frontend's API contract | Status: Draft — for review; Phase 0 starts after AppScript v9.4 / v9.5 are live
+Purpose: Plan to move the backend from Google Sheets + Apps Script to Neon Postgres (Singapore), served from Google Cloud Run (Singapore) behind Firebase Hosting - previews on Vercel - designed for heavy use, without changing the frontend's API contract (file name kept from the Vercel version for links) | Status: Design reference — the order and checkboxes are in docs/planning/PLAN_Migration_Unified_20261108.md
 REVISION HISTORY:
 - v1.0.0 | 30 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Initial plan (session 7e008704), from the reco (19 Oct 2026) and docs/planning/REVIEW_AppScriptReco_20261030.md
 - v1.1.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §11 future option: client-hosted SQL database (shapes, pros / cons, decisions to keep the path open, testing without the client database)
 - v1.2.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §12 v10 features on Postgres (pointer to PLAN_FeatureGaps_Volume_20261031.md §6; session 2d369f00)
 - v1.2.1 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §12: the notification partition drop approved by the user
+- v1.4.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Host decided (user: "move production to not vercel, preview in vercel"): production on Cloud Run asia-southeast1 behind Firebase Hosting (daloy.blueknight.xyz), previews on Vercel Hobby; new Phase H = docs/guides/GUIDE_Deploy_CloudRun_FirebaseHosting.md (server/app.js, Dockerfile, firebase.json, scripts/deploy-cloudrun.sh); §1 / §2 / Phase 0 / sync / §9 / §11 moved from Vercel functions + Vercel Cron to Cloud Run + Cloud Scheduler; email SES Singapore; files storage location to check (Asia rule); now the design reference of PLAN_Migration_Unified_20261108.md (Sheets / Apps Script kept as a customer option)
 - v1.3.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Asia rule + hosting check (session 61523343): servers must be in Asia; Firebase Auth is US-only and Vercel functions default to iad1 (US); recommended cheapest all-Asia stack (Cloud Run Singapore + Neon Singapore + Better Auth + SES Singapore) pending the user's confirmation - CHECK_HostingPricing_20261108.md; chronological deploy steps - docs/guides/CHECKLIST_Deploy_PostgresNeon_20261108.md
 ===============================================================================
 -->
 
-# PLAN — Migration to Vercel + Neon Postgres
+# PLAN — Migration to Neon Postgres (host: Cloud Run Singapore; previews on Vercel)
 
 > **Inputs:** the reco "TicketFlow: Apps Script Recommendations & Migration Plan" (19 Oct 2026) and its review `docs/planning/REVIEW_AppScriptReco_20261030.md`.
 > **Decisions (user, 30 Oct 2026):** design for **heavy use** → reco **Option A** (mirror Sheets into Postgres, move reads first, then freeze writes and flip them); **both** auth providers (Firebase now, Auth.js / Better Auth later).
 > **Phase gates:** the non-functional targets in `Claude.md` (latency, query budgets, correctness rules). A phase is done only when its actions meet them.
 > **Asia rule + hosting check (user, 8 Nov 2026; v1.3.0):** servers must be in Asia, ranked Philippines > Southeast Asia > rest of Asia > cheapest. No provider checked has a Philippine database or app region. Two parts of this plan fail the rule as written: **Firebase Authentication runs only in US data centers** (§3 "Firebase now") and **Vercel functions default to `iad1` (US)** (§2 pins `sin1` - keep it). The cheapest all-Asia stack is **Cloud Run Singapore + Neon Singapore + Better Auth in Neon + SES Singapore** (runner-up: Cloudflare; then Vercel Pro `sin1`) - `docs/planning/CHECK_HostingPricing_20261108.md` §6, with its catches and the DPA / Terms / Privacy changes (§7). **Pending the user's confirmation**; the phases below stay valid on any of the three hosts. Step-by-step order: `docs/guides/CHECKLIST_Deploy_PostgresNeon_20261108.md`.
+> **Host decided (user, 8 Nov 2026; v1.4.0):** production leaves Vercel for **Google Cloud Run `asia-southeast1` behind Firebase Hosting at `daloy.blueknight.xyz`**; **Vercel keeps the previews** (Hobby, commercial-use risk accepted by the user). This is **Phase H**, done **before Phase 0** with the backend unchanged (Apps Script): `docs/guides/GUIDE_Deploy_CloudRun_FirebaseHosting.md` (A set-up → B test revision → C domain → D Vercel previews only). The later phases then grow `server/app.js` behind the same address. Still to confirm for the data move: Neon Singapore + Better Auth + SES Singapore.
+> **Step-by-step: `docs/planning/PLAN_Migration_Unified_20261108.md`** (Phases F, H, 0–5). This file is the **design reference** for it. Also decided there: Apps Script frozen (fixes only), v10.2 P2–P5 built on the new server after the cutover, `organizations` in the first schema, and **Google Sheets / Apps Script kept as a customer option** (bridge + interim dedicated instance) - so §6 Phase 3 retires only the shared platform's Apps Script deployment.
 
 ---
 
@@ -27,12 +30,13 @@ REVISION HISTORY:
 
 | Layer | Today (v9.5) | Target |
 |---|---|---|
-| Frontend | React SPA on Vercel | unchanged |
-| API | `api/appscript-proxy.js` → Apps Script web app | `/api/rpc` (the same proxy, extended) → TypeScript handlers on Neon; unported actions still proxied to Apps Script |
-| Database | Google Sheets (39 tabs) | Neon Postgres (Singapore), migrations in the repo |
-| Files | Drive (config backups) | Cloudflare R2 (attachments, backups) |
-| Auth | Firebase ID token verified at the proxy (v9.4) | the same, plus Auth.js / Better Auth sessions; one internal user id |
-| Jobs | Apps Script time trigger (SLA escalation, v9.5) | Vercel Cron → `/api/cron/*` |
+| Frontend | React SPA on Vercel | **Phase H:** Firebase Hosting (`daloy.blueknight.xyz`, project `jarvisbyerp`) for production; **Vercel for previews** |
+| API | `api/appscript-proxy.js` → Apps Script web app | **Phase H:** the same proxy on **Cloud Run `daloy` (`asia-southeast1`)** via `server/app.js`; then `/api/rpc` next to it → handlers on Neon; unported actions still proxied to Apps Script |
+| Database | Google Sheets (49 tabs at v10.2) | Neon Postgres (Singapore `aws-ap-southeast-1`), migrations in the repo |
+| Files | Drive (config backups) | Object storage in Asia (Cloudflare R2 with an Asia-Pacific location, or Cloud Storage `asia-southeast1`) - location / price **to check** under the Asia rule before Phase 0 |
+| Auth | Firebase ID token verified at the proxy (v9.4) | Better Auth sessions in Neon Singapore (Firebase Auth is US-only) - cookie named `__session` (Firebase Hosting passes only that one); one internal user id |
+| Jobs | Apps Script time trigger (SLA escalation, v9.5) | **Cloud Scheduler** → `/api/cron/*` on Cloud Run (3 jobs free per billing account) |
+| Email | MailApp (Apps Script) | Amazon SES Singapore through the `email_outbox` (§9) |
 
 **Keep the API contract.** Request `{ action, ...payload }` (GET query or POST body), response `{ success, data, message }` or `{ success: false, status: 'error', error }`, exactly as `src/api/googleSheet.js` uses today. The frontend changes in one place (`apiConfig.baseURL`) and only once.
 
@@ -43,18 +47,18 @@ REVISION HISTORY:
 ## §2 Architecture
 
 ```
-Browser ─► /api/rpc  (Vercel Node function, region sin1)
+Browser ─► Firebase Hosting ─► /api/rpc  (Cloud Run "daloy", asia-southeast1 - server/app.js)
              ├─ verify identity (identityAdapters: firebase, authjs)        → 401 in enforce mode
              ├─ handlers[action] exists? ─► TS handler ─► Neon (pooled, sin) ─► { success, data }
              └─ otherwise ─► proxy to Apps Script (+ _auth_uid, _proxy_secret) ─► Sheets
            X-Backend: pg | gas, X-Response-Time, one log line per request
 ```
 
-- **Route:** extend `api/appscript-proxy.js` (already the production base URL) into `/api/rpc`; keep `/api/appscript-proxy` as an alias until the frontend base URL switches. Logic stays in `api/_lib/` (testable in plain Node, like `proxyCore.js` today).
+- **Route:** mount `/api/rpc` in `server/app.js` next to `/api/appscript-proxy` (Phase H already serves the proxy there); keep `/api/appscript-proxy` until the frontend base URL switches. Logic stays in `api/_lib/` (testable in plain Node, like `proxyCore.js` today; `scripts/test-cloudrun-server.js` covers the server).
 - **Handler registry:** `api/_lib/handlers/<group>.js` exports `{ actionName: async (payload, ctx) => data }`; `ctx = { user, db, log, now }`. A handler returns the unwrapped data; the route wraps it.
 - **Database access:** `@neondatabase/serverless` (HTTP for single queries, WebSocket `Pool` for transactions), Drizzle ORM for typed queries and migrations (`drizzle/` folder, `npm run db:migrate`).
-- **Region:** Vercel functions pinned to `sin1`, Neon in `aws-ap-southeast-1` (Singapore) - one round trip ≈ 2–5 ms.
-- **Observability:** the proxy's log line (action, duration_ms, user_id, company_id, auth, backend, status) gains `query_count`; Vercel log drains or Axiom for p95 per action.
+- **Region:** Cloud Run in `asia-southeast1` and Neon in `aws-ap-southeast-1` - both Singapore (a short in-city round trip; measure it in Phase 0, not assumed). Previews on Vercel reach the API through the old Vercel proxy (`iad1`) until the base URL switches.
+- **Observability:** the proxy's log line (action, duration_ms, user_id, company_id, auth, backend, status) gains `query_count`; Cloud Logging (`gcloud run services logs read daloy`) and a log-based metric for p95 per action.
 
 ---
 
@@ -123,12 +127,14 @@ create table auth_identities (
 
 ## §6 Phases (Option A) with exit gates
 
+*Order, owners and checkboxes: `PLAN_Migration_Unified_20261108.md` §5 (this section keeps the design of each phase).*
+
 ### Phase 0 — Foundations
 1. **Baseline:** deploy v9.4, run `node scripts/measure-api-latency.js` (5 runs per action) and record v9.3 vs v9.4 in REVIEW §5.
-2. Neon project (Singapore), Vercel functions `sin1`, R2 bucket, env vars (`DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `R2_*`).
+2. Neon project (Singapore); the Cloud Run service exists from Phase H; object storage in Asia (§1); secrets in Secret Manager (`DATABASE_URL`, `DATABASE_URL_UNPOOLED`, storage keys).
 3. `/api/rpc` with the handler registry and the Apps Script fallback (the v9.4 proxy, extended). Identity adapters: `firebase` (exists), `authjs` (added here).
 4. DDL + first migration; the load script (§7) run against a copy of the sheet.
-5. **Sync job (Phase 1 only):** a Vercel Cron every 2–5 min pulls rows changed since the last sync (`updated_at` / `created_at` > watermark - this is why S2 real-UTC timestamps came first) through an Apps Script read-only export action, and upserts them. Deletes are soft (`is_active`), so they sync as updates.
+5. **Sync job (Phase 1 only):** a Cloud Scheduler job every 5 min pulls rows changed since the last sync (`updated_at` / `created_at` > watermark - this is why S2 real-UTC timestamps came first) through an Apps Script read-only export action, and upserts them. Deletes are soft (`is_active`), so they sync as updates.
 - **Gate:** load script reproduces row counts per table; 10 tickets compared end to end; sync lag < 5 min.
 
 ### Phase 1 — Reads from Postgres (sync-fed)
@@ -140,7 +146,7 @@ create table auth_identities (
 1. Freeze writes: Script Property `READ_ONLY=true` (Apps Script answers writes with an error; the UI shows a maintenance banner).
 2. Final sync, count verification, spot checks.
 3. Switch **all** write actions to Postgres handlers in one deploy, by table group: ticket loop, workflow admin, users and roles, company admin (locks, SLA rules, dropdown access, config import / export), tags and sharing, **SLA escalation** (§9).
-4. Stop the sync job. Keep the Apps Script deployment read-only for two weeks as a fallback, then retire it.
+4. Stop the sync job. Keep the Apps Script deployment read-only for two weeks as a fallback, then retire it - **the shared platform deployment only**; dedicated customer instances and the Sheet bridge stay (unified plan §2).
 - **Gate:** the §8 load test passes; 2 concurrent approvals on one ticket → exactly one transition; no write outside a transaction.
 - **Rollback:** before step 3 completes, unfreeze Apps Script and point the base URL back; after it, a reverse export (Postgres → Sheets) script exists and is tested in Phase 0.
 
@@ -175,11 +181,11 @@ create table auth_identities (
 
 ## §9 SLA escalation on Postgres (v9.5 design carried over)
 
-- **Cron:** Vercel Cron every 5 min → `/api/cron/sla` (header `Authorization: Bearer $CRON_SECRET`).
+- **Cron:** Cloud Scheduler → `/api/cron/sla` on Cloud Run (an OIDC token from Scheduler's service account, or `Authorization: Bearer $CRON_SECRET`) - every **30 min on Neon Free** (the 15-minute rhythm doesn't reliably fit 100 CU-h, `CHECK_HostingPricing_20261108.md` §5), every 5–15 min on Neon Launch.
 - **One set-based query** finds what is due: open tickets joined to the matching rules (step-specific beats "all steps" per level), `fire_at <= now()`, and `not exists` an event for (ticket, step, visit, rule). Uses the partial index on `tickets(step_due_date)`.
 - **Idempotent:** `insert into sla_escalation_events … on conflict (ticket_id, step_id, visit_started_at, rule_id) do nothing returning *` - only inserted rows produce notifications, so overlapping runs can't double-notify (replaces `tryLock`).
 - **Business calendar** in SQL or TS: `company_holidays` + business hours per company rule; Asia/Manila via `at time zone 'Asia/Manila'` (no hour arithmetic, compliance A17).
-- **Email:** an `email_outbox` table filled in the same transaction, drained by a second cron through Resend / SES (retries, no MailApp quota); `notifications.email_status` updated from the outbox.
+- **Email:** an `email_outbox` table filled in the same transaction, drained by a second Scheduler job through **Amazon SES Singapore** (retries, no MailApp quota); `notifications.email_status` updated from the outbox.
 - **escalate_role grants:** a view `active_escalation_grants(ticket_id, role_id)` joined into the approver-eligibility query.
 
 ---
@@ -208,7 +214,7 @@ create table auth_identities (
 |---|---|---|---|
 | **A. Client Postgres** (on-prem or their cloud) | Postgres 14+ | Only `DATABASE_URL`: same schema, migrations and handlers as Neon | Small |
 | **B. Client SQL Server / MySQL** | Their existing engine (common next to ERPs) | A second database dialect: query builder + dialect-specific migrations and locking | Medium–large |
-| **C. Fully on-prem app** | API server (Docker / Node) + database + static frontend on their network | B or A, plus self-hosted API (no Vercel), their own scheduler for the SLA job, their own mail relay | Large |
+| **C. Fully on-prem app** | API server (Docker / Node) + database + static frontend on their network | B or A, plus self-hosted API (the same `Dockerfile` / `server/app.js` as Cloud Run), their own scheduler for the SLA job, their own mail relay | Large |
 
 ### §11.2 Pros and cons
 
@@ -216,7 +222,7 @@ create table auth_identities (
 |---|---|
 | **Data residency / Data Privacy Act:** client data never leaves their network or provider (often the deciding factor for enterprises) | **No test access by default:** version, collation, permissions and network differences show up only at the client - **unless the client provides a dev / staging database** (§11.4) |
 | Integration with the client's ERP: reports or views can join TicketFlow tables with ERP tables | **Support burden:** every client database is one more environment to upgrade, migrate and debug - remotely, through their IT |
-| No cloud database cost for the client; LAN latency can be very low | **Networking:** Vercel functions can't reach a private database without a tunnel (Cloudflare Tunnel, VPN, or a public IP allow-list) - or the API must be hosted on-prem (shape C) |
+| No cloud database cost for the client; LAN latency can be very low | **Networking:** the cloud server (Cloud Run) can't reach a private database without a tunnel or VPC connector (Cloudflare Tunnel, VPN, or a public IP allow-list) - or the API must be hosted on-prem (shape C) |
 | The client owns backups, retention and disaster recovery | Backups, HA and security patches become **their** responsibility - and outages land on us anyway |
 | Can reuse the client's sign-in (Active Directory / Entra ID) via the Auth.js adapter (§3) | Two dialects (B) double the testing for every schema or query change; Postgres-only features (partial indexes, `ON CONFLICT`, `FOR UPDATE SKIP LOCKED`, `jsonb`) need equivalents |
 | Easier to sell to clients that forbid SaaS | Releases need the client's change window; we can't hot-fix their database |
@@ -227,8 +233,8 @@ create table auth_identities (
 2. **Use a query builder that supports several dialects** (Kysely or Drizzle with dialect-specific schema files; Kysely supports Postgres, MySQL, SQL Server and SQLite) instead of hand-written Postgres SQL in handlers.
 3. **Keep Postgres-only features behind helpers:** `upsertOnConflict()`, `lockRowForUpdate()`, `jsonColumn()`. Each dialect implements them (SQL Server: `MERGE` / `WITH (UPDLOCK, ROWLOCK)` / `NVARCHAR(MAX)` + `ISJSON`).
 4. **Keep the existing portable choices:** text ids, timestamps stored in UTC, Asia/Manila only at display (compliance A17), soft deletes, no database triggers holding business rules.
-5. **Configuration only:** `DATABASE_URL`, `DB_DIALECT` (`postgres` default), `MAIL_TRANSPORT` (`resend` / `smtp`), `SCHEDULER` (`vercel-cron` / `external`). No code edits per client.
-6. **The SLA job as a plain HTTP endpoint** (`/api/cron/sla`, signed): Vercel Cron calls it in the cloud, and an on-prem scheduler (Task Scheduler / cron / Kubernetes CronJob) calls it at a client.
+5. **Configuration only:** `DATABASE_URL`, `DB_DIALECT` (`postgres` default), `MAIL_TRANSPORT` (`ses` / `smtp`), `SCHEDULER` (`cloud-scheduler` / `external`). No code edits per client.
+6. **The SLA job as a plain HTTP endpoint** (`/api/cron/sla`, signed): Cloud Scheduler calls it in the cloud, and an on-prem scheduler (Task Scheduler / cron / Kubernetes CronJob) calls it at a client.
 
 ### §11.4 How to test without the client's database
 

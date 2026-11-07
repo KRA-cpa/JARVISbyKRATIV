@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_Deploy_CloudRun_FirebaseHosting.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: GUIDE_Deploy_CloudRun_FirebaseHosting.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 8 November 2026 UTC+8 (Philippine Standard Time)
-Purpose: Move PRODUCTION from Vercel to Google Cloud Run (asia-southeast1, Singapore) behind Firebase Hosting at daloy.blueknight.xyz; Vercel keeps the previews. Backend unchanged (Apps Script) - the Postgres move follows CHECKLIST_Deploy_PostgresNeon_20261108.md | Status: Ready to run (nothing deployed yet)
+Purpose: Move PRODUCTION from Vercel to Google Cloud Run (asia-southeast1, Singapore) behind Firebase Hosting at daloy.blueknight.xyz; Vercel keeps the previews. Backend unchanged (Apps Script) - the Postgres move follows CHECKLIST_Deploy_PostgresNeon_20261108.md | Status: Ready to run (nothing deployed yet) - the runbook for Phase H of docs/planning/PLAN_Migration_Unified_20261108.md
 REVISION HISTORY:
+- v1.1.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Runbook for Phase H of PLAN_Migration_Unified_20261108.md; step D also updates Claude.md working rule 3 + the deploy-check memory
 - v1.0.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 61523343). User decisions: production off Vercel, previews on Vercel Hobby (commercial-use risk accepted), domain blueknight.xyz (subdomain daloy.); Firebase Hosting as the front door (Cloud Run domain mapping is Preview, "not production-ready")
 ===============================================================================
 -->
@@ -101,6 +102,9 @@ no cost (then $0.15 / GB), and needs the Blaze plan (billing) - which Cloud Run 
 3. [ ] **You:** Vercel → Settings → Git → **Production Branch** → `vercel-production-retired` (a branch that doesn't
        exist). From now on pushes only make **previews**; the last production deployment (redirect + `/api`) stays.
 4. [ ] Switch the redirect to `"permanent": true` after a week without problems.
+5. [ ] **Claude:** update `Claude.md` working rule 3 ("one Vercel check" → the Cloud Run deploy + a check of
+       `daloy.blueknight.xyz`) and the memory `feedback_batch_then_deploy_check`; tick Phase H in
+       `PLAN_Migration_Unified_20261108.md` §8.
 
 **From then on:** production = `scripts/deploy-cloudrun.sh production` (Claude runs it when you say "push" / "deploy");
 previews = push a branch (Vercel); the preview-link-before-push habit is unchanged.

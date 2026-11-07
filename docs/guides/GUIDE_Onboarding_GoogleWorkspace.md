@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_Onboarding_GoogleWorkspace.md | Author: Kenneth R. Advento | Version: 1.1.0
-Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
+Document: GUIDE_Onboarding_GoogleWorkspace.md | Author: Kenneth R. Advento | Version: 1.2.0
+Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 8 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: How to onboard a company that already uses Google Workspace onto Daloy - shared platform (default) or a dedicated instance on the company's own Google Sheet | Status: Active (written against AppScript v10.2 / proxy v9.4+); Option C and D are not built
 REVISION HISTORY:
+- v1.2.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §3 note: Option B stays available as the INTERIM Google Sheets option (frozen at v10.2 features + fixes) until the bridge ships - PLAN_Migration_Unified_20261108.md §2 / Phase 5 (user: Sheets stays a customer option)
 - v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Note on organizations (owner of the data store, onboards several companies) + global-admin warning; points to PLAN_ServerCore_OrgSheetBridge
 - v1.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created; user: "add guide how to onboard a company already using google workspace, esp if they want their own google sheet as db"
 ===============================================================================
@@ -91,6 +92,13 @@ Nothing beyond §1. Their data sits in the Daloy Sheet, owned by the platform ac
 ---
 
 ## §3 Option B — dedicated instance on their own Google Sheet
+
+> **8 Nov 2026 - still offered, as the interim Google Sheets option** (`docs/planning/PLAN_Migration_Unified_20261108.md`
+> §2). The platform moves to Cloud Run + Neon and Apps Script is **frozen at v10.2 features** (fixes only), so a dedicated
+> instance gets every fix (paste each fix file into each copy) but **no new features** (trials / invoices, Basic+ packs,
+> templates, uploader are built on the server - Phase 4). Long term, a Sheets customer moves to the **bridge** (logic on
+> the server, data still in their Sheet - Phase 5) through export / import (step 5.5). Tell the customer this before
+> they choose B.
 
 ### 3.1 Choose who owns what
 | Model | Sheet owner | Script owner | Pros | Cons |

@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_PlanTiers_Subscriptions_20261031.md | Author: Kenneth R. Advento | Version: 1.4.0
+Document: PLAN_PlanTiers_Subscriptions_20261031.md | Author: Kenneth R. Advento | Version: 1.5.0
 Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 8 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: AppScript v10.2 - Basic / Advanced / Enterprise plans per company: feature + limit catalogue, server gate, subscription lifecycle (trial end, grace, read-only), invoices without payment, owner template library for Basic, ticket uploader | Status: Approved (session ff4c803f), not built
 REVISION HISTORY:
+- v1.5.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Where it's built (user): Apps Script frozen at P1 (fixes only); P2-P5 and §11 Q1 / Q2 are built on the cloud server after the write cutover - PLAN_Migration_Unified_20261108.md Phase 4 (order 4.1 P2 → 4.2 Q2 → 4.3 P5 → 4.4 Q1 → 4.5 P3 → 4.6 P4)
 - v1.4.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §11 development queue (user): Q1 Basic+ and the packs, Q2 allowances instead of hard limits - the public /plans page shows both as Coming soon until the server does them (session 61523343)
 - v1.3.3 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2c currency: USD prices billed in PHP at the previous month's BSP rate; rate shown on Usage & charges
 - v1.3.2 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2c late-payment penalty (user), shown on Usage & charges
@@ -426,6 +427,9 @@ Enforce mode, fake clock, run in `TZ=UTC` and `TZ=Asia/Manila`.
 - Platform bootstrap = any active admin while `PLATFORM_ADMIN_UIDS` is empty.
 
 ## §11 Development queue (public page ahead of the server)
+*Built on the cloud server, not Apps Script (user, 8 Nov 2026): `PLAN_Migration_Unified_20261108.md` Phase 4 - Q2 = step
+4.2, Q1 = step 4.4; P2 = 4.1, P5 = 4.3, P3 = 4.5, P4 = 4.6.*
+
 *(8 Nov 2026, session 61523343 - user: "add this to development queue")* The public `/plans` page shows the four-plan line-up in
 production (`PROPOSED_PLANS_LIVE = true`, `src/config/plansProposed.js`) with **Coming soon** badges (`PROPOSED_COMING_SOON`)
 on what the server can't do yet. Each item is done when the server does it; then take its badge out (and, for Q1, move
