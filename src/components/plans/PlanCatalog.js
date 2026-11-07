@@ -10,7 +10,7 @@ import {
 import {
   PROPOSED_PLAN_ORDER, PROPOSED_PLAN_NAMES, PROPOSED_PLAN_TAGLINES, PROPOSED_ADDED_FEATURES, PROPOSED_PACK_GROUP,
   PROPOSED_BASIC_PLUS_LIMITS, PROPOSED_NOTES, PROPOSED_ALLOWANCE_KEYS, PROPOSED_ADDON_BLOCKS, PROPOSED_RATE, PROPOSED_PRICES,
-  PROPOSED_ADDON_PRICES_USD
+  PROPOSED_ADDON_PRICES_USD, PROPOSED_COMING_SOON, COMING_SOON_LABEL
 } from '../../config/plansProposed';
 import { SHOW_PRICES } from '../../config/pricing';
 
@@ -88,8 +88,20 @@ const Mark = ({ on }) => (on
   ? <span className="inline-flex text-green-600 dark:text-green-400" aria-label="Included"><Icons.CheckCircle size={18} /></span>
   : <span className="text-gray-300 dark:text-gray-600" aria-label="Not included">—</span>);
 
+/** "Coming soon" badge (PROPOSED_COMING_SOON in src/config/plansProposed.js): shown, not on the server yet. */
+const Soon = ({ className = '' }) => (
+  <span className={`inline-block whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 ${className}`}>
+    {COMING_SOON_LABEL}
+  </span>
+);
+
+/** A note is a string, or { text, soon } for one shown with the badge. */
+const noteText = note => (typeof note === 'string' ? note : note.text);
+
 const PlanCatalog = ({ signedIn = false, proposed = false }) => {
   const showPrices = proposed && SHOW_PRICES;
+  const planSoon = key => proposed && PROPOSED_COMING_SOON.plans.includes(key);
+  const featureSoon = key => proposed && PROPOSED_COMING_SOON.features.includes(key);
   const { plans: PLANS, taglines, groups, notes } = proposed ? PROPOSED : LIVE;
   const addedCount = index => (index === 0 ? 0 : PLANS[index].features.size - PLANS[index - 1].features.size);
   const gridCols = PLANS.length === 4 ? 'md:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-3';
@@ -113,7 +125,10 @@ const PlanCatalog = ({ signedIn = false, proposed = false }) => {
         <div key={plan.plan}
           className={`grid grid-rows-subgrid gap-y-0 ${showPrices ? 'row-span-6' : proposed ? 'row-span-5' : 'row-span-4'} rounded-xl border-2 bg-white p-6 shadow-sm dark:bg-gray-800 ${PLAN_ACCENTS[plan.plan] || PLAN_ACCENTS.basic}`}>
           <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">{plan.name || PLAN_NAMES[plan.plan]}</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              {plan.name || PLAN_NAMES[plan.plan]}
+              {planSoon(plan.plan) && <Soon className="ml-2" />}
+            </h2>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{taglines[plan.plan]}</p>
           </div>
           {showPrices && <div><PriceBlock planKey={plan.plan} /></div>}
@@ -140,7 +155,7 @@ const PlanCatalog = ({ signedIn = false, proposed = false }) => {
                 // Click to show (user, 2 Nov 2026): native <details>, keyboard and screen-reader friendly, no state
                 <details className="group mt-4 rounded-md bg-teal-50 px-3 py-2 text-xs text-teal-900 dark:bg-teal-900/30 dark:text-teal-100">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-2 font-semibold [&::-webkit-details-marker]:hidden">
-                    <span>* Need more? Add-ons</span>
+                    <span>* Need more? Add-ons{PROPOSED_COMING_SOON.addOns && <Soon className="ml-2" />}</span>
                     <Icons.ChevronDown size={14} className="flex-none transition-transform group-open:rotate-180" />
                   </summary>
                   <p className="mt-2">
@@ -180,7 +195,10 @@ const PlanCatalog = ({ signedIn = false, proposed = false }) => {
             <tr className="text-left text-gray-500 dark:text-gray-400">
               <th scope="col" className="px-6 py-3 font-medium">Feature</th>
               {PLANS.map(plan => (
-                <th key={plan.plan} scope="col" className="w-28 px-4 py-3 text-center font-medium">{plan.name}</th>
+                <th key={plan.plan} scope="col" className="w-28 px-4 py-3 text-center font-medium">
+                  {plan.name}
+                  {planSoon(plan.plan) && <><br /><Soon className="mt-1" /></>}
+                </th>
               ))}
             </tr>
           </thead>
@@ -205,7 +223,10 @@ const PlanCatalog = ({ signedIn = false, proposed = false }) => {
                 </tr>
                 {Object.entries(group.features).map(([key, label]) => (
                   <tr key={key} className="border-t border-gray-100 dark:border-gray-700">
-                    <td className="px-6 py-2.5 text-gray-800 dark:text-gray-100">{label}</td>
+                    <td className="px-6 py-2.5 text-gray-800 dark:text-gray-100">
+                      {label}
+                      {featureSoon(key) && <Soon className="ml-2" />}
+                    </td>
                     {PLANS.map(plan => <td key={plan.plan} className="px-4 py-2.5 text-center"><Mark on={plan.features.has(key)} /></td>)}
                   </tr>
                 ))}
@@ -217,7 +238,12 @@ const PlanCatalog = ({ signedIn = false, proposed = false }) => {
     </section>
 
     <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400">
-      {notes.map(note => <p key={note}>{note}</p>)}
+      {notes.map(note => (
+        <p key={noteText(note)}>
+          {typeof note !== 'string' && note.soon && <Soon className="mr-2" />}
+          {noteText(note)}
+        </p>
+      ))}
       <p>
         Trials last {PLAN_CATALOG_COPY.trial_default_days} days unless the platform team sets another end date. When a period ends without a
         renewal, the company keeps its plan for a grace period ({PLAN_CATALOG_COPY.grace_days.paid} days; {PLAN_CATALOG_COPY.grace_days.trial} after a trial),

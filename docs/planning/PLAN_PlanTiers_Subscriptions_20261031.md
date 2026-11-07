@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_PlanTiers_Subscriptions_20261031.md | Author: Kenneth R. Advento | Version: 1.3.3
-Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
+Document: PLAN_PlanTiers_Subscriptions_20261031.md | Author: Kenneth R. Advento | Version: 1.4.0
+Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 8 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: AppScript v10.2 - Basic / Advanced / Enterprise plans per company: feature + limit catalogue, server gate, subscription lifecycle (trial end, grace, read-only), invoices without payment, owner template library for Basic, ticket uploader | Status: Approved (session ff4c803f), not built
 REVISION HISTORY:
+- v1.4.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §11 development queue (user): Q1 Basic+ and the packs, Q2 allowances instead of hard limits - the public /plans page shows both as Coming soon until the server does them (session 61523343)
 - v1.3.3 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2c currency: USD prices billed in PHP at the previous month's BSP rate; rate shown on Usage & charges
 - v1.3.2 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2c late-payment penalty (user), shown on Usage & charges
 - v1.3.1 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2c: waivers / deductions as a discount or a credit memo (user)
@@ -423,3 +424,14 @@ Enforce mode, fake clock, run in `TZ=UTC` and `TZ=Asia/Manila`.
 - Legacy companies → Enterprise for 12 months.
 - Uploader caps: 200 / 2,000 rows.
 - Platform bootstrap = any active admin while `PLATFORM_ADMIN_UIDS` is empty.
+
+## §11 Development queue (public page ahead of the server)
+*(8 Nov 2026, session 61523343 - user: "add this to development queue")* The public `/plans` page shows the four-plan line-up in
+production (`PROPOSED_PLANS_LIVE = true`, `src/config/plansProposed.js`) with **Coming soon** badges (`PROPOSED_COMING_SOON`)
+on what the server can't do yet. Each item is done when the server does it; then take its badge out (and, for Q1, move
+`plansProposed.js` into `src/config/plans.js` so `check:api-contract` compares it with `PLAN_CATALOG`).
+
+| # | Gap (page vs server today) | Build | Badge to remove when done |
+|---|---|---|---|
+| Q1 | **Basic+ and the packs.** The server (`PLAN_CATALOG`, v10.2) has three plans; the Payroll and HR packs aren't built. A Basic+ customer has to be set up **by hand** for now (e.g. Basic + the pack ticket types copied in, or Advanced with overrides via `setSubscriptionOverrides`). | U9 - §2b: `basic_plus` in `PLAN_CATALOG`, pack features + the pack on / off switch, pack ticket types from `docs/design/TEMPLATES_PayrollRequests_20261101.md` / `TEMPLATES_HRRequests_20261101.md`, pack types not counted toward the ticket-type limit | `plans: ['basic_plus']`, `features: payroll_pack, hr_pack, pack_toggle`, the two pack notes |
+| Q2 | **Allowances, not hard limits.** The notes say users and tickets per month are allowances (add-on blocks, a 3-month ticket average, stop-at-allowance or a monthly spending cap, alerts at 80% / 100%, a month-end estimate). Today `requireLimit` enforces them as **hard stops**. | U10 - §2c: allowance keys in the gate (warn, don't refuse, unless the company chose stop / cap), 3-month average counter, add-on blocks on the usage statement, 80% / 100% notifications, month-end estimate on Plan & usage | `addOns: true`, the allowance + "No surprises" notes |

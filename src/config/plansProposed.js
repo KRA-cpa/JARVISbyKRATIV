@@ -17,6 +17,21 @@ import { SHOW_PRICES } from './pricing';
  */
 export const PROPOSED_PLANS_LIVE = true;
 
+/**
+ * "Coming soon" badges (user, 8 Nov 2026: "set to coming soon") - shown publicly but not on the server yet
+ * (PLAN_PlanTiers U9 packs / Basic+, U10 allowances + add-ons). Take an entry out when it ships.
+ *   plans    - a badge on the plan card and its column in the comparison table
+ *   features - a badge after the feature label in the comparison table
+ *   addOns   - a badge on the "Need more? Add-ons" box (allowances + add-on blocks)
+ * Notes below carry their own `soon: true`.
+ */
+export const PROPOSED_COMING_SOON = {
+  plans: ['basic_plus'],
+  features: ['payroll_pack', 'hr_pack', 'pack_toggle'],
+  addOns: true
+};
+export const COMING_SOON_LABEL = 'Coming soon';
+
 export const PROPOSED_PLAN_ORDER = ['basic', 'basic_plus', 'advanced', 'enterprise'];
 
 export const PROPOSED_PLAN_NAMES = { basic: 'Basic', basic_plus: 'Basic+', advanced: 'Advanced', enterprise: 'Enterprise' };
@@ -88,11 +103,12 @@ export const PROPOSED_NOTES = [
     'BSP weighted average rate of the previous month; the peso amounts shown use the October 2026 rate. Pay annually and ' +
     'get 2 months free. Setup is a one-time fee on top of the monthly subscription, billed with the first month - and ' +
     'optional: you can set up on your own at no cost.']),
-  'Users and tickets per month are allowances, not hard limits: above them you keep working and pay add-on blocks, ' +
+  // { text, soon: true } = shown with the "Coming soon" badge (PROPOSED_COMING_SOON); a plain string = no badge
+  { soon: true, text: 'Users and tickets per month are allowances, not hard limits: above them you keep working and pay add-on blocks, ' +
     'without changing plan. Tickets are counted on a 3-month average, so one busy month (payroll cut-off, year-end) isn\'t ' +
-    'charged on its own. You can choose to stop at the allowance or set a monthly spending cap instead.',
-  'No surprises: your administrators see usage, a month-end estimate and every counted user and ticket at any time, with ' +
-    'alerts at 80% and 100%. Add-on prices will be published per plan.',
-  'Pack request types don\'t count toward the ticket types limit.',
-  'Turning a pack off stops new requests of its types; existing requests stay readable and can finish.'
+    'charged on its own. You can choose to stop at the allowance or set a monthly spending cap instead.' },
+  { soon: true, text: 'No surprises: your administrators see usage, a month-end estimate and every counted user and ticket at any time, with ' +
+    'alerts at 80% and 100%. Add-on prices will be published per plan.' },
+  { soon: true, text: 'Pack request types don\'t count toward the ticket types limit.' },
+  { soon: true, text: 'Turning a pack off stops new requests of its types; existing requests stay readable and can finish.' }
 ];
