@@ -12,6 +12,7 @@ import {
   PROPOSED_BASIC_PLUS_LIMITS, PROPOSED_NOTES, PROPOSED_ALLOWANCE_KEYS, PROPOSED_ADDON_BLOCKS, PROPOSED_RATE, PROPOSED_PRICES,
   PROPOSED_ADDON_PRICES_USD
 } from '../../config/plansProposed';
+import { SHOW_PRICES } from '../../config/pricing';
 
 /**
  * PlanCatalog - the Basic / Advanced / Enterprise catalogue (AppScript v10.2) for the public /plans page. Static: it renders
@@ -21,7 +22,7 @@ import {
  * Layer: feature component (shared + config only, per docs/reference/DEPENDENCY_MAPPING.md). Mounted by PlansPage.
  * @param {boolean} signedIn - shows Sign in (visitors) or Go to dashboard (signed-in users) in the closing line
  * @param {boolean} proposed - the PROPOSED four-plan line-up (src/config/plansProposed.js, PLAN_PlanTiers U9), shown on
- *   preview builds only (PlansPage); the default is the live catalogue copy
+ *   preview builds only (PlansPage); the default is the live catalogue copy. Prices follow SHOW_PRICES (src/config/pricing.js)
  */
 
 const PLAN_ACCENTS = {
@@ -88,6 +89,7 @@ const Mark = ({ on }) => (on
   : <span className="text-gray-300 dark:text-gray-600" aria-label="Not included">—</span>);
 
 const PlanCatalog = ({ signedIn = false, proposed = false }) => {
+  const showPrices = proposed && SHOW_PRICES;
   const { plans: PLANS, taglines, groups, notes } = proposed ? PROPOSED : LIVE;
   const addedCount = index => (index === 0 ? 0 : PLANS[index].features.size - PLANS[index - 1].features.size);
   const gridCols = PLANS.length === 4 ? 'md:grid-cols-2 xl:grid-cols-4' : 'md:grid-cols-3';
@@ -109,12 +111,12 @@ const PlanCatalog = ({ signedIn = false, proposed = false }) => {
         // Subgrid (user, 2 Nov 2026: "make it aligned"): every card spans the same rows of the section grid, so name,
         // price, summary, "Included" and "Need more?" start at the same height in every card of a row
         <div key={plan.plan}
-          className={`grid grid-rows-subgrid gap-y-0 ${proposed ? 'row-span-6' : 'row-span-4'} rounded-xl border-2 bg-white p-6 shadow-sm dark:bg-gray-800 ${PLAN_ACCENTS[plan.plan] || PLAN_ACCENTS.basic}`}>
+          className={`grid grid-rows-subgrid gap-y-0 ${showPrices ? 'row-span-6' : proposed ? 'row-span-5' : 'row-span-4'} rounded-xl border-2 bg-white p-6 shadow-sm dark:bg-gray-800 ${PLAN_ACCENTS[plan.plan] || PLAN_ACCENTS.basic}`}>
           <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">{plan.name || PLAN_NAMES[plan.plan]}</h2>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{taglines[plan.plan]}</p>
           </div>
-          {proposed && <div><PriceBlock planKey={plan.plan} /></div>}
+          {showPrices && <div><PriceBlock planKey={plan.plan} /></div>}
           <p className="mt-4 text-sm font-medium text-gray-800 dark:text-gray-100">
             {index === 0 ? 'The core flow' : `Everything in ${PLANS[index - 1].name}, plus ${addedCount(index)} features`}
           </p>
@@ -142,9 +144,9 @@ const PlanCatalog = ({ signedIn = false, proposed = false }) => {
                     <Icons.ChevronDown size={14} className="flex-none transition-transform group-open:rotate-180" />
                   </summary>
                   <p className="mt-2">
-                    +{PROPOSED_ADDON_BLOCKS[plan.plan].users} users for {usd(PROPOSED_ADDON_PRICES_USD[plan.plan].users)}
+                    +{PROPOSED_ADDON_BLOCKS[plan.plan].users} users{showPrices && <> for {usd(PROPOSED_ADDON_PRICES_USD[plan.plan].users)}</>}
                     {PROPOSED_ADDON_BLOCKS[plan.plan].tickets_per_month
-                      ? <>; +{formatPlanLimit(PROPOSED_ADDON_BLOCKS[plan.plan].tickets_per_month)} tickets for {usd(PROPOSED_ADDON_PRICES_USD[plan.plan].tickets_per_month)}</>
+                      ? <>; +{formatPlanLimit(PROPOSED_ADDON_BLOCKS[plan.plan].tickets_per_month)} tickets{showPrices && <> for {usd(PROPOSED_ADDON_PRICES_USD[plan.plan].tickets_per_month)}</>}</>
                       : <>; for more tickets, talk to us</>}
                     {' '}- per month, billed only when used.
                   </p>

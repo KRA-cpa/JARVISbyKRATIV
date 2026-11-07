@@ -1,12 +1,13 @@
 import React from 'react';
 import { PROMO_BANNER } from '../../config/promo';
+import { SHOW_PRICES } from '../../config/pricing';
 import { CONTACT, contactMailto } from '../../config/site';
 import { DEFAULT_ZONE, todayInZone } from '../../utils/dateTime';
 
 /**
  * PromoBanner - the promotional banner from src/config/promo.js (on / off, where, words), for the home page and /plans.
  * Off when: enabled is false (or REACT_APP_PROMO_BANNER=off), the page isn't listed, showOn is 'preview' in a production
- * build, or endsOn has passed. The CTA is a pre-filled email to sales (hidden without a sales address - compliance F4).
+ * build, endsOn has passed, or it quotes a price (needsPrices) while SHOW_PRICES is false. The CTA is a pre-filled email to sales (hidden without a sales address - compliance F4).
  * Static: no API call. Layer: shared component (config + utils).
  * @param {string} page - 'home' | 'plans'
  */
@@ -21,6 +22,7 @@ const todayDay = () => todayInZone(DEFAULT_ZONE);
 export const isPromoVisible = (page, banner = PROMO_BANNER) => {
   const enabled = ENV_SWITCH === 'on' ? true : ENV_SWITCH === 'off' ? false : Boolean(banner.enabled);
   if (!enabled || !banner.pages.includes(page)) return false;
+  if ((banner.needsPrices && !SHOW_PRICES) || !banner.text) return false;
   if (banner.showOn !== 'all' && !IS_PREVIEW_BUILD) return false;
   return !(banner.endsOn && todayDay() > banner.endsOn);
 };
