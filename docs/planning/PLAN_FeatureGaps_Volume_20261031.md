@@ -2,13 +2,14 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_FeatureGaps_Volume_20261031.md | Author: Kenneth R. Advento | Version: 1.2.0
-Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 31 October 2026 UTC+8 (Philippine Standard Time)
+Document: PLAN_FeatureGaps_Volume_20261031.md | Author: Kenneth R. Advento | Version: 1.3.0
+Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 9 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Missing features (except attachments), the user's decisions on them, and how they hold up at volume on Sheets and Postgres (reco-style) - the AppScript v10 line | Status: Approved (session 2d369f00), not built
 REVISION HISTORY:
 - v1.0.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Initial plan (session 2d369f00); progress figures split out to PROGRESS_FeatureCompletion.md
 - v1.1.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User decisions: onboarding / invites in v9.6 (§4.12), no head set → submit blocked, notification partition drop on Postgres approved
 - v1.2.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §4.13 broken attachment links: report, then edit (v9.6; anyone who can add links may fix; closed tickets allowed, logged)
+- v1.3.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Backlog "file uploads" is now planned: docs/planning/PLAN_Attachments_ClientDrive_20261109.md (client's Google Workspace Drive, on the cloud server - unified step 4.7)
 ===============================================================================
 -->
 
@@ -35,7 +36,7 @@ The user asked which features are missing (attachments / attachment links left o
 
 **Version line (decided 31 Oct 2026):** this conversation's changes are a **major version: AppScript v10**. v9.6 stays as planned in session 7e008704 (auth hardening, attachment links, company email, idle sign-out). Then **v10.0** = visibility / Restricted / pagination / notifications, **v10.1** = head approval / delegation / bulk, **v10.2** = comments and the rest. Why it's major: `getTickets` changes its response shape (paged), and ticket reads now depend on who the caller is, which every screen has to handle.
 
-Already planned for v9.6 (not repeated here): admin-only action list + sign-in allow-list, company email settings, idle sign-out, plus **user onboarding / invites** (ST-2 and §4.12, decided 31 Oct 2026). Backlog: file uploads, the slaCalculator +8 h bug, the ticket type Edit route, Neon Phase 0.
+Already planned for v9.6 (not repeated here): admin-only action list + sign-in allow-list, company email settings, idle sign-out, plus **user onboarding / invites** (ST-2 and §4.12, decided 31 Oct 2026). Backlog: file uploads (*planned 9 Nov 2026: `docs/planning/PLAN_Attachments_ClientDrive_20261109.md`, unified step 4.7*), the slaCalculator +8 h bug, the ticket type Edit route, Neon Phase 0.
 
 ---
 

@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.0.0
-Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 8 November 2026 UTC+8 (Philippine Standard Time)
+Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.1.0
+Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 9 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: THE migration plan + step-by-step, top to bottom: Apps Script / Google Sheets → Google Cloud Run + Neon Postgres (all servers in Asia), previews on Vercel, Google Sheets kept as a customer option; then the remaining v10.2 features and organizations on the new server | Status: Active - current roadmap (Phase F done, Phase H code ready, nothing deployed)
 REVISION HISTORY:
+- v1.1.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | D11 attachments in the client's Google Workspace Drive (user: "plan attachments on google drive (client's google workspace acct)") - PLAN_Attachments_ClientDrive_20261109.md; Files layer = client Drive / links, platform object storage deferred (step 0.4); schema reserved in 0.7; new step 4.7 (v10.3 / v10.4 → 4.8)
 - v1.0.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 61523343; user: "might need a unified migration plan + step-by-step"). Folds in CHECKLIST_Deploy_PostgresNeon_20261108.md (now a pointer) and the phase lists of PLAN_Migration_NeonVercel_20261030.md §6 and PLAN_ServerCore_OrgSheetBridge_20261101.md §8
 ===============================================================================
 -->
@@ -25,6 +26,7 @@ approvals, the Apps Script editor; **Claude** = code, scripts, tests, docs, depl
 | `docs/planning/PLAN_ServerCore_OrgSheetBridge_20261101.md` | **Organizations + Sheet bridge design** (Phase 5) |
 | `docs/planning/PLAN_PlanTiers_Subscriptions_20261031.md` | **Plans / subscriptions design** (Phase 4: P2–P5, §11 Q1 / Q2) |
 | `docs/planning/PLAN_FeatureGaps_Volume_20261031.md` | Feature design (v10.x, §6 on Postgres) |
+| `docs/planning/PLAN_Attachments_ClientDrive_20261109.md` | **Attachments in the client's Drive** (D11, step 4.7) |
 
 ---
 
@@ -41,6 +43,7 @@ approvals, the Apps Script editor; **Claude** = code, scripts, tests, docs, depl
 | D8 | Cloud choice O11 (PLAN_ServerCore §5a) = **Cloud Run + Neon** (not Cloud SQL) | follows D2–D3 |
 | D9 | `organizations` + `organization_id` in the **first** Postgres schema (one default organization for today's data) - O1's schema without a second migration later | this plan |
 | D10 | Method = PLAN_Migration Option A: copy Sheets → Postgres, move reads, freeze + move writes, clean up; the API contract (`{ action, ...payload }` → `{ success, data, message }`) never changes | user, 30 Oct 2026 |
+| D11 | **Attachments are uploaded into the client's own Google Workspace Drive** (a Shared Drive): option 1 role-account OAuth (`drive.file`) or option 2 Daloy service account as a member; on / off per organization and company (off by default); Daloy checks the ticket rules, then serves the file; folder `<COMPANY>/<TYPE>/<YYYY>/<ticket_number>/`; slots per ticket type. No Workspace → links only; **platform object storage deferred**. Built in step 4.7 - `docs/planning/PLAN_Attachments_ClientDrive_20261109.md` | user, 9 Nov 2026 |
 | **To confirm** | Neon Singapore + Better Auth + SES Singapore for the data move (step 0.1) | - |
 
 ## §2 Storage options for customers (D7)
@@ -68,7 +71,7 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
 | Sign-in | Better Auth in Neon (Google sign-in), cookie `__session` | Singapore | $0 |
 | Jobs | Cloud Scheduler (3 jobs free) | `asia-southeast1` | $0 |
 | Email | Amazon SES | `ap-southeast-1` | ≈ $0.15 / $0.60 / $4.50 |
-| Files | object storage in Asia - **to check** (step 0.4) | Asia | small |
+| Files | the **client's Google Workspace Drive** via `drive_connections` (D11); links otherwise; platform object storage **deferred** | the client's Google account (their choice) | $0 storage; download egress only |
 | **Total** | | | **≈ $0.15 / ≈ $12 / ≈ $42–47** (CHECK §6) |
 
 ## §4 Phase map
@@ -119,8 +122,8 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       clause; a lawyer reviews the DPA / Privacy / Terms changes. *CHECK §7; PLAN_Migration §10.*
 - [ ] **0.4 You** - accounts: Neon project **`aws-ap-southeast-1`** (branches `main`, `dev`; Free while building); AWS +
       **SES `ap-southeast-1`** (domain DKIM / SPF / DMARC on blueknight.xyz, production-access request - the sandbox is
-      200 / 24 h); **object storage in Asia** (check R2's Asia-Pacific location vs Cloud Storage `asia-southeast1`, then
-      pick the cheaper); connection strings and keys in Secret Manager.
+      200 / 24 h); connection strings and keys in Secret Manager. *(Object storage in Asia: **deferred** - files go to the
+      client's Drive, D11; revisit only if a customer without Workspace needs uploads.)*
 - [ ] **0.5 Claude (You run)** - baseline: `node scripts/measure-api-latency.js --url https://daloy.blueknight.xyz/api/appscript-proxy`
       (5 runs per action), recorded in `docs/planning/REVIEW_AppScriptReco_20261030.md` §5.
 - [ ] **0.6 Claude** - `docs/reference/PRODUCTION_REQUIREMENTS.md` first (new packages: `@neondatabase/serverless`,
@@ -129,7 +132,9 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       `query_count` in the log line; `npm run check:api-contract` / `check:code-rules` / `test:server` pass. *PLAN_Migration §2.*
 - [ ] **0.7 Claude** - schema: `scripts/gen-ddl.js` from the **49 tables** of `TABLE_SCHEMAS` (latest AppScript file) →
       migration `0001` with types, keys, constraints, the day-one indexes, the v10 tables, **plus `organizations` +
-      `organization_id`** (D9); `npm run db:migrate` on Neon `dev`. **Gate:** migrations apply from empty; `EXPLAIN` for the
+      `organization_id`** (D9) **and the attachment columns / tables of D11** (`drive_connections`, the
+      `ticket_attachments` additions, attachment rules + slots, step-required slots - PLAN_Attachments §4);
+      `npm run db:migrate` on Neon `dev`. **Gate:** migrations apply from empty; `EXPLAIN` for the
       hot paths in `docs/perf/`. *PLAN_Migration §4, §12; PLAN_ServerCore §1–§2.*
 - [ ] **0.8 Claude writes, You run in the editor** - a **read-only export** route in a new AppScript fix file;
       `repairCompanyLocksApply()` first; the transform (booleans, blank → NULL, `jsonb`, dates, the **`TS_UTC_SINCE` −8 h
@@ -193,7 +198,9 @@ Order (each = design section → `/api/rpc` handlers + tests → screens → con
       badges. *PLAN_PlanTiers §2b, §11; docs/design/TEMPLATES_*.*
 - [ ] **4.5** v10.2 **P3** template library (adopt, light edits, managed set-up).
 - [ ] **4.6** v10.2 **P4** ticket uploader.
-- [ ] **4.7** then v10.3 (head approval, delegation, bulk approve) and v10.4 (comments and the rest).
+- [ ] **4.7** **Drive attachments** (D11): S1 spike (gate) → settings + connections → upload / download → slots per
+      ticket type (may ship first, works with links) → legal + onboarding. *PLAN_Attachments_ClientDrive_20261109.md §16.*
+- [ ] **4.8** then v10.3 (head approval, delegation, bulk approve) and v10.4 (comments and the rest).
       *PLAN_FeatureGaps_Volume.*
 - Prices: switch `SHOW_PRICES` (`src/config/pricing.js`) only when the price list is approved.
 
@@ -221,7 +228,7 @@ Order (each = design section → `/api/rpc` handlers + tests → screens → con
 - One version, one review log, one session-log row - as today (`Claude.md` working rules).
 
 ## §7 Risks and catches (details: CHECK §6 / §7, GUIDE §F)
-- **UNVERIFIED** Cloud Run Tier 2 + egress prices (step 0.2); object-storage location (0.4).
+- **UNVERIFIED** Cloud Run Tier 2 + egress prices (step 0.2). Attachment risks: PLAN_Attachments §17.
 - Firebase Hosting: 60 s per request; only the `__session` cookie passes.
 - Neon Free suspends at its limit; no uptime SLA below Neon Scale - promise none.
 - Test revisions and production share data until Phase 2; previews' API runs through Vercel `iad1` (US) until 3.5.
@@ -238,7 +245,7 @@ Order (each = design section → `/api/rpc` handlers + tests → screens → con
 | 1 | - | |
 | 2 | - | |
 | 3 | - | |
-| 4 | - | |
+| 4 | - | 4.7 attachments designed 9 Nov 2026 (D11) |
 | 5 | - | |
 
 Each phase close recalculates `docs/planning/PROGRESS_FeatureCompletion.md` (REF_SessionLog §3 rule 6).

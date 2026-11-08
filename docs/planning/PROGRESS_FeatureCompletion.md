@@ -2,8 +2,8 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PROGRESS_FeatureCompletion.md | Author: Kenneth R. Advento | Version: 1.6.0
-Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
+Document: PROGRESS_FeatureCompletion.md | Author: Kenneth R. Advento | Version: 1.6.1
+Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 9 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Living record of how complete JARVISbyERP is - against the original spec and against the full roadmap - recalculated at every version close | Status: Active (living document, not dated)
 REVISION HISTORY:
 - v1.0.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created from PLAN_FeatureGaps_Volume_20261031.md §10 (session 2d369f00); method carried over from session 7e008704 (30 Oct 2026)
@@ -13,6 +13,7 @@ REVISION HISTORY:
 - v1.4.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §4 milestone rows for v10.0 M1-M5, close + review, v10.1 T1 / T2 (built, not live; headline unchanged)
 - v1.5.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | v10.1 close row: built-only 88.0 % / 76.1 %; features 16, 42, 43 marked built
 - v1.6.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Session dump 41700a8e (§3 rule 6): v10.0 + v10.1 + v10.2 P1 deployed (ping 10.2.0, the review-fixed file) and the matching frontend live (5bbd435) - headline 88.0 % spec / 78.1 % roadmap, provisional until the browser checks and the §5e / §5f / plans migrations are reported
+- v1.6.1 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Feature 40 file uploads: backlog → planned (client's Drive, unified step 4.7); figures unchanged (design only)
 ===============================================================================
 -->
 
@@ -122,7 +123,7 @@ Version line since 31 Oct 2026 (session ff4c803f): v10.0 → **v10.1** country c
 | 38 | Print / PDF ticket | 1 | 0 % | 100 % | v10.4 |
 | 39 | Unmounted component clean-up | 1 | 0 % | 100 % | v10.4 |
 | 41 | User onboarding / invites | 2 | 0 % | 100 % | v9.6 |
-| 40 | File uploads | 3 | 0 % | 100 % | backlog (last) |
+| 40 | File uploads | 3 | 0 % | 100 % | planned 9 Nov 2026 - client's Google Workspace Drive, cloud server, unified step 4.7 (`PLAN_Attachments_ClientDrive_20261109.md`) |
 | 42 | Country calendars (year, holidays, weekends) + company time zone | 3 | 0 % | 100 % | v10.1 - **built** (T1 calendars + clock + region, T2 SLA / ticket YEAR / filters / Due Today on the company clock, T3 Country Calendars + Region screens, holidays per company) |
 | 43 | Per-user display time zone | 1 | 0 % | 100 % | v10.1 - **built** (Profile → Display time zone, dateTime.js effective zone; gated to Advanced+ in v10.2) |
 | 44 | Plan catalogue + gate + limits + platform admin | 3 | 0 % | 100 % | v10.2 - **built** (P1: `PLAN_CATALOG`, `companyPlan`, central gate + in-handler checks, limits + monthly usage counter, platform admins, `seedCompanySubscriptions`; `/plans` catalogue page) |

@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_PlanTiers_Subscriptions_20261031.md | Author: Kenneth R. Advento | Version: 1.5.0
-Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 8 November 2026 UTC+8 (Philippine Standard Time)
+Document: PLAN_PlanTiers_Subscriptions_20261031.md | Author: Kenneth R. Advento | Version: 1.6.0
+Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 9 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: AppScript v10.2 - Basic / Advanced / Enterprise plans per company: feature + limit catalogue, server gate, subscription lifecycle (trial end, grace, read-only), invoices without payment, owner template library for Basic, ticket uploader | Status: Approved (session ff4c803f), not built
 REVISION HISTORY:
+- v1.6.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2 catalogue: `drive_attachments` (every tier; the client pays for the Drive storage) + limit `attachment_max_mb` 10 / 25 / 100 - PLAN_Attachments_ClientDrive_20261109.md, unified step 4.7
 - v1.5.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Where it's built (user): Apps Script frozen at P1 (fixes only); P2-P5 and §11 Q1 / Q2 are built on the cloud server after the write cutover - PLAN_Migration_Unified_20261108.md Phase 4 (order 4.1 P2 → 4.2 Q2 → 4.3 P5 → 4.4 Q1 → 4.5 P3 → 4.6 P4)
 - v1.4.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §11 development queue (user): Q1 Basic+ and the packs, Q2 allowances instead of hard limits - the public /plans page shows both as Coming soon until the server does them (session 61523343)
 - v1.3.3 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2c currency: USD prices billed in PHP at the previous month's BSP rate; rate shown on Usage & charges
@@ -74,8 +75,9 @@ There is no tier, plan or feature-flag concept in the code today. The closest pa
 | Restricted tickets + fields, config export / import / backup, cross-company links, admin audit-log viewer, user profile / role types with custom fields, webhooks + task callback (v10.4) | – | – | ✓ |
 | **Limits:** active users / ticket types / steps per type / tickets per month | 25 / 5 / 3 / 500 | 200 / 25 / 10 / 5,000 | 2,000 / ∞ / 30 / 50,000 (Sheets ceiling, `PLAN_FeatureGaps_Volume_20261031.md` §5.5) |
 | Trial (§4a) | – | default: Advanced, `trial_end` set by the platform admin | if the platform admin picks it |
+| *(9 Nov 2026, server - unified step 4.7)* **File uploads into the client's Google Workspace Drive** (`drive_attachments`; on / off per organization + company) + attachment slots per ticket type; limit `attachment_max_mb` per file | ✓ / 10 MB | ✓ / 25 MB | ✓ / 100 MB |
 
-Keys are stable strings (`conditional_routing`, `sla_escalation`, `restricted`, `type_builder`, `bulk_upload`, …). Limit keys: `users`, `ticket_types` (adopted + own), `steps_per_type`, `tickets_per_month`.
+Keys are stable strings (`conditional_routing`, `sla_escalation`, `restricted`, `type_builder`, `bulk_upload`, …). Limit keys: `users`, `ticket_types` (adopted + own), `steps_per_type`, `tickets_per_month`; from step 4.7 also `attachment_max_mb` (hard, a per-file cap - `docs/planning/PLAN_Attachments_ClientDrive_20261109.md` §11).
 
 ### §2a Basic ticket types come from the software owner (U5)
 - **Template library:** a company flagged `companies.is_template_library = true`. Only platform admins can edit it, and `createTicket` refuses it.

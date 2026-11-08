@@ -2,12 +2,13 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_PrivacyPolicy_DPA_20261101.md | Author: Kenneth R. Advento | Version: 1.1.0
-Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 1 November 2026 UTC+8 (Philippine Standard Time)
+Document: PLAN_PrivacyPolicy_DPA_20261101.md | Author: Kenneth R. Advento | Version: 1.2.0
+Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 9 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Plan for a Privacy Policy (privacy notice) and the supporting compliance work under the Philippine Data Privacy Act of 2012 (RA 10173), its IRR and NPC issuances, for TicketFlow / JARVIS | Status: Draft (session 41700a8e), decisions D1-D10 open, nothing built
 REVISION HISTORY:
 - v1.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created on request ("create plan for Privacy Policy that is PH DPA compliant"); follows docs/planning/PLAN_PlatformWebsite_20261101.md W7 (legal text from the business / counsel)
 - v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | D2: DPO email `jarvis.dpo@blueknight.xyz`; the proposed draft (L2 starting text) is in `src/config/legal/privacy.js`, shown on previews and on the public `/privacy/draft` (marked DRAFT, noindex), production `/privacy` = placeholder + link to it
+- v1.2.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Data table: uploaded attachments in the customer's own Google Workspace Drive (planned, unified step 4.7) + the Google API Limited Use / drive.file disclosure - PLAN_Attachments_ClientDrive_20261109.md §14
 ===============================================================================
 -->
 
@@ -87,6 +88,7 @@ Each item maps to the data subject's **right to be informed** (DPA Sec. 16(a)-(b
 | Preferences | `user_preferences` | dark mode, time zone, language, email / desktop notification choices, display zone | settings | PIC |
 | Tickets and workflow | `tickets`, `custom_field_values`, `ticket_history`, `ticket_participants`, `ticket_collaborations`, `ticket_links`, tags | anything the customer's forms ask for (may include **sensitive PI**); who acted, when, comments | the service | PIP |
 | Attachment links | `ticket_attachments` | file name, Google Drive / Docs link, uploader (files themselves stay in the customer's Drive) | the service | PIP |
+| Uploaded attachments *(planned, unified step 4.7)* | `ticket_attachments`, `drive_connections` | file names, size, type, Drive file id, uploader; the connected role-account email; an encrypted Drive token (option 1). **The files are stored in the customer's own Google Workspace Shared Drive** - Daloy streams them on download and stores none. Needs the Google API **"Limited Use"** statement and a description of the `drive.file` permission in the Privacy Policy (`docs/planning/PLAN_Attachments_ClientDrive_20261109.md` §14) | the service | PIP |
 | Notifications and email | `notifications`, `email_outbox`; Gmail via Apps Script `MailApp` | recipient, email address, subject, body (ticket number / title) | workflow notices | PIP |
 | Audit and security logs | `admin_action_logs` (logins with **email + IP address** when sent), `ticket_action_logs`; Vercel function logs (uid, company id, action, timing) | who did what, when | security, accountability, troubleshooting | PIC (security) / PIP (ticket audit) |
 | Plans and billing | `company_subscriptions`, (P2) `subscription_invoices` | company, billing reference, invoice lines, the contact | contract, tax records | PIC |

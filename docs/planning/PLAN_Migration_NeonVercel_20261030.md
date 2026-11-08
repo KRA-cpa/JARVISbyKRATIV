@@ -2,14 +2,15 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_NeonVercel_20261030.md | Author: Kenneth R. Advento | Version: 1.4.0
-Created: 30 October 2026 UTC+8 (Philippine Standard Time) | Modified: 8 November 2026 UTC+8 (Philippine Standard Time)
+Document: PLAN_Migration_NeonVercel_20261030.md | Author: Kenneth R. Advento | Version: 1.4.1
+Created: 30 October 2026 UTC+8 (Philippine Standard Time) | Modified: 9 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Plan to move the backend from Google Sheets + Apps Script to Neon Postgres (Singapore), served from Google Cloud Run (Singapore) behind Firebase Hosting - previews on Vercel - designed for heavy use, without changing the frontend's API contract (file name kept from the Vercel version for links) | Status: Design reference — the order and checkboxes are in docs/planning/PLAN_Migration_Unified_20261108.md
 REVISION HISTORY:
 - v1.0.0 | 30 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Initial plan (session 7e008704), from the reco (19 Oct 2026) and docs/planning/REVIEW_AppScriptReco_20261030.md
 - v1.1.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §11 future option: client-hosted SQL database (shapes, pros / cons, decisions to keep the path open, testing without the client database)
 - v1.2.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §12 v10 features on Postgres (pointer to PLAN_FeatureGaps_Volume_20261031.md §6; session 2d369f00)
 - v1.2.1 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §12: the notification partition drop approved by the user
+- v1.4.1 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Files: attachments go to the client's Google Workspace Drive (unified D11, PLAN_Attachments_ClientDrive_20261109.md); platform object storage deferred
 - v1.4.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Host decided (user: "move production to not vercel, preview in vercel"): production on Cloud Run asia-southeast1 behind Firebase Hosting (daloy.blueknight.xyz), previews on Vercel Hobby; new Phase H = docs/guides/GUIDE_Deploy_CloudRun_FirebaseHosting.md (server/app.js, Dockerfile, firebase.json, scripts/deploy-cloudrun.sh); §1 / §2 / Phase 0 / sync / §9 / §11 moved from Vercel functions + Vercel Cron to Cloud Run + Cloud Scheduler; email SES Singapore; files storage location to check (Asia rule); now the design reference of PLAN_Migration_Unified_20261108.md (Sheets / Apps Script kept as a customer option)
 - v1.3.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Asia rule + hosting check (session 61523343): servers must be in Asia; Firebase Auth is US-only and Vercel functions default to iad1 (US); recommended cheapest all-Asia stack (Cloud Run Singapore + Neon Singapore + Better Auth + SES Singapore) pending the user's confirmation - CHECK_HostingPricing_20261108.md; chronological deploy steps - docs/guides/CHECKLIST_Deploy_PostgresNeon_20261108.md
 ===============================================================================
@@ -33,7 +34,7 @@ REVISION HISTORY:
 | Frontend | React SPA on Vercel | **Phase H:** Firebase Hosting (`daloy.blueknight.xyz`, project `jarvisbyerp`) for production; **Vercel for previews** |
 | API | `api/appscript-proxy.js` → Apps Script web app | **Phase H:** the same proxy on **Cloud Run `daloy` (`asia-southeast1`)** via `server/app.js`; then `/api/rpc` next to it → handlers on Neon; unported actions still proxied to Apps Script |
 | Database | Google Sheets (49 tabs at v10.2) | Neon Postgres (Singapore `aws-ap-southeast-1`), migrations in the repo |
-| Files | Drive (config backups) | Object storage in Asia (Cloudflare R2 with an Asia-Pacific location, or Cloud Storage `asia-southeast1`) - location / price **to check** under the Asia rule before Phase 0 |
+| Files | Drive (config backups) | Ticket attachments in the **client's own Google Workspace Drive** (unified D11, `docs/planning/PLAN_Attachments_ClientDrive_20261109.md`); config backups as JSON in Neon / the nightly backup. Platform object storage in Asia (R2 Asia-Pacific or Cloud Storage `asia-southeast1`) **deferred** until a customer without Workspace needs uploads |
 | Auth | Firebase ID token verified at the proxy (v9.4) | Better Auth sessions in Neon Singapore (Firebase Auth is US-only) - cookie named `__session` (Firebase Hosting passes only that one); one internal user id |
 | Jobs | Apps Script time trigger (SLA escalation, v9.5) | **Cloud Scheduler** → `/api/cron/*` on Cloud Run (3 jobs free per billing account) |
 | Email | MailApp (Apps Script) | Amazon SES Singapore through the `email_outbox` (§9) |
@@ -131,7 +132,7 @@ create table auth_identities (
 
 ### Phase 0 — Foundations
 1. **Baseline:** deploy v9.4, run `node scripts/measure-api-latency.js` (5 runs per action) and record v9.3 vs v9.4 in REVIEW §5.
-2. Neon project (Singapore); the Cloud Run service exists from Phase H; object storage in Asia (§1); secrets in Secret Manager (`DATABASE_URL`, `DATABASE_URL_UNPOOLED`, storage keys).
+2. Neon project (Singapore); the Cloud Run service exists from Phase H; (object storage deferred - §1 Files); secrets in Secret Manager (`DATABASE_URL`, `DATABASE_URL_UNPOOLED`, storage keys).
 3. `/api/rpc` with the handler registry and the Apps Script fallback (the v9.4 proxy, extended). Identity adapters: `firebase` (exists), `authjs` (added here).
 4. DDL + first migration; the load script (§7) run against a copy of the sheet.
 5. **Sync job (Phase 1 only):** a Cloud Scheduler job every 5 min pulls rows changed since the last sync (`updated_at` / `created_at` > watermark - this is why S2 real-UTC timestamps came first) through an Apps Script read-only export action, and upserts them. Deletes are soft (`is_active`), so they sync as updates.

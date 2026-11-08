@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_Onboarding_GoogleWorkspace.md | Author: Kenneth R. Advento | Version: 1.2.0
-Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 8 November 2026 UTC+8 (Philippine Standard Time)
+Document: GUIDE_Onboarding_GoogleWorkspace.md | Author: Kenneth R. Advento | Version: 1.3.0
+Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 9 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: How to onboard a company that already uses Google Workspace onto Daloy - shared platform (default) or a dedicated instance on the company's own Google Sheet | Status: Active (written against AppScript v10.2 / proxy v9.4+); Option C and D are not built
 REVISION HISTORY:
+- v1.3.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5a Connect Drive for attachments (option 1 role account / option 2 service account, short Shared Drive name) + checklist row - PLAN_Attachments_ClientDrive_20261109.md (not built; unified step 4.7)
 - v1.2.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §3 note: Option B stays available as the INTERIM Google Sheets option (frozen at v10.2 features + fixes) until the bridge ships - PLAN_Migration_Unified_20261108.md §2 / Phase 5 (user: Sheets stays a customer option)
 - v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Note on organizations (owner of the data store, onboards several companies) + global-admin warning; points to PLAN_ServerCore_OrgSheetBridge
 - v1.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created; user: "add guide how to onboard a company already using google workspace, esp if they want their own google sheet as db"
@@ -172,6 +173,23 @@ tickets, steps and audit rows into a Sheet **they own and share with the platfor
 spirit (edits are overwritten on the next copy). Gives them Sheets analysis, Looker Studio dashboards and a copy in
 their tenant, without a second deployment. Candidate for an Enterprise feature. Plan it when two or more customers ask.
 
+## §5a Connect Drive for attachments (from unified Phase 4, step 4.7 - not built yet)
+Files attached to tickets can be uploaded into **the company's own Shared Drive** (design:
+`docs/planning/PLAN_Attachments_ClientDrive_20261109.md`). It is **off by default**: turn it on in Organization
+settings → Files, then per company (Inherit / Own connection / Off). Shared platform and Sheet-bridge customers only -
+the dedicated instance (Option B) keeps links.
+
+| Their admin does | **Option 1 - role account** (works in most Workspaces) | **Option 2 - Daloy service account** |
+|---|---|---|
+| Before | create a role account, e.g. `daloy@theircompany.com` (not a person - so it survives staff changes); Daloy's OAuth client **Trusted** (§1.1) | allow **people outside the organization** as Shared Drive members (Admin console → Apps → Google Workspace → Drive and Docs → Sharing settings → Shared drive creation) |
+| Shared Drive | create one with a **short name (≤ 40 characters)**, e.g. `Daloy files` - long names break Windows sync paths; add the role account as **Content manager** | create one (short name, same reason); add the `daloy-org-<id>@jarvisbyerp.iam.gserviceaccount.com` address shown on the Files screen as **Content manager** |
+| In Daloy | Files → Option 1 → **Connect** → sign in as the role account → pick the Shared Drive folder → **Test connection** | Files → Option 2 → **Test connection** |
+| Keep in mind | if the role account is suspended or its access is revoked, uploads stop until someone clicks **Reconnect** | removing the service account from the Shared Drive stops uploads |
+
+Tell them: staff open files **through Daloy** (the ticket rules decide who may), the Shared Drive itself should stay
+limited to the role account and their Drive admins, removed files go to `_removed/` (Daloy never deletes), and the files
+stay theirs when they leave Daloy.
+
 ---
 
 ## §6 Checklist
@@ -190,3 +208,4 @@ their tenant, without a second deployment. Candidate for an Enterprise feature. 
 | Sheet edit access locked down (§3.2.10) | – | ☐ |
 | Contract terms for no direct edits / releases (§3.3) | – | ☐ |
 | Instance added to your release list (§3.4) | – | ☐ |
+| Drive attachments connected, if wanted (§5a, from step 4.7) | ☐ | – |
