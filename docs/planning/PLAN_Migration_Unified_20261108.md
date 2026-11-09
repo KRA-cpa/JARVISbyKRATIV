@@ -104,11 +104,18 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
 ### Phase H — Host move (runbook: `GUIDE_Deploy_CloudRun_FirebaseHosting.md`)
 - [x] **Claude** - code: `server/app.js`, `Dockerfile`, `firebase.json` / `.firebaserc`, `scripts/deploy-cloudrun.sh`,
       `scripts/test-cloudrun-server.js` (13) - commit `d342c68`.
-- [ ] **H.1 You** - set-up: new project **`krativ-daloy`** (D12) on Blaze (same billing account) + budget alerts,
-      `gcloud` (not installed yet) / `firebase` login, APIs, the two secrets, secret access, production's `AUTH_MODE`.
-      *Details: GUIDE §A.*
+- [x] **H.1 You** - set-up: new project **`krativ-daloy`** (D12) on Blaze (same billing account) + budget alerts,
+      `gcloud` / `firebase` login, APIs, the two secrets, secret access, production's `AUTH_MODE`. *Details: GUIDE §A.*
+      **Done 9 Nov 2026:** budget "Daloy monthly" **$10** (alerts $5 / $9 / $10 / $20) + Firebase's own $5 budget;
+      secrets checked by shape only (URL = `script.google.com/…/exec`, proxy secret 64 characters, no whitespace);
+      `AUTH_MODE=enforce`.
 - [ ] **H.2 Claude → You** - test revision `scripts/deploy-cloudrun.sh test first`; you sign in on it (read / seed data
       only - it uses the production Apps Script). **Gate:** `auth: verified` in the logs, no 5xx. *GUIDE §B.*
+      **9 Nov 2026 - deployed:** revision `daloy-00001-veg`, test URL `https://first---daloy-xmczwkduaa-as.a.run.app`
+      (service URL `https://daloy-1062039730837.asia-southeast1.run.app`, no public link to it yet). Claude's checks:
+      `/` and `/plans` 200; `ping` 200 through Apps Script (`x-backend: gas`, `cache-control: no-store`, API 10.2.0);
+      a request without a token → 401 `NOT_SIGNED_IN`. **Left:** you add the test host to `jarvisbyerp` Authorized
+      domains and sign in; then the `auth: verified` log check.
 - [ ] **H.3 Claude + You** - production deploy, Firebase custom domain `daloy.blueknight.xyz` (MX / forwarding records
       untouched), Firebase authorized domain, Script Property `APP_URL`. **Gate:** the new domain works end to end.
       *GUIDE §C.*

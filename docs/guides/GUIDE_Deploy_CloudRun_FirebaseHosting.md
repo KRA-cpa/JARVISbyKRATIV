@@ -47,7 +47,8 @@ no cost (then $0.15 / GB), and needs the Blaze plan (billing) - which Cloud Run 
       with `GCP_PROJECT=<id>` + change `.firebaserc`) → Google Analytics off. This creates the Google Cloud project too
       (one project, two consoles).
 - [ ] **Billing:** in `krativ-daloy` → upgrade to **Blaze** with the **same billing account** as `jarvisbyerp`; Google
-      Cloud console → Billing → **Budgets & alerts**: e.g. $5 / $20 / $50 alerts (scope: all projects on the account).
+      Cloud console → Billing → **Budgets & alerts**: a **$10** monthly budget with alerts at 50 / 90 / 100 / 200 %
+      ($5 / $9 / $10 / $20) - alerts only, they don't stop spending (`--max-instances 3` caps Cloud Run).
 - [ ] **CLIs** (in your own terminal): Google Cloud SDK (`winget install Google.CloudSDK`) and
       `npm install -g firebase-tools`. Then in this Claude session: `! gcloud auth login`,
       `! gcloud config set project krativ-daloy`, `! firebase login`.
