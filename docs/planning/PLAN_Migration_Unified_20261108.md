@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.1.0
+Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.2.0
 Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 9 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: THE migration plan + step-by-step, top to bottom: Apps Script / Google Sheets → Google Cloud Run + Neon Postgres (all servers in Asia), previews on Vercel, Google Sheets kept as a customer option; then the remaining v10.2 features and organizations on the new server | Status: Active - current roadmap (Phase F done, Phase H code ready, nothing deployed)
 REVISION HISTORY:
+- v1.2.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Postgres without a subscription (user: "can we setup postgress without subscription?", "no SLA jobs yets"): Neon Free while building (0.4, its limits); step 1.1 sync no longer every 5 min around the clock (that keeps Neon awake ~183 CU-h > the Free 100) - every 5 min weekdays 07:00–20:00 + hourly otherwise (~81 CU-h; every 30 min otherwise ≈ 90, too close); risk line
 - v1.1.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | D11 attachments in the client's Google Workspace Drive (user: "plan attachments on google drive (client's google workspace acct)") - PLAN_Attachments_ClientDrive_20261109.md; Files layer = client Drive / links, platform object storage deferred (step 0.4); schema reserved in 0.7; new step 4.7 (v10.3 / v10.4 → 4.8)
 - v1.0.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 61523343; user: "might need a unified migration plan + step-by-step"). Folds in CHECKLIST_Deploy_PostgresNeon_20261108.md (now a pointer) and the phase lists of PLAN_Migration_NeonVercel_20261030.md §6 and PLAN_ServerCore_OrgSheetBridge_20261101.md §8
 ===============================================================================
@@ -120,7 +121,10 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       watch the budget alerts since Phase H. *CHECK §4.*
 - [ ] **0.3 You** - Data Privacy Act / IT clearance to move company data to Singapore; the IP / invention-assignment
       clause; a lawyer reviews the DPA / Privacy / Terms changes. *CHECK §7; PLAN_Migration §10.*
-- [ ] **0.4 You** - accounts: Neon project **`aws-ap-southeast-1`** (branches `main`, `dev`; Free while building); AWS +
+- [ ] **0.4 You** - accounts: Neon project **`aws-ap-southeast-1`** (branches `main`, `dev`; **Free while building** - no
+      subscription, no monthly fee: 100 CU-h / project / month, 0.5 GB, suspends after 5 min idle, 6 h restore history,
+      at the limit the compute stops until next month (data kept); **Launch** - pay per use, no minimum - before the
+      first paying customer, CHECK §2.1 / §5); AWS +
       **SES `ap-southeast-1`** (domain DKIM / SPF / DMARC on blueknight.xyz, production-access request - the sandbox is
       200 / 24 h); connection strings and keys in Secret Manager. *(Object storage in Asia: **deferred** - files go to the
       client's Drive, D11; revisit only if a customer without Workspace needs uploads.)*
@@ -147,8 +151,16 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       admin. **Gate:** notice date recorded; Phase 2 is ≥ **[[30]] days** later. *CHECK §7.*
 
 ### Phase 1 — Sync, reads, sign-in
-- [ ] **1.1 Claude** - sync: a Cloud Scheduler job every 5 min → `/api/cron/sync` (watermark on `updated_at` /
-      `created_at`, upsert into Neon `main`). **Gate:** lag < 5 min for a day. *PLAN_Migration §6 Phase 0 item 5.*
+- [ ] **1.1 Claude** - sync → `/api/cron/sync` (watermark on `updated_at` / `created_at`, upsert into Neon `main`)
+      from **2 Cloud Scheduler jobs** (time zone Asia/Manila, inside the 3 free jobs): job A **hourly, always**
+      (`0 * * * *`); job B the other 5-minute slots **Mon–Fri 07:00–20:00** (`5-55/5 7-19 * * 1-5`) - together every
+      5 min in working hours, hourly otherwise, never two runs at once. Not every 5 min around the clock: Neon suspends
+      only after 5 min idle, so that keeps it awake ~730 h ≈ 183 CU-h, over the Free 100. This schedule ≈ **81 CU-h**
+      (0.25 CU × [22 weekdays × 13 h + 22 × 11 night runs × 5 min + 8 weekend days × 24 runs × 5 min] ≈ 0.25 × 322 h);
+      every 30 min outside working hours would be ≈ 90 - too close to 100. The first morning run catches up on the
+      night (the watermark). No SLA / outbox jobs on Postgres before 2.4. No Postgres backup job yet - Sheets stays the
+      source of truth until Phase 2. **Gate:** lag < 5 min in working hours, < 60 min outside them; Neon CU-h on track
+      for < 100 a month. *PLAN_Migration §6 Phase 0 item 5.*
 - [ ] **1.2 Claude** - port the read groups (dashboard, reference data, users, reports, notifications, SLA reads);
       handler tests on a Neon branch per run (the `ROUTES_TEST_v9.x` scenarios); Vercel preview first, then production.
       **Gate:** every ported read meets its `Claude.md` p95 + query budget; `X-Backend: pg`. *PLAN_Migration §6 Phase 1, §8.*
@@ -230,7 +242,8 @@ Order (each = design section → `/api/rpc` handlers + tests → screens → con
 ## §7 Risks and catches (details: CHECK §6 / §7, GUIDE §F)
 - **UNVERIFIED** Cloud Run Tier 2 + egress prices (step 0.2). Attachment risks: PLAN_Attachments §17.
 - Firebase Hosting: 60 s per request; only the `__session` cookie passes.
-- Neon Free suspends at its limit; no uptime SLA below Neon Scale - promise none.
+- Neon Free suspends at its limit; no uptime SLA below Neon Scale - promise none. Any job that runs every ≤ 5 min
+  around the clock keeps Neon awake (~183 CU-h) - schedule jobs as in 1.1 / 2.4 while on Free.
 - Test revisions and production share data until Phase 2; previews' API runs through Vercel `iad1` (US) until 3.5.
 - Vercel Hobby previews: commercial-use risk accepted (D4).
 - Transfers outside the Philippines (Singapore) - disclosed and notified (0.10); the Sheets options keep data in the
