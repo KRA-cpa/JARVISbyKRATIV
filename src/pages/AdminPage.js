@@ -725,7 +725,10 @@ const AdminPage = () => {
             )}
           </div>
 
-          {/* Backend Integration Status - Collapsible */}
+          {/* Backend Integration Status - Collapsible.
+              FLAG (unified migration plan step 3.6, user 9 Nov 2026): the text below is fixed and says Apps Script.
+              Once the core is off Apps Script, show each organization's data store from the server (x-backend: pg =
+              Postgres; Sheets-option organizations keep "Google Sheets + Apps Script" with their bridge status). */}
           {DEV_CONFIG.STATS_DISPLAY.SHOW_BACKEND_INFO && (
             <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg">
               <button

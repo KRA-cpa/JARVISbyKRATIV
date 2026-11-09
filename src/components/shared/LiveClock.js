@@ -107,7 +107,7 @@ export const HeaderClock = ({ className = "" }) => {
   const { wall, label } = useZoneClock();
 
   return (
-    <div className={`flex items-center space-x-1 text-sm text-gray-600 ${className}`}>
+    <div className={`flex items-center space-x-1 text-sm text-gray-600 whitespace-nowrap ${className}`}>
       <Icons.Clock size={16} />
       <span className="font-medium">
         {format(wall, 'dd MMM yyyy hh:mm:ss a')}

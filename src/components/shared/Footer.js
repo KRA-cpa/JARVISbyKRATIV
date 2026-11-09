@@ -12,8 +12,9 @@ const PENDING_CHANGES = [[TERMS_OF_SERVICE, '/terms'], [PRIVACY_POLICY, '/privac
 /**
  * Footer Component
  *
- * Copyright masthead for all pages, three lines: brand + local tagline; Proof of Concept + designer (+ the build credit,
- * signed-in pages only - `publicSite` hides it on the website); copyright year + Privacy Policy link (every page links to
+ * Copyright masthead for all pages, three lines: brand + local tagline; Proof of Concept + designer (the "Developed
+ * through Claude.ai and Claude CLI" credit was removed on 9 Nov 2026 - user: "footer/masthead still states claude");
+ * copyright year + Privacy Policy link (every page links to
  * /privacy, docs/planning/PLAN_PrivacyPolicy_DPA_20261101.md §3) and Terms; an upcoming major change of either document adds
  * a notice line above. The year is the current one, so it never goes stale.
  */
@@ -36,7 +37,6 @@ const Footer = ({ className = "", publicSite = false }) => {
             <p className="mt-1">
               <span className="font-medium">Proof of Concept</span>
               {' · '}Designed by <span className="font-medium text-gray-700">Kenneth Advento</span>
-              {!publicSite && <>{' · '}Developed through <span className="font-medium text-gray-700">Claude.ai and Claude CLI</span></>}
             </p>
             <p className="mt-1 text-xs sm:text-sm">
               {/* smaller on phones (two rows there); each part stays whole: on phones the line breaks only between parts */}

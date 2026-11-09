@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.3.0
+Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.4.0
 Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 9 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: THE migration plan + step-by-step, top to bottom: Apps Script / Google Sheets → Google Cloud Run + Neon Postgres (all servers in Asia), previews on Vercel, Google Sheets kept as a customer option; then the remaining v10.2 features and organizations on the new server | Status: Active - current roadmap (Phase F done, Phase H code ready, nothing deployed)
 REVISION HISTORY:
+- v1.4.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | H.1 + H.2 done (gate met; the Git Bash path-rewrite bug found and fixed in deploy-cloudrun.sh v1.2); new step 3.6 - Admin "Backend Integration Status" panel flagged (user: "flag for update once core is migrated off appscript (unless clients using Sheets)"); 3.1 STATUS note (Cloud Run build already drops Vercel)
 - v1.3.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | D12 servers in a new Google project `krativ-daloy` (user: "iwant to change to KRATIV_DALOY" → "New project krativ-daloy for servers"); sign-in stays in `jarvisbyerp` until Better Auth; H.1 updated
 - v1.2.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Postgres without a subscription (user: "can we setup postgress without subscription?", "no SLA jobs yets"): Neon Free while building (0.4, its limits); step 1.1 sync no longer every 5 min around the clock (that keeps Neon awake ~183 CU-h > the Free 100) - every 5 min weekdays 07:00–20:00 + hourly otherwise (~81 CU-h; every 30 min otherwise ≈ 90, too close); risk line
 - v1.1.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | D11 attachments in the client's Google Workspace Drive (user: "plan attachments on google drive (client's google workspace acct)") - PLAN_Attachments_ClientDrive_20261109.md; Files layer = client Drive / links, platform object storage deferred (step 0.4); schema reserved in 0.7; new step 4.7 (v10.3 / v10.4 → 4.8)
@@ -109,13 +110,18 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       **Done 9 Nov 2026:** budget "Daloy monthly" **$10** (alerts $5 / $9 / $10 / $20) + Firebase's own $5 budget;
       secrets checked by shape only (URL = `script.google.com/…/exec`, proxy secret 64 characters, no whitespace);
       `AUTH_MODE=enforce`.
-- [ ] **H.2 Claude → You** - test revision `scripts/deploy-cloudrun.sh test first`; you sign in on it (read / seed data
+- [x] **H.2 Claude → You** - test revision `scripts/deploy-cloudrun.sh test first`; you sign in on it (read / seed data
       only - it uses the production Apps Script). **Gate:** `auth: verified` in the logs, no 5xx. *GUIDE §B.*
-      **9 Nov 2026 - deployed:** revision `daloy-00001-veg`, test URL `https://first---daloy-xmczwkduaa-as.a.run.app`
-      (service URL `https://daloy-1062039730837.asia-southeast1.run.app`, no public link to it yet). Claude's checks:
-      `/` and `/plans` 200; `ping` 200 through Apps Script (`x-backend: gas`, `cache-control: no-store`, API 10.2.0);
-      a request without a token → 401 `NOT_SIGNED_IN`. **Left:** you add the test host to `jarvisbyerp` Authorized
-      domains and sign in; then the `auth: verified` log check.
+      **Gate met 9 Nov 2026** (revision `daloy-00002-weq`): 8 signed-in requests, all `verified` / 200, no 5xx; tickets
+      load (`getTickets` ~5 s, `getDashboard` 7.6 s, `getUserProfile` 9.7 s incl. a cold start - Apps Script time, step
+      0.5 measures it). **Found + fixed:** revision 1 had `C:/Program Files/Git/api/appscript-proxy` as its API address
+      (Git Bash rewrites `/…` env values for Windows programs) → no API call reached the server; `deploy-cloudrun.sh`
+      v1.2 builds with `MSYS_NO_PATHCONV=1` / `MSYS2_ENV_CONV_EXCL=REACT_APP_` and refuses to deploy a build without the
+      right address. Same day: header no longer wraps (icons below 1280 px, no header clock - the dashboard has one),
+      `/status` lists Google only on the Cloud Run build (`REACT_APP_HOSTING=cloudrun`), the footer's Claude credit removed.
+      Test URL `https://first---daloy-xmczwkduaa-as.a.run.app` (service URL
+      `https://daloy-1062039730837.asia-southeast1.run.app`, no public link to it); `ping` 200 through Apps Script
+      (`x-backend: gas`, `cache-control: no-store`, API 10.2.0); a request without a token → 401 `NOT_SIGNED_IN`.
 - [ ] **H.3 Claude + You** - production deploy, Firebase custom domain `daloy.blueknight.xyz` (MX / forwarding records
       untouched), Firebase authorized domain, Script Property `APP_URL`. **Gate:** the new domain works end to end.
       *GUIDE §C.*
@@ -195,7 +201,8 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
 - [ ] **3.1 You approve, Claude edits** - publish the legal changes: `src/config/legal/dpa.js` (Annex C, transfers,
       security, deletion), `privacy.js` (providers, transfers, cookies, retention), `terms.js` (providers, the
       proof-of-concept clause, the Sheets option) - archive the old Terms version first (`termsArchive.js` rule);
-      `src/config/site.js` `STATUS` (Google Cloud, Neon, AWS).
+      `src/config/site.js` `STATUS` (add Neon + AWS SES; since 9 Nov 2026 the Cloud Run build already drops Vercel -
+      `REACT_APP_HOSTING=cloudrun`; the Google Workspace row stays for sign-in / Gmail and the Sheets-option customers).
 - [ ] **3.2 You** - **Neon Launch before the first paying customer** (Free suspends compute at its limit); decide
       scale-to-zero for production.
 - [ ] **3.3 Claude** - remove the Apps Script fallback and `READ_ONLY` handling for the platform store; Row-Level Security
@@ -206,6 +213,13 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
 - [ ] **3.5 Claude** - point `src/config/apiConfig.js` defaults and `scripts/measure-api-latency.js` at
       `daloy.blueknight.xyz`; update `docs/reference/PRODUCTION_REQUIREMENTS.md`, `Claude.md`, the AppScript deploy guide (dedicated
       instances only).
+- [ ] **3.6 Claude** - 🚩 **Admin → "Backend Integration Status"** (`src/pages/AdminPage.js`, the collapsible panel at
+      the bottom; on unless `REACT_APP_SHOW_BACKEND_INFO=false`) - flagged 9 Nov 2026 (user: "flag for update once core
+      is migrated off appscript (unless clients using Sheets)"). Today it hard-codes "Google Apps Script: Production
+      Ready" and stale phase labels. Once the core is off Apps Script: show the **data store per organization from the
+      server** (the `x-backend` answer: `pg` = Postgres on Cloud Run Singapore; **Sheets-option organizations** - bridge or
+      dedicated instance, §2 / D7 - keep "Google Sheets + Apps Script" with their bridge status) instead of fixed text;
+      drop the static API / phase lists (the plan page and `/status` cover them).
 
 ### Phase 4 — New features on the server (after Phase 2; D6)
 Order (each = design section → `/api/rpc` handlers + tests → screens → contract check → preview → production):

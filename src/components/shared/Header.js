@@ -5,13 +5,24 @@ import { auth } from '../../config/firebase';
 import Icons from './Icons';
 import BrandMark from './BrandMark';
 import { BRAND_NAME, BRAND_BYLINE } from '../../config/site';
-import { HeaderClock } from './LiveClock';
 import DarkModeToggle from './DarkModeToggle';
 import { useNotifications } from '../../hooks/useAPI';
 import { formatDateTime, toDateValue } from '../../utils/dateTime';
 
 // Notification times in the display zone (v10.1, compliance F3 v3: dateTime.js, no hour arithmetic)
 const formatNotificationTime = iso => formatDateTime(toDateValue(iso) || '');
+
+// Main menu, desktop and mobile (icon = a name in Icons.js). The desktop bar shows labels from xl (1280 px) up and
+// icons only below it (user, 9 Nov 2026: "header is now cramped"). No clock in the header ("we have two clocks"):
+// the dashboard shows the time with its zone (DetailedClock) - to bring it back, render <HeaderClock /> from LiveClock
+// in the right-hand group and hide the labels / name below 2xl
+const NAV_ITEMS = [
+  { path: '/dashboard', label: 'Dashboard', icon: 'Dashboard' },
+  { path: '/tickets', label: 'Tickets', icon: 'Ticket' },
+  { path: '/reports', label: 'Reports', icon: 'Documents' },
+  { path: '/plans', label: 'Plans', icon: 'Shield' },
+  { path: '/admin', label: 'Admin Panel', icon: 'Admin', adminOnly: true }
+];
 
 // The bell shows the signed-in user's own notifications from the backend (AppScript v9.5 getNotifications) -
 // SLA warnings, overdue notices and escalations written by the server's escalation run
@@ -48,6 +59,7 @@ const Header = ({ user, userRole }) => {
   };
 
   const unreadNotifications = unreadCount;
+  const navItems = NAV_ITEMS.filter(item => !item.adminOnly || userRole === 'admin');
 
   return (
     <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
@@ -55,79 +67,42 @@ const Header = ({ user, userRole }) => {
         <div className="flex justify-between items-center h-16">
 
           {/* Left side - Logo and Navigation */}
-          <div className="flex items-center space-x-8">
+          <div className="flex items-center min-w-0 space-x-4 xl:space-x-8">
             {/* Logo */}
-            <Link to="/dashboard" className="flex items-center space-x-2">
+            <Link to="/dashboard" className="flex items-center space-x-2 flex-shrink-0">
               <BrandMark size={28} />
               <span className="text-xl font-bold text-gray-900 dark:text-white">
                 {BRAND_NAME}
               </span>
-              <span className="hidden sm:inline text-xs text-gray-500 dark:text-gray-400 self-end pb-1">
+              <span className="hidden xl:inline text-xs text-gray-500 dark:text-gray-400 self-end pb-1 whitespace-nowrap">
                 {BRAND_BYLINE}
               </span>
             </Link>
 
-            {/* Main Navigation */}
-            <nav className="hidden md:flex space-x-6">
-              <Link
-                to="/dashboard"
-                className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors duration-200 ${getActiveClasses('/dashboard')}`}
-              >
-                <div className="flex items-center space-x-2">
-                  <Icons.Dashboard size={16} />
-                  <span>Dashboard</span>
-                </div>
-              </Link>
-
-              <Link
-                to="/tickets"
-                className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors duration-200 ${getActiveClasses('/tickets')}`}
-              >
-                <div className="flex items-center space-x-2">
-                  <Icons.Ticket size={16} />
-                  <span>Tickets</span>
-                </div>
-              </Link>
-
-              <Link
-                to="/reports"
-                className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors duration-200 ${getActiveClasses('/reports')}`}
-              >
-                <div className="flex items-center space-x-2">
-                  <Icons.Documents size={16} />
-                  <span>Reports</span>
-                </div>
-              </Link>
-
-              <Link
-                to="/plans"
-                className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors duration-200 ${getActiveClasses('/plans')}`}
-              >
-                <div className="flex items-center space-x-2">
-                  <Icons.Shield size={16} />
-                  <span>Plans</span>
-                </div>
-              </Link>
-
-              {userRole === 'admin' && (
-                <Link
-                  to="/admin"
-                  className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors duration-200 ${getActiveClasses('/admin')}`}
-                >
-                  <div className="flex items-center space-x-2">
-                    <Icons.Admin size={16} />
-                    <span>Admin Panel</span>
-                  </div>
-                </Link>
-              )}
+            {/* Main Navigation - icons only below xl */}
+            <nav className="hidden md:flex items-center space-x-1 xl:space-x-2">
+              {navItems.map(item => {
+                const Icon = Icons[item.icon];
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    title={item.label}
+                    aria-label={item.label}
+                    className={`px-2 xl:px-3 py-2 rounded-lg text-sm font-medium border whitespace-nowrap transition-colors duration-200 ${getActiveClasses(item.path)}`}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <Icon size={16} />
+                      <span className="hidden xl:inline">{item.label}</span>
+                    </div>
+                  </Link>
+                );
+              })}
             </nav>
           </div>
 
           {/* Right side - Clock, Notifications, User Menu */}
-          <div className="flex items-center space-x-4">
-
-            {/* Live Clock */}
-            <HeaderClock className="hidden sm:flex" />
+          <div className="flex items-center flex-shrink-0 space-x-2 xl:space-x-4">
 
             {/* Dark Mode Toggle */}
             <DarkModeToggle size="sm" className="hidden sm:flex" />
@@ -219,7 +194,7 @@ const Header = ({ user, userRole }) => {
                 className="flex items-center space-x-2 p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
               >
                 <Icons.User size={20} />
-                <span className="hidden sm:block text-sm font-medium">
+                <span className="hidden xl:block max-w-[10rem] truncate text-sm font-medium">
                   {user?.displayName || user?.email?.split('@')[0] || 'User'}
                 </span>
                 <Icons.ChevronDown size={16} />
@@ -291,77 +266,25 @@ const Header = ({ user, userRole }) => {
       {/* Mobile Navigation */}
       <div className="md:hidden border-t border-gray-200 bg-gray-50">
         <div className="px-4 py-3 space-y-2">
-          <Link
-            to="/dashboard"
-            className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-              isActive('/dashboard')
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-600 hover:text-blue-600 hover:bg-white'
-            }`}
-          >
-            <div className="flex items-center space-x-2">
-              <Icons.Dashboard size={16} />
-              <span>Dashboard</span>
-            </div>
-          </Link>
-
-          <Link
-            to="/tickets"
-            className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-              isActive('/tickets')
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-600 hover:text-blue-600 hover:bg-white'
-            }`}
-          >
-            <div className="flex items-center space-x-2">
-              <Icons.Ticket size={16} />
-              <span>Tickets</span>
-            </div>
-          </Link>
-
-          <Link
-            to="/reports"
-            className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-              isActive('/reports')
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-600 hover:text-blue-600 hover:bg-white'
-            }`}
-          >
-            <div className="flex items-center space-x-2">
-              <Icons.Documents size={16} />
-              <span>Reports</span>
-            </div>
-          </Link>
-
-          <Link
-            to="/plans"
-            className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-              isActive('/plans')
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-600 hover:text-blue-600 hover:bg-white'
-            }`}
-          >
-            <div className="flex items-center space-x-2">
-              <Icons.Shield size={16} />
-              <span>Plans</span>
-            </div>
-          </Link>
-
-          {userRole === 'admin' && (
-            <Link
-              to="/admin"
-              className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
-                isActive('/admin')
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-600 hover:text-blue-600 hover:bg-white'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Icons.Admin size={16} />
-                <span>Admin Panel</span>
-              </div>
-            </Link>
-          )}
+          {navItems.map(item => {
+            const Icon = Icons[item.icon];
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                  isActive(item.path)
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:text-blue-600 hover:bg-white'
+                }`}
+              >
+                <div className="flex items-center space-x-2">
+                  <Icon size={16} />
+                  <span>{item.label}</span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </div>
 

@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_Deploy_CloudRun_FirebaseHosting.md | Author: Kenneth R. Advento | Version: 1.2.0
+Document: GUIDE_Deploy_CloudRun_FirebaseHosting.md | Author: Kenneth R. Advento | Version: 1.2.1
 Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 9 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Move PRODUCTION from Vercel to Google Cloud Run (asia-southeast1, Singapore) behind Firebase Hosting at daloy.blueknight.xyz; Vercel keeps the previews. Backend unchanged (Apps Script) - the Postgres move follows CHECKLIST_Deploy_PostgresNeon_20261108.md | Status: Ready to run (nothing deployed yet) - the runbook for Phase H of docs/planning/PLAN_Migration_Unified_20261108.md
 REVISION HISTORY:
+- v1.2.1 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §F: the Git Bash path-rewrite catch (deploy-cloudrun.sh v1.2); $10 budget example
 - v1.2.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Servers in a new project `krativ-daloy` (display name KRATIV DALOY; user: "iwant to change to KRATIV_DALOY" → "New project krativ-daloy for servers"); sign-in stays in `jarvisbyerp` until Better Auth (unified plan D12); §A creates the project; authorized domains are added in `jarvisbyerp`; deploy-cloudrun.sh v1.1
 - v1.1.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Runbook for Phase H of PLAN_Migration_Unified_20261108.md; step D also updates Claude.md working rule 3 + the deploy-check memory
 - v1.0.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 61523343). User decisions: production off Vercel, previews on Vercel Hobby (commercial-use risk accepted), domain blueknight.xyz (subdomain daloy.); Firebase Hosting as the front door (Cloud Run domain mapping is Preview, "not production-ready")
@@ -134,6 +135,11 @@ previews = push a branch (Vercel); the preview-link-before-push habit is unchang
   reaches Cloud Run (*"Only the specially-named `__session` cookie is permitted to pass through"*) - Better Auth must
   use that name later; the `Authorization` header passes and is part of the cache key.
 - Test revisions and production share the **same Apps Script data**.
+- **Git Bash rewrites `/…` values** passed to Windows programs (`/api/appscript-proxy` became
+  `C:/Program Files/Git/api/appscript-proxy` in the first test build - sign-in worked, no API call arrived). The deploy
+  script (v1.2) turns that off for the build and refuses to deploy a build without the right API address or without
+  `REACT_APP_HOSTING=cloudrun` (which makes `/status` list Google only). Don't edit the script while it runs (bash reads
+  it as it goes).
 - **Two projects until Better Auth:** the Google sign-in pop-up still names `jarvisbyerp.firebaseapp.com`; authorized
   domains live in `jarvisbyerp`, everything else in `krativ-daloy`. Retire `jarvisbyerp` after step 1.3 (keep it until
   no user signs in with Firebase).

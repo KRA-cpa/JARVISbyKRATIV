@@ -59,20 +59,33 @@ export const HOW_IT_WORKS = {
 /**
  * Status page (/status, General Terms §10.2 "Provider outages"; user, 1 Nov 2026: "add google status / google downtimes").
  * Daloy depends on these providers; their own status dashboards are the source of truth for their outages.
+ * The host is the one this build runs on (user, 9 Nov 2026: "might need to update Status if live site is not in
+ * vercel"): scripts/deploy-cloudrun.sh builds with REACT_APP_HOSTING=cloudrun (production on Cloud Run behind Firebase
+ * Hosting - docs/planning/PLAN_Migration_Unified_20261108.md D3); Vercel builds (previews) leave it unset.
  */
+const ON_CLOUD_RUN = process.env.REACT_APP_HOSTING === 'cloudrun';
+
 export const STATUS = {
   title: 'Service status',
-  intro: `${BRAND_NAME} runs on Google and Vercel. If ${BRAND_NAME} is slow or can't save, check the provider status pages ` +
-    'below - an outage there affects us too. Your administrator is notified of longer outages.',
+  intro: `${BRAND_NAME} runs on ${ON_CLOUD_RUN ? 'Google' : 'Google and Vercel'}. If ${BRAND_NAME} is slow or can't ` +
+    'save, check the provider status pages below - an outage there affects us too. Your administrator is notified of ' +
+    'longer outages.',
   providers: [
     { name: 'Google Workspace Status Dashboard', url: 'https://www.google.com/appsstatus/dashboard/',
       affects: 'Google Sheets and Apps Script (where data is stored), Gmail (email notifications), your Google sign-in' },
     { name: 'Google Cloud Status', url: 'https://status.cloud.google.com/',
-      affects: 'Google platform services behind Apps Script and Firebase' },
+      affects: ON_CLOUD_RUN
+        ? `The ${BRAND_NAME} app server (Google Cloud Run, Singapore) that connects the app to its data, and the ` +
+          'Google platform services behind Apps Script and Firebase'
+        : 'Google platform services behind Apps Script and Firebase' },
     { name: 'Firebase Status', url: 'https://status.firebase.google.com/',
-      affects: 'Signing in to ' + BRAND_NAME + ' (Firebase Authentication)' },
-    { name: 'Vercel Status', url: 'https://www.vercel-status.com/',
-      affects: `The ${BRAND_NAME} website and app hosting, and the server that connects the app to its data` }
+      affects: ON_CLOUD_RUN
+        ? `Signing in to ${BRAND_NAME} (Firebase Authentication) and the ${BRAND_NAME} website (Firebase Hosting)`
+        : 'Signing in to ' + BRAND_NAME + ' (Firebase Authentication)' },
+    ...(ON_CLOUD_RUN ? [] : [
+      { name: 'Vercel Status', url: 'https://www.vercel-status.com/',
+        affects: `The ${BRAND_NAME} website and app hosting, and the server that connects the app to its data` }
+    ])
   ],
   ownStore: 'If your organization keeps its data in its own Google Sheet, its administrator can also check that the Daloy ' +
     'bridge in your Google Workspace is still deployed and shared.',

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# deploy-cloudrun.sh v1.1 - build the React app and deploy Daloy to Google Cloud Run (asia-southeast1, Singapore).
+# deploy-cloudrun.sh v1.2 - build the React app and deploy Daloy to Google Cloud Run (asia-southeast1, Singapore).
 # v1.1 (9 Nov 2026): servers in project krativ-daloy; sign-in (Firebase Auth) stays in jarvisbyerp until Better Auth
 #   (unified plan D12) - the two project ids are separate settings, checked against .env.production.local.
+# v1.2 (9 Nov 2026): no Git Bash path rewriting of REACT_APP_API_BASE_URL; REACT_APP_HOSTING=cloudrun (/status lists
+#   Google only); the build is checked for both before deploying.
 # Guide: docs/guides/GUIDE_Deploy_CloudRun_FirebaseHosting.md
 #
 # Usage (Git Bash, from the repo root, after `gcloud auth login` and `firebase login`):
@@ -51,8 +53,21 @@ if [ "$ENV_AUTH_PROJECT" != "$AUTH_PROJECT" ]; then
 fi
 
 echo "1/3 Building the React app (production values, API on the same origin)..."
-# Shell env wins over .env files in Create React App: the API goes to this host's /api/appscript-proxy
-REACT_APP_API_BASE_URL="/api/appscript-proxy" npm run build
+# Shell env wins over .env files in Create React App: the API goes to this host's /api/appscript-proxy.
+# Git Bash rewrites env values that look like Unix paths for Windows programs ("/api/x" -> "C:/Program Files/Git/api/x"),
+# which broke every API call of the first test revision (9 Nov 2026) - turn that off for the build, then check the result.
+API_BASE="/api/appscript-proxy"
+# REACT_APP_HOSTING=cloudrun: the /status page lists Google only (src/config/site.js STATUS).
+MSYS_NO_PATHCONV=1 MSYS2_ENV_CONV_EXCL="REACT_APP_" REACT_APP_API_BASE_URL="$API_BASE" REACT_APP_HOSTING="cloudrun" \
+  npm run build
+if ! grep -q "REACT_APP_API_BASE_URL:\"$API_BASE\"" build/static/js/main.*.js; then
+  echo "The build does not use the API address $API_BASE (path rewritten?) - not deploying." >&2
+  exit 3
+fi
+if ! grep -q 'REACT_APP_HOSTING:"cloudrun"' build/static/js/main.*.js; then
+  echo "The build is missing REACT_APP_HOSTING=cloudrun - not deploying." >&2
+  exit 3
+fi
 
 echo "2/3 Deploying $SERVICE to Cloud Run ($REGION, $MODE)..."
 DEPLOY_ARGS=(
