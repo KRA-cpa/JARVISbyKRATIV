@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_Deploy_CloudRun_FirebaseHosting.md | Author: Kenneth R. Advento | Version: 1.1.0
-Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 8 November 2026 UTC+8 (Philippine Standard Time)
+Document: GUIDE_Deploy_CloudRun_FirebaseHosting.md | Author: Kenneth R. Advento | Version: 1.2.0
+Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 9 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Move PRODUCTION from Vercel to Google Cloud Run (asia-southeast1, Singapore) behind Firebase Hosting at daloy.blueknight.xyz; Vercel keeps the previews. Backend unchanged (Apps Script) - the Postgres move follows CHECKLIST_Deploy_PostgresNeon_20261108.md | Status: Ready to run (nothing deployed yet) - the runbook for Phase H of docs/planning/PLAN_Migration_Unified_20261108.md
 REVISION HISTORY:
+- v1.2.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Servers in a new project `krativ-daloy` (display name KRATIV DALOY; user: "iwant to change to KRATIV_DALOY" → "New project krativ-daloy for servers"); sign-in stays in `jarvisbyerp` until Better Auth (unified plan D12); §A creates the project; authorized domains are added in `jarvisbyerp`; deploy-cloudrun.sh v1.1
 - v1.1.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Runbook for Phase H of PLAN_Migration_Unified_20261108.md; step D also updates Claude.md working rule 3 + the deploy-check memory
 - v1.0.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 61523343). User decisions: production off Vercel, previews on Vercel Hobby (commercial-use risk accepted), domain blueknight.xyz (subdomain daloy.); Firebase Hosting as the front door (Cloud Run domain mapping is Preview, "not production-ready")
 ===============================================================================
@@ -22,8 +23,13 @@ Old URL:     jarvis-by-erp.vercel.app/<page> ─► redirect to daloy.blueknight
 
 **What runs where:** `server/app.js` serves the same proxy as Vercel (`api/_lib/proxyCore.js` - Firebase token check,
 identity fields stripped, `PROXY_SECRET` added) plus the React build; `Dockerfile` builds the image;
-`scripts/deploy-cloudrun.sh` builds and deploys; `firebase.json` / `.firebaserc` configure Hosting (project
-`jarvisbyerp`, the same Firebase project as sign-in). Tests: `node scripts/test-cloudrun-server.js` (13) and
+`scripts/deploy-cloudrun.sh` builds and deploys; `firebase.json` / `.firebaserc` configure Hosting.
+
+**Two Google projects (D12):** **`krativ-daloy`** (display name KRATIV DALOY) holds the servers - Cloud Run, Firebase
+Hosting, Secret Manager, billing, later the Drive service accounts and the Better Auth / Drive OAuth clients;
+**`jarvisbyerp`** keeps **sign-in** (Firebase Authentication: users, Google provider, authorized domains) until Better
+Auth replaces it (unified plan step 1.3), so no user moves. The deploy script passes `FIREBASE_PROJECT_ID=jarvisbyerp`
+to the server and refuses to deploy if `.env.production.local` names another sign-in project. Tests: `node scripts/test-cloudrun-server.js` (13) and
 `node scripts/test-proxy-auth.js` (26).
 
 **Why this front door** (`docs/planning/CHECK_HostingPricing_20261108.md`): Cloud Run's own domain mapping exists in
@@ -36,10 +42,15 @@ no cost (then $0.15 / GB), and needs the Blaze plan (billing) - which Cloud Run 
 ---
 
 ## A. One-time set-up (You, ~30 min)
-- [ ] **Billing:** Firebase console → project `jarvisbyerp` → upgrade to **Blaze**; Google Cloud console → Billing →
-      **Budgets & alerts**: e.g. $5 / $20 / $50 alerts.
-- [ ] **CLIs** (in your own terminal): Google Cloud SDK (`gcloud`) and `npm install -g firebase-tools`. Then in this
-      Claude session: `! gcloud auth login`, `! gcloud config set project jarvisbyerp`, `! firebase login`.
+- [ ] **Project:** Firebase console → **Add project** → name `KRATIV DALOY` → under the name, **edit the project ID** to
+      `krativ-daloy` (IDs are permanent: lowercase letters, digits, hyphens; if taken, pick another and run the deploy
+      with `GCP_PROJECT=<id>` + change `.firebaserc`) → Google Analytics off. This creates the Google Cloud project too
+      (one project, two consoles).
+- [ ] **Billing:** in `krativ-daloy` → upgrade to **Blaze** with the **same billing account** as `jarvisbyerp`; Google
+      Cloud console → Billing → **Budgets & alerts**: e.g. $5 / $20 / $50 alerts (scope: all projects on the account).
+- [ ] **CLIs** (in your own terminal): Google Cloud SDK (`winget install Google.CloudSDK`) and
+      `npm install -g firebase-tools`. Then in this Claude session: `! gcloud auth login`,
+      `! gcloud config set project krativ-daloy`, `! firebase login`.
 - [ ] **APIs:** `gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com`
 - [ ] **Secrets** - the same values as Vercel production (Vercel → Settings → Environment Variables). Typed at a hidden
       prompt, never on a command line (compliance S2):
@@ -49,7 +60,7 @@ no cost (then $0.15 / GB), and needs the Blaze plan (billing) - which Cloud Run 
       ```
 - [ ] **Let Cloud Run read them** (the default runtime account):
       ```bash
-      SA="$(gcloud projects describe jarvisbyerp --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
+      SA="$(gcloud projects describe krativ-daloy --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
       for s in daloy-proxy-secret daloy-apps-script-url; do
         gcloud secrets add-iam-policy-binding "$s" --member="serviceAccount:$SA" --role=roles/secretmanager.secretAccessor
       done
@@ -59,7 +70,8 @@ no cost (then $0.15 / GB), and needs the Blaze plan (billing) - which Cloud Run 
 ## B. Test revision (Claude deploys, You check)
 - [ ] `AUTH_MODE=<production value> scripts/deploy-cloudrun.sh test first` - builds (minutes on Z:), deploys a revision
       tagged `first` and prints its URL (`https://first---daloy-….a.run.app`).
-- [ ] **You:** Firebase → Authentication → Settings → **Authorized domains** → add that host (for sign-in on it).
+- [ ] **You:** Firebase → project **`jarvisbyerp`** (sign-in) → Authentication → Settings → **Authorized domains** → add
+      that host (for sign-in on it).
 - [ ] **You:** open it, sign in, open the dashboard, a ticket, `/plans`, `/privacy`. ⚠️ It talks to the **production**
       Apps Script (same as the live site) - test with reads or seed data only.
 - [ ] **Claude:** `gcloud run services logs read daloy --region asia-southeast1 --limit 50` - one JSON line per request
@@ -68,11 +80,12 @@ no cost (then $0.15 / GB), and needs the Blaze plan (billing) - which Cloud Run 
 
 ## C. Domain and production (You + Claude)
 - [ ] **Claude:** `AUTH_MODE=<value> scripts/deploy-cloudrun.sh production` - all traffic to the tested revision +
-      `firebase deploy --only hosting` → live at `https://jarvisbyerp.web.app` first.
-- [ ] **You:** Firebase → Hosting → **Add custom domain** `daloy.blueknight.xyz` → add the records it shows at the DNS
+      `firebase deploy --only hosting` → live at `https://krativ-daloy.web.app` first (add that host to the
+      `jarvisbyerp` authorized domains too, to sign in on it).
+- [ ] **You:** Firebase → project `krativ-daloy` → Hosting → **Add custom domain** `daloy.blueknight.xyz` → add the records it shows at the DNS
       host of blueknight.xyz. **Leave the MX / forwarding records alone** (KRATIV.sales@ / KRATIV.dpo@). Wait for the
       certificate (Hosting shows it).
-- [ ] **You:** Firebase → Authentication → Authorized domains → add `daloy.blueknight.xyz`.
+- [ ] **You:** Firebase → project **`jarvisbyerp`** → Authentication → Authorized domains → add `daloy.blueknight.xyz`.
 - [ ] **You:** Apps Script editor → Project Settings → Script Properties → `APP_URL = https://daloy.blueknight.xyz`
       (links in notification emails).
 - [ ] **Claude + You:** check `https://daloy.blueknight.xyz`: sign in, dashboard, one write on seed data, `/plans`,
@@ -120,6 +133,9 @@ previews = push a branch (Vercel); the preview-link-before-push habit is unchang
   reaches Cloud Run (*"Only the specially-named `__session` cookie is permitted to pass through"*) - Better Auth must
   use that name later; the `Authorization` header passes and is part of the cache key.
 - Test revisions and production share the **same Apps Script data**.
+- **Two projects until Better Auth:** the Google sign-in pop-up still names `jarvisbyerp.firebaseapp.com`; authorized
+  domains live in `jarvisbyerp`, everything else in `krativ-daloy`. Retire `jarvisbyerp` after step 1.3 (keep it until
+  no user signs in with Firebase).
 - Cold start: min instances 0 - the first request after idle is slower. `--max-instances 3` caps cost.
 - Previews on **Vercel Hobby**: the user accepts the commercial-use risk (Vercel: commercial = *"any Deployment that is used
   for the purpose of financial gain of anyone involved in any part of the production"*). Preview API calls still go

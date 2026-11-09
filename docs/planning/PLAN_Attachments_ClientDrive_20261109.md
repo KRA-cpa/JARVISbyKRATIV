@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Attachments_ClientDrive_20261109.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: PLAN_Attachments_ClientDrive_20261109.md | Author: Kenneth R. Advento | Version: 1.0.1
 Created: 9 November 2026 UTC+8 (Philippine Standard Time) | Modified: 9 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Ticket attachments uploaded into the client's own Google Workspace Drive (Shared Drive): connection options, on / off per organization and company, folder layout, file-name rules, attachment rules per ticket type, upload / download flows, legal | Status: Approved design (session 61523343), not built - unified migration plan Phase 4 step 4.7
 REVISION HISTORY:
+- v1.0.1 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Service accounts and the Drive OAuth client live in the new project `krativ-daloy` (unified D12)
 - v1.0.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (user: "plan attachments on google drive (client's google workspace acct)"; decisions D-A1 to D-A7 from the same session)
 ===============================================================================
 -->
@@ -66,7 +67,7 @@ Two levels, **both off by default**:
 ## §3 The two connection options (D-A1)
 | | **Option 1 - role-account OAuth** | **Option 2 - service-account member** |
 |---|---|---|
-| Client set-up | admin signs in as a **role account** (e.g. `daloy@client.com`), consents, picks the target folder in a Shared Drive with the Google **Picker** (Shared Drives enabled) | admin adds `daloy-org-<id>@jarvisbyerp.iam.gserviceaccount.com` to the Shared Drive as **Content manager**, then clicks Test |
+| Client set-up | admin signs in as a **role account** (e.g. `daloy@client.com`), consents, picks the target folder in a Shared Drive with the Google **Picker** (Shared Drives enabled) | admin adds `daloy-org-<id>@krativ-daloy.iam.gserviceaccount.com` to the Shared Drive as **Content manager**, then clicks Test |
 | Google permission | `drive.file` only - Daloy sees only files it created or the folder picked; a **non-sensitive** scope (brand verification, no restricted-scope security assessment) | Shared Drive membership; no OAuth consent |
 | Credential | refresh token, **encrypted** (AES-256-GCM; key in Secret Manager `daloy-drive-token-key`), in `drive_connections.token_ciphertext` | **no keys ever created** - the Cloud Run identity mints short tokens with IAM `generateAccessToken` (Service Account Token Creator on each per-organization service account) |
 | Isolation | one token per connection | **one service account per organization** |

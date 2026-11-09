@@ -2,7 +2,7 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_NeonVercel_20261030.md | Author: Kenneth R. Advento | Version: 1.4.1
+Document: PLAN_Migration_NeonVercel_20261030.md | Author: Kenneth R. Advento | Version: 1.4.2
 Created: 30 October 2026 UTC+8 (Philippine Standard Time) | Modified: 9 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Plan to move the backend from Google Sheets + Apps Script to Neon Postgres (Singapore), served from Google Cloud Run (Singapore) behind Firebase Hosting - previews on Vercel - designed for heavy use, without changing the frontend's API contract (file name kept from the Vercel version for links) | Status: Design reference — the order and checkboxes are in docs/planning/PLAN_Migration_Unified_20261108.md
 REVISION HISTORY:
@@ -11,6 +11,7 @@ REVISION HISTORY:
 - v1.2.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §12 v10 features on Postgres (pointer to PLAN_FeatureGaps_Volume_20261031.md §6; session 2d369f00)
 - v1.2.1 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §12: the notification partition drop approved by the user
 - v1.4.1 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Files: attachments go to the client's Google Workspace Drive (unified D11, PLAN_Attachments_ClientDrive_20261109.md); platform object storage deferred
+- v1.4.2 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Frontend row: Hosting in the new project `krativ-daloy`, sign-in stays in `jarvisbyerp` until Better Auth (unified D12)
 - v1.4.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Host decided (user: "move production to not vercel, preview in vercel"): production on Cloud Run asia-southeast1 behind Firebase Hosting (daloy.blueknight.xyz), previews on Vercel Hobby; new Phase H = docs/guides/GUIDE_Deploy_CloudRun_FirebaseHosting.md (server/app.js, Dockerfile, firebase.json, scripts/deploy-cloudrun.sh); §1 / §2 / Phase 0 / sync / §9 / §11 moved from Vercel functions + Vercel Cron to Cloud Run + Cloud Scheduler; email SES Singapore; files storage location to check (Asia rule); now the design reference of PLAN_Migration_Unified_20261108.md (Sheets / Apps Script kept as a customer option)
 - v1.3.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Asia rule + hosting check (session 61523343): servers must be in Asia; Firebase Auth is US-only and Vercel functions default to iad1 (US); recommended cheapest all-Asia stack (Cloud Run Singapore + Neon Singapore + Better Auth + SES Singapore) pending the user's confirmation - CHECK_HostingPricing_20261108.md; chronological deploy steps - docs/guides/CHECKLIST_Deploy_PostgresNeon_20261108.md
 ===============================================================================
@@ -31,7 +32,7 @@ REVISION HISTORY:
 
 | Layer | Today (v9.5) | Target |
 |---|---|---|
-| Frontend | React SPA on Vercel | **Phase H:** Firebase Hosting (`daloy.blueknight.xyz`, project `jarvisbyerp`) for production; **Vercel for previews** |
+| Frontend | React SPA on Vercel | **Phase H:** Firebase Hosting (`daloy.blueknight.xyz`, project `krativ-daloy`; sign-in stays in `jarvisbyerp` until Better Auth - unified D12) for production; **Vercel for previews** |
 | API | `api/appscript-proxy.js` → Apps Script web app | **Phase H:** the same proxy on **Cloud Run `daloy` (`asia-southeast1`)** via `server/app.js`; then `/api/rpc` next to it → handlers on Neon; unported actions still proxied to Apps Script |
 | Database | Google Sheets (49 tabs at v10.2) | Neon Postgres (Singapore `aws-ap-southeast-1`), migrations in the repo |
 | Files | Drive (config backups) | Ticket attachments in the **client's own Google Workspace Drive** (unified D11, `docs/planning/PLAN_Attachments_ClientDrive_20261109.md`); config backups as JSON in Neon / the nightly backup. Platform object storage in Asia (R2 Asia-Pacific or Cloud Storage `asia-southeast1`) **deferred** until a customer without Workspace needs uploads |

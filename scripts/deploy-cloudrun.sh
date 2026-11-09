@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# deploy-cloudrun.sh v1.0 - build the React app and deploy Daloy to Google Cloud Run (asia-southeast1, Singapore).
+# deploy-cloudrun.sh v1.1 - build the React app and deploy Daloy to Google Cloud Run (asia-southeast1, Singapore).
+# v1.1 (9 Nov 2026): servers in project krativ-daloy; sign-in (Firebase Auth) stays in jarvisbyerp until Better Auth
+#   (unified plan D12) - the two project ids are separate settings, checked against .env.production.local.
 # Guide: docs/guides/GUIDE_Deploy_CloudRun_FirebaseHosting.md
 #
 # Usage (Git Bash, from the repo root, after `gcloud auth login` and `firebase login`):
@@ -13,7 +15,8 @@
 #   daloy-apps-script-url  -> APPS_SCRIPT_URL
 set -euo pipefail
 
-PROJECT="jarvisbyerp"
+PROJECT="${GCP_PROJECT:-krativ-daloy}"                # servers: Cloud Run, Firebase Hosting, Secret Manager
+AUTH_PROJECT="${FIREBASE_AUTH_PROJECT:-jarvisbyerp}"  # sign-in: the Firebase project that issues the ID tokens
 REGION="asia-southeast1"
 SERVICE="daloy"
 
@@ -39,6 +42,13 @@ if [ "$MODE" = "production" ]; then
   command -v firebase >/dev/null || { echo "firebase CLI not found: npm install -g firebase-tools" >&2; exit 2; }
 fi
 [ -f .env.production.local ] || { echo ".env.production.local missing (the production REACT_APP_* values)." >&2; exit 2; }
+# The browser signs in with the Firebase project in .env.production.local; the server must check tokens for that same
+# project, or every sign-in fails with a 401.
+ENV_AUTH_PROJECT="$(grep -E '^REACT_APP_FIREBASE_PROJECT_ID=' .env.production.local | tail -n 1 | cut -d= -f2- | tr -d "\r\"' ")"
+if [ "$ENV_AUTH_PROJECT" != "$AUTH_PROJECT" ]; then
+  echo "Sign-in project mismatch: .env.production.local has '$ENV_AUTH_PROJECT', FIREBASE_AUTH_PROJECT is '$AUTH_PROJECT'." >&2
+  exit 2
+fi
 
 echo "1/3 Building the React app (production values, API on the same origin)..."
 # Shell env wins over .env files in Create React App: the API goes to this host's /api/appscript-proxy
@@ -52,7 +62,7 @@ DEPLOY_ARGS=(
   --region "$REGION"
   --allow-unauthenticated
   --set-secrets "PROXY_SECRET=daloy-proxy-secret:latest,APPS_SCRIPT_URL=daloy-apps-script-url:latest"
-  --set-env-vars "AUTH_MODE=$AUTH_MODE,FIREBASE_PROJECT_ID=$PROJECT,MAX_SESSION_HOURS=${MAX_SESSION_HOURS:-12}"
+  --set-env-vars "AUTH_MODE=$AUTH_MODE,FIREBASE_PROJECT_ID=$AUTH_PROJECT,MAX_SESSION_HOURS=${MAX_SESSION_HOURS:-12}"
   --min-instances 0
   --max-instances 3
   --cpu 1
@@ -74,11 +84,11 @@ if [ "$MODE" = "test" ]; then
   echo "3/3 Test revision ready (no traffic). Its URL:"
   gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" \
     --format="value(status.traffic[].url)" | tr ';' '\n' | grep -- "$TAG---" || true
-  echo "Add that host to Firebase -> Authentication -> Settings -> Authorized domains to sign in on it."
+  echo "Add that host to Firebase -> project $AUTH_PROJECT -> Authentication -> Settings -> Authorized domains to sign in on it."
   exit 0
 fi
 
 echo "3/3 Routing all traffic to the new revision and publishing Firebase Hosting..."
 gcloud run services update-traffic "$SERVICE" --project "$PROJECT" --region "$REGION" --to-latest
 firebase deploy --only hosting --project "$PROJECT"
-echo "Done: https://daloy.blueknight.xyz (and the Firebase default domain)."
+echo "Done: https://daloy.blueknight.xyz (and https://$PROJECT.web.app)."

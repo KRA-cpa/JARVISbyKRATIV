@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.2.0
+Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.3.0
 Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 9 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: THE migration plan + step-by-step, top to bottom: Apps Script / Google Sheets → Google Cloud Run + Neon Postgres (all servers in Asia), previews on Vercel, Google Sheets kept as a customer option; then the remaining v10.2 features and organizations on the new server | Status: Active - current roadmap (Phase F done, Phase H code ready, nothing deployed)
 REVISION HISTORY:
+- v1.3.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | D12 servers in a new Google project `krativ-daloy` (user: "iwant to change to KRATIV_DALOY" → "New project krativ-daloy for servers"); sign-in stays in `jarvisbyerp` until Better Auth; H.1 updated
 - v1.2.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Postgres without a subscription (user: "can we setup postgress without subscription?", "no SLA jobs yets"): Neon Free while building (0.4, its limits); step 1.1 sync no longer every 5 min around the clock (that keeps Neon awake ~183 CU-h > the Free 100) - every 5 min weekdays 07:00–20:00 + hourly otherwise (~81 CU-h; every 30 min otherwise ≈ 90, too close); risk line
 - v1.1.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | D11 attachments in the client's Google Workspace Drive (user: "plan attachments on google drive (client's google workspace acct)") - PLAN_Attachments_ClientDrive_20261109.md; Files layer = client Drive / links, platform object storage deferred (step 0.4); schema reserved in 0.7; new step 4.7 (v10.3 / v10.4 → 4.8)
 - v1.0.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 61523343; user: "might need a unified migration plan + step-by-step"). Folds in CHECKLIST_Deploy_PostgresNeon_20261108.md (now a pointer) and the phase lists of PLAN_Migration_NeonVercel_20261030.md §6 and PLAN_ServerCore_OrgSheetBridge_20261101.md §8
@@ -45,6 +46,7 @@ approvals, the Apps Script editor; **Claude** = code, scripts, tests, docs, depl
 | D9 | `organizations` + `organization_id` in the **first** Postgres schema (one default organization for today's data) - O1's schema without a second migration later | this plan |
 | D10 | Method = PLAN_Migration Option A: copy Sheets → Postgres, move reads, freeze + move writes, clean up; the API contract (`{ action, ...payload }` → `{ success, data, message }`) never changes | user, 30 Oct 2026 |
 | D11 | **Attachments are uploaded into the client's own Google Workspace Drive** (a Shared Drive): option 1 role-account OAuth (`drive.file`) or option 2 Daloy service account as a member; on / off per organization and company (off by default); Daloy checks the ticket rules, then serves the file; folder `<COMPANY>/<TYPE>/<YYYY>/<ticket_number>/`; slots per ticket type. No Workspace → links only; **platform object storage deferred**. Built in step 4.7 - `docs/planning/PLAN_Attachments_ClientDrive_20261109.md` | user, 9 Nov 2026 |
+| D12 | **Servers in a new Google project `krativ-daloy`** (display name KRATIV DALOY - `KRATIV_DALOY` is not a valid id; ids never change): Cloud Run, Firebase Hosting, Secret Manager, billing, later the Drive service accounts (`daloy-org-<id>@krativ-daloy.iam.gserviceaccount.com`) and the Better Auth / Drive OAuth clients. **Sign-in stays in `jarvisbyerp`** (Firebase Auth) until Better Auth (1.3), so no user moves; then `jarvisbyerp` retires. `deploy-cloudrun.sh` v1.1 keeps the two ids apart | user, 9 Nov 2026 ("iwant to change to KRATIV_DALOY" → "New project krativ-daloy for servers") |
 | **To confirm** | Neon Singapore + Better Auth + SES Singapore for the data move (step 0.1) | - |
 
 ## §2 Storage options for customers (D7)
@@ -102,8 +104,9 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
 ### Phase H — Host move (runbook: `GUIDE_Deploy_CloudRun_FirebaseHosting.md`)
 - [x] **Claude** - code: `server/app.js`, `Dockerfile`, `firebase.json` / `.firebaserc`, `scripts/deploy-cloudrun.sh`,
       `scripts/test-cloudrun-server.js` (13) - commit `d342c68`.
-- [ ] **H.1 You** - set-up: Blaze + budget alerts, `gcloud` / `firebase` login, APIs, the two secrets, secret access,
-      production's `AUTH_MODE`. *Details: GUIDE §A.*
+- [ ] **H.1 You** - set-up: new project **`krativ-daloy`** (D12) on Blaze (same billing account) + budget alerts,
+      `gcloud` (not installed yet) / `firebase` login, APIs, the two secrets, secret access, production's `AUTH_MODE`.
+      *Details: GUIDE §A.*
 - [ ] **H.2 Claude → You** - test revision `scripts/deploy-cloudrun.sh test first`; you sign in on it (read / seed data
       only - it uses the production Apps Script). **Gate:** `auth: verified` in the logs, no 5xx. *GUIDE §B.*
 - [ ] **H.3 Claude + You** - production deploy, Firebase custom domain `daloy.blueknight.xyz` (MX / forwarding records
