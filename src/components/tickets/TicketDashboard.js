@@ -47,6 +47,7 @@ const TicketDashboard = () => {
   const [tagFilter, setTagFilter] = useState(null);
   const [tagMatchIds, setTagMatchIds] = useState(null);
   const handleTagFilterChange = useCallback(filters => setTagFilter(filters), []);
+  const [tagResetKey, setTagResetKey] = useState(0); // a new key remounts the tag filter empty (Clear)
   const { ToastContainer, success, error: showError, warning } = useToast();
 
   // Modal hooks
@@ -258,18 +259,29 @@ const TicketDashboard = () => {
     setCurrentPage(1); // Reset to first page when filtering
   };
 
-  const clearFilters = () => {
-    setFilters({
+  // Clears every filter including the tag filter (before 9 Nov 2026 the tags stayed set); the toolbar's Clear keeps
+  // the Show pill, the empty-list button resets it too
+  const clearFilters = ({ keepShow = false } = {}) => {
+    setFilters(prev => ({
       search: '',
       company: '',
       status: '',
       priority: '',
-      show: 'all',
+      show: keepShow ? prev.show : 'all',
       dateRange: 'all',
       slaStatus: 'all'
-    });
+    }));
+    setTagFilter(null);
+    setTagMatchIds(null);
+    setTagResetKey(key => key + 1);
     setCurrentPage(1);
   };
+
+  // Filters folded under "More filters" (company, priority, date, tags) - the toggle shows how many are set
+  const hiddenFilterCount = [filters.company, filters.priority, filters.dateRange !== 'all', tagFilter?.hasFilters]
+    .filter(Boolean).length;
+  const anyFilterSet = Boolean(filters.search || filters.status || filters.slaStatus !== 'all') || hiddenFilterCount > 0;
+  const [showMoreFilters, setShowMoreFilters] = useState(() => hiddenFilterCount > 0);
 
   const handleTicketSelect = (ticketId, selected) => {
     setSelectedTickets(prev =>
@@ -588,91 +600,43 @@ const TicketDashboard = () => {
           ))}
         </div>
 
-        {/* Tag filter - only when a ticket type has tags turned on */}
-        {tagsInUse && (
-          <TagSearchFilter availableTags={allTags || []} onFilterChange={handleTagFilterChange} />
-        )}
-
-        {/* Search and Filters */}
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
-            <div className="lg:col-span-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Search
-              </label>
-              <div className="relative">
-                <Icons.Search size={16} className="absolute left-3 top-3 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search tickets..."
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange('search', e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+        {/* One toolbar: search, Status, SLA, More filters, Clear (compact filters, 9 Nov 2026) */}
+        <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[12rem]">
+              <Icons.Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search tickets..."
+                aria-label="Search tickets"
+                value={filters.search}
+                onChange={(e) => handleFilterChange('search', e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-4 lg:col-span-3">
-              <select
-                value={filters.company}
-                onChange={(e) => handleFilterChange('company', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">All Companies</option>
-                {companies?.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.name}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">All Statuses</option>
-                {uniqueStatuses.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={filters.priority}
-                onChange={(e) => handleFilterChange('priority', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">All Priorities</option>
-                {uniquePriorities.map((priority) => (
-                  <option key={priority} value={priority}>
-                    {priority?.charAt(0).toUpperCase() + priority?.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <select
-              value={filters.dateRange}
-              onChange={(e) => handleFilterChange('dateRange', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={filters.status}
+              onChange={(e) => handleFilterChange('status', e.target.value)}
+              aria-label="Status"
+              className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="all">All Time</option>
-              <option value="today">Today</option>
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
+              <option value="">All statuses</option>
+              {uniqueStatuses.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
             </select>
 
             <select
               value={filters.slaStatus}
               onChange={(e) => handleFilterChange('slaStatus', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              aria-label="SLA status"
+              className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               title="Filter by SLA status"
             >
-              <option value="all">All SLA Status</option>
+              <option value="all">Any SLA</option>
               <option value="overdue">🔴 Overdue</option>
               <option value="due_today">🟡 Due Today</option>
               <option value="on_time">🟢 On Time</option>
@@ -680,11 +644,81 @@ const TicketDashboard = () => {
             </select>
 
             <button
-              onClick={clearFilters}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200"
+              type="button"
+              onClick={() => setShowMoreFilters(prev => !prev)}
+              aria-expanded={showMoreFilters}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg border flex items-center gap-1 ${showMoreFilters || hiddenFilterCount > 0
+                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
             >
-              Clear All
+              <Icons.Filter size={14} />
+              <span>More filters{hiddenFilterCount > 0 ? ` (${hiddenFilterCount})` : ''}</span>
+              {showMoreFilters ? <Icons.ChevronUp size={14} /> : <Icons.ChevronDown size={14} />}
             </button>
+
+            {anyFilterSet && (
+              <button
+                type="button"
+                onClick={() => clearFilters({ keepShow: true })}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* More filters - collapsed by default; kept mounted so the tag filter keeps its state while folded */}
+          <div className={showMoreFilters ? 'flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100' : 'hidden'}>
+            <select
+              value={filters.company}
+              onChange={(e) => handleFilterChange('company', e.target.value)}
+              aria-label="Company"
+              className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">All companies</option>
+              {companies?.map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filters.priority}
+              onChange={(e) => handleFilterChange('priority', e.target.value)}
+              aria-label="Priority"
+              className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">All priorities</option>
+              {uniquePriorities.map((priority) => (
+                <option key={priority} value={priority}>
+                  {priority?.charAt(0).toUpperCase() + priority?.slice(1)}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={filters.dateRange}
+              onChange={(e) => handleFilterChange('dateRange', e.target.value)}
+              aria-label="Created"
+              className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="all">Any time</option>
+              <option value="today">Today</option>
+              <option value="week">This week</option>
+              <option value="month">This month</option>
+            </select>
+
+            {/* Tag filter - only when a ticket type has tags turned on; a new key clears it */}
+            {tagsInUse && (
+              <TagSearchFilter
+                key={tagResetKey}
+                compact
+                availableTags={allTags || []}
+                onFilterChange={handleTagFilterChange}
+                className="sm:ml-2"
+              />
+            )}
           </div>
         </div>
 
@@ -733,56 +767,51 @@ const TicketDashboard = () => {
           </div>
         )}
 
-        {/* Sort Controls */}
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center space-x-4">
-              <span className="text-sm font-medium text-gray-700">Sort by:</span>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="created_at">Created Date</option>
-                <option value="updated_at">Updated Date</option>
-                <option value="step_due_date">Step Due Date</option>
-                <option value="priority">Priority</option>
-                <option value="status">Status</option>
-                <option value="title">Title</option>
-              </select>
-
-              <button
-                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                className="flex items-center space-x-1 px-2 py-1 text-sm text-gray-600 hover:text-gray-800"
-              >
-                <span>{sortOrder === 'asc' ? 'Ascending' : 'Descending'}</span>
-                {sortOrder === 'asc' ? (
-                  <Icons.ChevronUp size={14} />
-                ) : (
-                  <Icons.ChevronDown size={14} />
-                )}
-              </button>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                {sortedTickets.length} tickets found
-              </span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value={10}>10 per page</option>
-                <option value={20}>20 per page</option>
-                <option value={50}>50 per page</option>
-                <option value={100}>100 per page</option>
-              </select>
-            </div>
-          </div>
+        {/* Count + sort + page size on one slim line */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-1 text-sm text-gray-600">
+          <span className="font-medium text-gray-700">
+            {sortedTickets.length} ticket{sortedTickets.length !== 1 ? 's' : ''}
+          </span>
+          <span className="text-gray-300">·</span>
+          <label className="flex items-center gap-1">
+            <span>Sort</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-2 py-0.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="created_at">Created</option>
+              <option value="updated_at">Updated</option>
+              <option value="step_due_date">Step due</option>
+              <option value="priority">Priority</option>
+              <option value="status">Status</option>
+              <option value="title">Title</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            className="p-1 rounded text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+            aria-label={sortOrder === 'asc' ? 'Sorted ascending - switch to descending' : 'Sorted descending - switch to ascending'}
+          >
+            {sortOrder === 'asc' ? <Icons.ChevronUp size={14} /> : <Icons.ChevronDown size={14} />}
+          </button>
+          <span className="text-gray-300">·</span>
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            aria-label="Tickets per page"
+            className="px-2 py-0.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value={10}>10 per page</option>
+            <option value={20}>20 per page</option>
+            <option value={50}>50 per page</option>
+            <option value={100}>100 per page</option>
+          </select>
         </div>
 
         {/* Tickets List */}
@@ -814,7 +843,7 @@ const TicketDashboard = () => {
                 {tickets?.length ? 'No tickets match your filters' : 'No tickets yet'}
               </p>
               <button
-                onClick={clearFilters}
+                onClick={() => clearFilters()}
                 className="px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
               >
                 Clear Filters
