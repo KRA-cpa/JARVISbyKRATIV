@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: REVIEW_UIErgonomics_20261110.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: REVIEW_UIErgonomics_20261110.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 10 November 2026 UTC+8 (Philippine Standard Time) | Modified: 10 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Ergonomics review of the whole UI (signed-in app, Admin, public site, requester page) against the user's priorities, with the fix for each finding in the "Daloy" (current) or "Daloy Flow" (proposed) design system | Status: Review - designs next, nothing built
 REVISION HISTORY:
+- v1.1.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Flow judged "very AI-coded" by the user; concept systems Routing Slip + Quiet Utility added ("create systems separately, effectively 4 choices"); comparison canvas
 - v1.0.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 5f83b40e). User: "revisit the UI for more ergonomics, including the public sites", "all - to be consistent with the name Daloy or flow", review + designs first, design system from code + an alternative, priorities 3 density & readability, 1 fewer clicks for approvers, 4 accessibility; "is the logo while loading too dated?" -> "logo and app name, with flow water effect or what is more appropriate and modern"
 ===============================================================================
 -->
@@ -24,7 +25,12 @@ REVISION HISTORY:
 - **Design systems (claude.ai, private to the user):**
   - **Daloy**, the current look taken from the code: https://claude.ai/artifact/Xw3b237LuP3LnFAHboXSeA. It keeps the failing colour pairs exactly as they are and flags them.
   - **Daloy Flow**, the proposed refresh: https://claude.ai/artifact/F6V9mJmLbuVyPcbufoiL6K. It uses Figtree, light + dark themes, and all 64 text / border pairs checked. It adds three components: a **Loader**, a **FlowTrail** and an **ApprovalBar**.
-- **Next:** canvas designs of each screen in both systems. The user picks per screen, and then the build.
+- **Update, same day (v1.1):** the user found Flow "very AI-coded". Two concept systems were added, so there are four to choose from:
+  - **Daloy Routing Slip**: paper and ink, serif documents, ledgers, stamps, with approval on "your line" of a routing slip. https://claude.ai/artifact/7REYguSSsxgtMQYzXQMQu9
+  - **Daloy Quiet Utility**: near-monochrome, keyboard-first, a dense table with an inspector, IBM Plex. https://claude.ai/artifact/HuKF5ENy8yVYiF1dgt1uqB
+
+  The comparison canvas has both loaders and both approval screens: https://claude.ai/artifact/8W9GpoveCYuaVh3y3EsYYS. The fixes listed below still apply whichever system is picked.
+- **Next:** canvas designs of each screen in the chosen system. The user picks per screen, and then the build.
 
 ## Findings
 Ranked within each priority by impact. Each finding gives the place, the problem and the fix, with the Flow token or component it uses.
