@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: HANDOFF_DesignDecisions_Migration_20261110.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: HANDOFF_DesignDecisions_Migration_20261110.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 10 November 2026 UTC+8 (Philippine Standard Time) | Modified: 10 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Handoff from session 5f83b40e (UI fixes + UI refresh exploration) to the next session: MIGRATION first; the design decision session comes later | Status: Open - read at the start of the next session
 REVISION HISTORY:
+- v1.1.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | The loader was built (`53fb024`, decisions item 8) and is on test revision `daloy-00006-hib`; the test-site check now includes it
 - v1.0.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 5f83b40e). User: "design decision will be prompted, next session will be migration"; "ill clear the session once handoff is created for the next steps"
 ===============================================================================
 -->
@@ -23,7 +24,7 @@ REVISION HISTORY:
 - **How decisions get taken:** `docs/design/DECISIONS_UIRefresh_20261110.md`.
   - The session starts with a **superthink** (§0.1 there): coverage of every finding, the reco check, dependency order, wording, cost tags.
   - Then **default-or-veto statements** in batches of 5–8, answered `ok` / `no` / `skip`. No 4-option pick lists, no pop-ups. Asked only when the user says to start.
-  - **Answer log:** one attempt on 10 Nov, **not answered**.
+  - **Answer log:** one attempt on 10 Nov, **not answered**; then **item 8 (the loader) answered "ok" and built** (`53fb024`). Everything else is open.
 - **Review:** `docs/design/REVIEW_UIErgonomics_20261110.md` v1.7.0 (findings L1, D1–D8, A1–A5, X1–X7, P1–P4, R1; the user's comments; skins proposal; build slices).
 - **Snooze / Pause SLA design** (not built): `docs/design/DESIGN_SnoozePauseSLA_20261110.md` v1.2.0, decisions D1–D12. Snooze also appears in the plan tiers doc `docs/planning/PLAN_PlanTiers_Subscriptions_20261031.md` v1.8.0 (§2 catalogue).
 - **Artifacts on claude.ai** (private to the user):
@@ -50,7 +51,7 @@ REVISION HISTORY:
 **Phase H - host move**
 | Step | Who | What | Status |
 |---|---|---|---|
-| Test site check | You | Check Dashboard, Tickets filters, Reports dates and the footer on `https://first---daloy-xmczwkduaa-as.a.run.app` (revision `daloy-00005-sos`) | waiting |
+| Test site check | You | On `https://first---daloy-xmczwkduaa-as.a.run.app` (revision `daloy-00006-hib`, 10 Nov): the **new loader** (reload a page - the logo with its stream flowing and "Daloy", no white flash, no spinner; dark if your browser / saved setting is dark), Dashboard, Tickets filters, Reports dates and the footer | waiting |
 | H.3 | Claude, on your "go" | `AUTH_MODE=enforce scripts/deploy-cloudrun.sh production` (gcloud on PATH: `/c/Users/clark/AppData/Local/Google/Cloud SDK/google-cloud-sdk/bin`, `CLOUDSDK_CORE_DISABLE_PROMPTS=1`) | waiting for "go" |
 | H.3 | You | Firebase custom domain `daloy.blueknight.xyz` in `krativ-daloy` (leave the MX / forwarding records); authorized domains in `jarvisbyerp` (`daloy.blueknight.xyz`, `krativ-daloy.web.app`); Script Property `APP_URL` | after the deploy |
 | H.4 | Claude, on your "push" | Merge `h4/vercel-previews-only` (`1db367a`), run `build:ci` + `check:api-contract` + `check:code-rules` + the offline suites, push main3 | after H.3 works end to end |
@@ -80,6 +81,7 @@ REVISION HISTORY:
 - `749bd4a` / `c3b824f` / `52813f8`: UI fixes.
 - `33f6cc8`: plan v1.5.0.
 - `35213a9`: backup.
-- `42324ea` → `c99f63b` + this handoff's commit: design docs.
+- `42324ea` → `c99f63b`, `7d81aee`: design docs + this handoff.
+- `53fb024`: the Daloy loader + splash (test revision `daloy-00006-hib`).
 - Branch `h4/vercel-previews-only` (`1db367a`).
 - main3 is many commits ahead of origin.
