@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: REVIEW_UIErgonomics_20261110.md | Author: Kenneth R. Advento | Version: 1.2.0
+Document: REVIEW_UIErgonomics_20261110.md | Author: Kenneth R. Advento | Version: 1.3.0
 Created: 10 November 2026 UTC+8 (Philippine Standard Time) | Modified: 10 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Ergonomics review of the whole UI (signed-in app, Admin, public site, requester page) against the user's priorities, with the fix for each finding in the "Daloy" (current) or "Daloy Flow" (proposed) design system | Status: Review - designs next, nothing built
 REVISION HISTORY:
+- v1.3.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: entry fields minimalist, not boxes; canvas board "Routing Slip - entering a request" added
 - v1.2.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User's initial comments on the four systems recorded (Flow's FlowTrail + Loader liked; Routing Slip format for approving) - no pick yet
 - v1.1.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Flow judged "very AI-coded" by the user; concept systems Routing Slip + Quiet Utility added ("create systems separately, effectively 4 choices"); comparison canvas
 - v1.0.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 5f83b40e). User: "revisit the UI for more ergonomics, including the public sites", "all - to be consistent with the name Daloy or flow", review + designs first, design system from code + an alternative, priorities 3 density & readability, 1 fewer clicks for approvers, 4 accessibility; "is the logo while loading too dated?" -> "logo and app name, with flow water effect or what is more appropriate and modern"
@@ -35,6 +36,11 @@ REVISION HISTORY:
   - Kept from **Daloy Flow**: the **FlowTrail** (the ticket's path as done / current / next steps with who acts and when) and the **Loader** (the mark's stream flows continuously, logo + name).
   - Kept from **Routing Slip**: the approval format, where the decision ("Initial & approve", Return, Reject, comment) sits on the approver's own line of the slip.
   - Direction this points to, pending the rest of the comments: a Routing Slip layout carrying Flow's trail and loader. The trail and loader would be redrawn in that system's colours and type, so Flow's generic tells (rounded cards, pastel pills, Figtree) stay out.
+- **Entering a request (user, v1.3):** "Fields in routing slip - minimalist, not boxes", meaning how a ticket is entered / created. The canvas board **"Routing Slip - entering a request"** shows it:
+  - each field is a fill-in line on the sheet: a hairline underline, the label in small caps on the left, a 2px blue line on focus, and a red line plus a plain sentence on error;
+  - the title is typed straight into the serif heading; dropdowns are a word with a caret; the reason box is lined paper;
+  - optional fields say "optional" (no asterisks on required ones); the ticket number that will be given is shown up front;
+  - on the right, the route the request will take (Flow's trail on the slip), including why a stop was added ("amount PHP 50,000 or more").
 - **Next:** canvas designs of each screen in the chosen system. The user picks per screen, and then the build.
 
 ## Findings
