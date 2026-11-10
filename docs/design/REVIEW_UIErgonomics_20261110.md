@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: REVIEW_UIErgonomics_20261110.md | Author: Kenneth R. Advento | Version: 1.4.0
+Document: REVIEW_UIErgonomics_20261110.md | Author: Kenneth R. Advento | Version: 1.5.0
 Created: 10 November 2026 UTC+8 (Philippine Standard Time) | Modified: 10 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Ergonomics review of the whole UI (signed-in app, Admin, public site, requester page) against the user's priorities, with the fix for each finding in the "Daloy" (current) or "Daloy Flow" (proposed) design system | Status: Review - designs next, nothing built
 REVISION HISTORY:
+- v1.5.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | New canvas "Daloy River Slip": Routing Slip format + Daloy Flow colours, trail and loader; four type options as a tweak; leave = title not asked
 - v1.4.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: titles can be required, but some requests just use the ticket type as the title - title rule per ticket type + list summary field; canvas board extended
 - v1.3.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: entry fields minimalist, not boxes; canvas board "Routing Slip - entering a request" added
 - v1.2.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User's initial comments on the four systems recorded (Flow's FlowTrail + Loader liked; Routing Slip format for approving) - no pick yet
@@ -48,6 +49,11 @@ REVISION HISTORY:
   - Companion setting **"Shown in lists after the title"** (one custom field, e.g. Dates), so a ledger of leave requests reads "Leave request · 14–15 Nov" rather than ten identical rows.
   - Build: two `ticket_types` columns (`title_mode`, `list_summary_field_id`), on the new server (Phase 4), since Apps Script is frozen. Existing types default to `required` (today's behaviour).
   - Shown on the canvas board "Routing Slip - entering a request", second half.
+- **New canvas "Daloy River Slip" (user, v1.5):** "create this new canvas but retain the watery flowy rivery type colors and font faces maybe (as options) but some sans won't hurt". https://claude.ai/artifact/AXRqsRhVriJrqm2oCyETwc
+  - The Routing Slip way of working (slip with your line, stamps, line fields, title rule) in **Daloy Flow's contrast-checked colours**: navy ink `#0f1b2d`, teal current `#0e7490`, shallows `#e3f5f9` for "your line", the mark blue `#2563eb` for the one action, stream `#93c5fd` for the trail line only, red `#b42318` for overdue / reject.
+  - **Type as a tweak on every board:** River (Figtree + JetBrains Mono), Slip (Newsreader titles + Public Sans + IBM Plex Mono), Plain sans (Public Sans), Plex (IBM Plex Sans).
+  - Boards: loader (Flow's continuous stream, light + dark) with colours and type; approving (list with a mini trail per row, request with the full FlowTrail on top, routing slip with the decision on your line); entering a request (line fields, route preview, leave request with the title not asked, Admin title rule).
+  - User confirmed: leave requests need no title (title rule "Not asked").
 - **Next:** canvas designs of each screen in the chosen system. The user picks per screen, and then the build.
 
 ## Findings
