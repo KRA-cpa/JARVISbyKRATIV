@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: REVIEW_UIErgonomics_20261110.md | Author: Kenneth R. Advento | Version: 1.3.0
+Document: REVIEW_UIErgonomics_20261110.md | Author: Kenneth R. Advento | Version: 1.4.0
 Created: 10 November 2026 UTC+8 (Philippine Standard Time) | Modified: 10 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Ergonomics review of the whole UI (signed-in app, Admin, public site, requester page) against the user's priorities, with the fix for each finding in the "Daloy" (current) or "Daloy Flow" (proposed) design system | Status: Review - designs next, nothing built
 REVISION HISTORY:
+- v1.4.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: titles can be required, but some requests just use the ticket type as the title - title rule per ticket type + list summary field; canvas board extended
 - v1.3.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: entry fields minimalist, not boxes; canvas board "Routing Slip - entering a request" added
 - v1.2.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User's initial comments on the four systems recorded (Flow's FlowTrail + Loader liked; Routing Slip format for approving) - no pick yet
 - v1.1.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Flow judged "very AI-coded" by the user; concept systems Routing Slip + Quiet Utility added ("create systems separately, effectively 4 choices"); comparison canvas
@@ -41,6 +42,12 @@ REVISION HISTORY:
   - the title is typed straight into the serif heading; dropdowns are a word with a caret; the reason box is lined paper;
   - optional fields say "optional" (no asterisks on required ones); the ticket number that will be given is shown up front;
   - on the right, the route the request will take (Flow's trail on the slip), including why a stop was added ("amount PHP 50,000 or more").
+- **Title rule per ticket type (user, v1.4):** "titles can be required but some request will just have the ticket type as the title". Today the title is always required (`TicketForm.js:131`) and the server stores whatever the form sends (`createTicket`).
+  - New setting on the ticket type: **Required** (the requester writes one) / **Optional** (blank becomes the type name, e.g. "Leave request") / **Not asked** (the field is hidden and the title is always the type name).
+  - The **server** fills the title (compliance F1, the server owns business rules), so lists, emails, notifications and reports never show a blank title.
+  - Companion setting **"Shown in lists after the title"** (one custom field, e.g. Dates), so a ledger of leave requests reads "Leave request · 14–15 Nov" rather than ten identical rows.
+  - Build: two `ticket_types` columns (`title_mode`, `list_summary_field_id`), on the new server (Phase 4), since Apps Script is frozen. Existing types default to `required` (today's behaviour).
+  - Shown on the canvas board "Routing Slip - entering a request", second half.
 - **Next:** canvas designs of each screen in the chosen system. The user picks per screen, and then the build.
 
 ## Findings
