@@ -33,10 +33,53 @@
     <link rel="preconnect" href="https://accounts.google.com" />
 
     <title>Daloy by KRAtiv - Ticketing & Workflow Orchestration</title>
+
+    <!-- Splash (10 Nov 2026): the Daloy loader before React runs - no white flash. Same look and class names as
+         src/components/shared/LoadingScreen.js + src/index.css; React replaces it on its first render. -->
+    <style>
+      body { margin: 0; }
+      #daloy-splash { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f3f4f6;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; }
+      #daloy-splash.dark { background: #111827; }
+      #daloy-splash .daloy-loader { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+      #daloy-splash .name { font-size: 30px; line-height: 36px; font-weight: 700; letter-spacing: -0.025em; color: #111827; }
+      #daloy-splash .by { font-size: 12px; line-height: 16px; font-weight: 500; color: #4b5563; }
+      #daloy-splash.dark .name { color: #f3f4f6; }
+      #daloy-splash.dark .by { color: #9ca3af; }
+      #daloy-splash .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+      .daloy-stream-base { opacity: .45; }
+      .daloy-stream-flow { stroke-dasharray: 28 72; stroke-dashoffset: 100; animation: daloy-flow 1.8s linear infinite; }
+      .daloy-loader { animation: daloy-in .15s ease-out .3s both; }
+      @keyframes daloy-flow { to { stroke-dashoffset: 0; } }
+      @keyframes daloy-in { from { opacity: 0; } to { opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) { .daloy-stream-base { opacity: 1; } .daloy-stream-flow { display: none; } }
+    </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
+    <div id="root"><div id="daloy-splash">
+      <div role="status" class="daloy-loader">
+        <svg width="56" height="56" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+          <rect width="32" height="32" rx="8" fill="#2563EB" />
+          <path d="M10 7v18h5.5a9 9 0 0 0 0-18H10z" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round" />
+          <path class="daloy-stream-base" d="M5 17.5c3 0 3-3 6-3s3 3 6 3 3-3 6-3" fill="none" stroke="#93C5FD" stroke-width="2.4" stroke-linecap="round" />
+          <path class="daloy-stream-flow" d="M5 17.5c3 0 3-3 6-3s3 3 6 3 3-3 6-3" pathLength="100" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" />
+        </svg>
+        <span class="name">Daloy</span>
+        <span class="by">by KRAtiv</span>
+        <span class="sr">Loading Daloy</span>
+      </div>
+    </div></div>
+    <script>
+      // Dark splash when the app would open dark: the saved choice (DarkModeContext's localStorage 'darkMode'), else the system setting.
+      (function () {
+        try {
+          var saved = localStorage.getItem('darkMode');
+          var dark = saved !== null ? JSON.parse(saved) === true : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) document.getElementById('daloy-splash').className = 'dark';
+        } catch (e) { /* storage blocked: stay light */ }
+      })();
+    </script>
     <!--
       This HTML file is a template.
       If you open it directly in the browser, you will see an empty page.

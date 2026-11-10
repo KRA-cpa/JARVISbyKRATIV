@@ -2,17 +2,18 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DECISIONS_UIRefresh_20261110.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: DECISIONS_UIRefresh_20261110.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 10 November 2026 UTC+8 (Philippine Standard Time) | Modified: 10 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: How design decisions are taken with the user (default-or-veto statements), what is already decided, the draft statement bank for the UI refresh, and the answer log - replayable if a re-design is requested | Status: Draft bank - superthink + first batch happen in the design decision session (NOT the next session, which is migration)
 REVISION HISTORY:
+- v1.1.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Item 8 (loader) answered and built - user: "the logo while loading - that one we can implement" / "do it now, the loader"
 - v1.0.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 5f83b40e). User: "as a possible indecisive adhder, looks like i need to be prompted questions that will help you decide how to go forward with the design. record this process if we need to go back to the design decisions - if a re-design is again requested"; "dont confront me picking from the 4"; "superthink will be 1st step in design decision session"; "next session will be migration"
 ===============================================================================
 -->
 
 # DECISIONS — UI refresh (how we decide, what's decided, what's open)
 
-**State on 10 Nov 2026:** no statement in §3 has an answer yet. One attempt (a 4-option pop-up of Round 1) was shown and **not answered** (§4). Every §3 item is open; its default is a default, not a choice. **No UI build starts until batch 1 is answered.**
+**State on 10 Nov 2026:** one statement is answered: **item 8, the loader - ok, built** (§4). Everything else in §3 is open. One attempt (a 4-option pop-up of Round 1) was shown and **not answered** (§4). Every §3 item is open; its default is a default, not a choice. **No UI build starts until batch 1 is answered.**
 
 ## §0 The design decision session (order)
 1. **Superthink first** (user: "superthink will be 1st step in design decision session"), grounded, not a broad audit (Claude.md working rule 6). Its output replaces the §3 draft and goes in §6:
@@ -73,7 +74,7 @@ Defaults as of 10 Nov. The superthink (§0.1) checks, reorders and tags them bef
 5. You approve on your own line of the routing slip: one click, remarks optional unless required.
 6. The button says "Approve", not "Initial & approve".
 7. Each row in the list shows a small trail of where the ticket is.
-8. The loader is the logo's stream flowing, with "Daloy" under it.
+8. ~~The loader is the logo's stream flowing, with "Daloy" under it.~~ **Answered: ok - built 10 Nov 2026** (§4).
 
 **Batch 2 - screens**
 9. A ticket opens beside the list, not as a pop-up over it.
@@ -115,6 +116,7 @@ Defaults as of 10 Nov. The superthink (§0.1) checks, reorders and tags them bef
 ## §4 Answer log
 | Date | Session | Item | Answer | Note |
 |---|---|---|---|---|
+| 10 Nov 2026 | 5f83b40e | 8 - the loader | **ok - build it now** | "the logo while loading - that one we can implement"; then "sorry, impulsive"; then "i mean, do it now, the loader". Built in the app font (the font decision, item 2, is still open - the wordmark follows it later). |
 | 10 Nov 2026 | 5f83b40e | Round 1 of an earlier 4-option pop-up format (base style, font, fields, skins) | **not answered** | User: "not now"; "note no answer has been given". Process note - user: "you asked me directly, why is that bro": the request was to prepare the questions and hand off, not to ask live. Then: "dont confront me picking from the 4". The method was changed to §1. |
 
 ## §5 Re-design replay

@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: REVIEW_UIErgonomics_20261110.md | Author: Kenneth R. Advento | Version: 1.7.0
+Document: REVIEW_UIErgonomics_20261110.md | Author: Kenneth R. Advento | Version: 1.8.0
 Created: 10 November 2026 UTC+8 (Philippine Standard Time) | Modified: 10 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Ergonomics review of the whole UI (signed-in app, Admin, public site, requester page) against the user's priorities, with the fix for each finding in the "Daloy" (current) or "Daloy Flow" (proposed) design system | Status: Review - designs next, nothing built
 REVISION HISTORY:
+- v1.8.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | L1 built: the Daloy loader + the pre-React splash (user: "do it now, the loader")
 - v1.7.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Decisions move to `docs/design/DECISIONS_UIRefresh_20261110.md` (default-or-veto statements; superthink first; no answers yet); next session = migration (handoff `docs/planning/HANDOFF_DesignDecisions_Migration_20261110.md`); banner renamed
 - v1.6.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Form builder with live preview in four styles (River Slip canvas); skins per plan proposed (awaiting the user's OK); Snooze = Enterprise (plan tiers v1.7.0)
 - v1.5.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | New canvas "Daloy River Slip": Routing Slip format + Daloy Flow colours, trail and loader; four type options as a tweak; leave = title not asked
@@ -71,7 +72,7 @@ REVISION HISTORY:
 Ranked within each priority by impact. Each finding gives the place, the problem and the fix, with the Flow token or component it uses.
 
 ### Brand moment — the loader (user question)
-**L1. The loading screen is a stock spinner, no logo.**
+**L1. The loading screen is a stock spinner, no logo.** ✅ *Built 10 Nov 2026* (`LoadingScreen.js`, `BrandMark` `animated`, `index.css`, the splash in `public/index.html`; in the current app font and colours until the design decisions land).
 - Where: `src/components/shared/LoadingScreen.js`, used on every sign-in and route guard (`App.js:54/75/103/200`, `LoginPage.js:46`).
 - Problem:
   - a Tailwind half-ring spinner and "Loading..." on `bg-gray-50`, while pages use gray-100, so the grey flashes;

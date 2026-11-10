@@ -1,6 +1,6 @@
 # JarvisByERP Dependency Mapping
 
-**Date**: September 28, 2025 - 🏷️ **TICKET TAGS & COLLABORATION SYSTEM UPDATE** (latest section: November 10, 2026 — Dashboard A, compact ticket filters, footer layout)
+**Date**: September 28, 2025 - 🏷️ **TICKET TAGS & COLLABORATION SYSTEM UPDATE** (latest section: November 10, 2026 — the Daloy loader + splash)
 **Purpose**: Map all component dependencies, imports, and exports to prevent circular dependencies and ensure proper architecture with ticket tags and collaboration system integration
 
 ### **🔬 PROOF OF CONCEPT BACKEND ARCHITECTURE**
@@ -150,7 +150,7 @@ Instead of creating new components, existing components are enhanced with:
 
 #### Other Shared Components:
 - `Header.js` → Navigation, user menu
-- `LoadingScreen.js` → Loading states
+- `LoadingScreen.js` → Loading states (from 10 Nov 2026: the Daloy loader, imports `BrandMark`)
 - `ErrorBoundary.js` → Error handling
 - `LiveClock.js` → Philippine time display
 
@@ -382,6 +382,19 @@ Until v9.1 nothing imported the ticket components or `AdminWorkflowBuilder`; `np
 | `src/components/tickets/TicketDashboard.js` | Component | `?ticket=<id>` opens that ticket (bell links) | `TicketsPage` |
 
 - **Unmounted now**: 8 components + 2 icons (`AdminSLAEscalationManager` mounted in v9.5).
+
+### **🌊 THE DALOY LOADER + PRE-REACT SPLASH (November 10, 2026 — frontend only, no AppScript change)**
+
+Review finding L1 (`docs/design/REVIEW_UIErgonomics_20261110.md`), decisions doc item 8. No new files.
+
+| File | Layer | Imports (new in bold) | Used by |
+|---|---|---|---|
+| `src/components/shared/LoadingScreen.js` | Shared component (rewritten) | **`BrandMark`** (same layer, no cycle: BrandMark imports only React) | `App.js` (4 places + the `/admin/dpa` Suspense fallback), `LoginPage` |
+| `src/components/shared/BrandMark.js` | Shared component | unchanged imports; new **`animated`** / **`flowDelay`** props (default off - every other use is unchanged) | `LoadingScreen`, Header, public pages |
+| `src/index.css` | Global CSS | new classes `.daloy-stream-base`, `.daloy-stream-flow`, `.daloy-loader` + keyframes; reduced-motion rule | all |
+| `public/index.html` | Template | the splash `#daloy-splash` inside `#root` (same classes, inline style + a dark check from localStorage `darkMode` / system) | replaced by React's first render |
+
+Hand-off: a `LoadingScreen` in React's first render sees `#daloy-splash` still in the DOM (React clears `#root` at commit), so it fades in with what is left of 300 ms and continues the highlight on the page clock (`performance.now()`). Keep the class names and timings in `index.css` and `index.html` in step.
 
 ### **🧹 DASHBOARD A, COMPACT TICKET FILTERS, FOOTER LAYOUT (November 10, 2026 — frontend only, no AppScript change)**
 

@@ -15,3 +15,15 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Loader (10 Nov 2026) - LoadingScreen.js + the splash in public/index.html (same names there, keep in step).
+   The stream stays faint; a white highlight flows along it every 1.8 s. The loader fades in after 300 ms. */
+.daloy-stream-base { opacity: .45; }
+.daloy-stream-flow { stroke-dasharray: 28 72; stroke-dashoffset: 100; animation: daloy-flow 1.8s linear infinite; }
+.daloy-loader { animation: daloy-in .15s ease-out .3s both; }
+@keyframes daloy-flow { to { stroke-dashoffset: 0; } }
+@keyframes daloy-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .daloy-stream-base { opacity: 1; }
+  .daloy-stream-flow { display: none; }
+}

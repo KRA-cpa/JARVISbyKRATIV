@@ -45,7 +45,7 @@
 - [x] **Icons.js** - ✅ Complete SVG icon library with 30+ workflow-specific icons
 - [x] **Header.js** - ✅ Navigation bar with user info, notifications, and live clock
 - [x] **LiveClock.js** - ✅ Real-time UTC+8 Philippine Time with multiple formats
-- [x] **LoadingScreen.js** - ✅ Reusable loading spinner with Tailwind CSS
+- [x] **LoadingScreen.js** - ✅ The Daloy loader (10 Nov 2026): the mark with its stream flowing + the name, fades in after 300 ms, takes over from the splash in `public/index.html`; still under reduced motion
 - [x] **ActionCommentModal.js** - ✅ Modal for mandatory workflow action comments
 
 **Phase 2 Deliverables:**
@@ -615,7 +615,7 @@ src/
 │   │   ├── Header.js                  # Sticky navigation header with user menu
 │   │   ├── Icons.js                   # Complete SVG icon library (40+ icons)
 │   │   ├── LiveClock.js               # Philippine time display (UTC+8)
-│   │   ├── LoadingScreen.js           # Reusable loading spinner component
+│   │   ├── LoadingScreen.js           # The Daloy loader (mark + name, flowing stream)
 │   │   ├── TagInput.js                # ✅ Phase 11.0: Advanced tag input with autocomplete
 │   │   ├── TagSearchFilter.js         # ✅ Phase 11.0: Multi-tag filtering with AND/OR/NOT operators
 │   │   └── Toast.js                   # Notification system with useToast hook
