@@ -1232,7 +1232,7 @@ Config (3) → Context (1) → Firebase/Google Sheets
 
 ### ✅ System Integration Verification
 - **Confirmed dark mode system** is properly implemented with DarkModeContext and DarkModeProvider
-- **Verified notification management** exists via `SLANotificationSystem.js` with comprehensive alert handling
+- **Verified notification management** exists via `SLANotificationSystem.js` with comprehensive alert handling *(removed 10 Nov 2026 with Dashboard A - notifications live in the header bell; `SLAWidgets.js` removed too, the inventory is 2 files smaller - see DEPENDENCY_MAPPING "Dashboard A")*
 - **Updated file structure** documentation to reflect 45 total files (was 43)
 
 ---

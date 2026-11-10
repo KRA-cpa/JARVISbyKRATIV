@@ -4,6 +4,8 @@
 **Version**: 2.1
 **Status**: Phase 5 Complete + Universal Entity SLA Integration Ready
 
+> **10 Nov 2026:** `SLAWidgets.js`, `SLANotificationSystem.js`, `useSLAOverdueTickets` and `useSLADueTodayTickets` were removed (Dashboard A). SLA counts come from the server (`getDashboard` counts, `getTickets` with `sla=`); SLA notices are in the header bell. References to them below are history.
+
 ## 🚨 MANDATORY SLA RESOLUTION RULE
 
 ### FUNDAMENTAL RESOLUTION PRINCIPLE FOR ALL SLA ISSUES:

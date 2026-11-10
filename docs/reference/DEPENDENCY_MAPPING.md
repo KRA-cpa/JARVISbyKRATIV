@@ -1,6 +1,6 @@
 # JarvisByERP Dependency Mapping
 
-**Date**: September 28, 2025 - 🏷️ **TICKET TAGS & COLLABORATION SYSTEM UPDATE** (latest section: November 1, 2026 — AppScript v10.1 country calendars + time zones)
+**Date**: September 28, 2025 - 🏷️ **TICKET TAGS & COLLABORATION SYSTEM UPDATE** (latest section: November 10, 2026 — Dashboard A, compact ticket filters, footer layout)
 **Purpose**: Map all component dependencies, imports, and exports to prevent circular dependencies and ensure proper architecture with ticket tags and collaboration system integration
 
 ### **🔬 PROOF OF CONCEPT BACKEND ARCHITECTURE**
@@ -382,6 +382,23 @@ Until v9.1 nothing imported the ticket components or `AdminWorkflowBuilder`; `np
 | `src/components/tickets/TicketDashboard.js` | Component | `?ticket=<id>` opens that ticket (bell links) | `TicketsPage` |
 
 - **Unmounted now**: 8 components + 2 icons (`AdminSLAEscalationManager` mounted in v9.5).
+
+### **🧹 DASHBOARD A, COMPACT TICKET FILTERS, FOOTER LAYOUT (November 10, 2026 — frontend only, no AppScript change)**
+
+From the Cloud Run test-site review (`docs/planning/HANDOFF_UIFixes_ProdMove_20261109.md`). The file inventory shrinks by 2.
+
+| File | Layer | Imports (new in bold) | Used by |
+|---|---|---|---|
+| `src/pages/DashboardPage.js` | Page (rewritten) | `useDashboard` (counts + approval inbox), **`useTicketList`** (one 10-ticket page, replaces `useTickets`), **`useNotifications`** (shared with the header bell via the read cache), `LiveClock`, `DEV_CONFIG.DASHBOARD_CARDS`; no `useToast` / `useInformation` / SLA widgets any more | `App.js` route `/dashboard` |
+| `src/components/shared/TagSearchFilter.js` | Shared component | unchanged imports; new **`compact`** prop (inline row: tag input + chips, ANY / ALL with 2+ tags, Exclude per suggestion, `Saved` menu); full mode unchanged | `TicketDashboard` (compact, inside "More filters") |
+| `src/components/tickets/TicketDashboard.js` | Component | unchanged imports; one toolbar (search · Status · SLA · More filters · Clear), slim sort line; Clear also clears tags (remount by `key`) | `TicketsPage` |
+| `src/components/tickets/TicketReport.js` | Component | unchanged; criteria grid `lg:grid-cols-6`, date pair spans 2 | `ReportsPage` |
+| `src/pages/{Admin,Dashboard,Plans,Profile,Reports,Tickets}Page.js` | Pages | unchanged imports; `min-h-screen flex flex-col` + `flex-1` content, so the footer sits at the bottom (Profile's footer moved out of the content box) | `App.js` |
+| `src/hooks/useAPI.js` | Hooks | **removed** `useSLAOverdueTickets`, `useSLADueTodayTickets` (browser-side SLA lists; compliance F1) | - |
+| ~~`src/components/shared/SLAWidgets.js`~~ | **Deleted** | - | was `DashboardPage` only |
+| ~~`src/components/shared/SLANotificationSystem.js`~~ | **Deleted** | - | was `DashboardPage` only |
+
+Rows further down that list `SLAWidgets` / `SLANotificationSystem` as users of `useNotifications`, `slaCalculator` or `getAll({ status: 'open' })` are history; those files no longer exist.
 
 ### **💳 PLANS PER COMPANY - PUBLIC CATALOGUE PAGE (November 1, 2026 — AppScript v10.2 P1)**
 

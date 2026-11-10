@@ -803,71 +803,9 @@ export const useWorkflowStepSLA = (stepId) => {
   );
 };
 
-// A ticket that can still miss its SLA: has a step due date and is not completed / rejected / cancelled
-const isOpenWithSLA = ticket => Boolean(ticket.step_due_date) &&
-  !['completed', 'rejected', 'cancelled'].includes(String(ticket.status || '').toLowerCase());
-
-/**
- * Hook for getting all overdue tickets across the system
- */
-export const useSLAOverdueTickets = () => {
-  return useAPIData(
-    ['sla_overdue_tickets'],
-    async () => {
-      // Open tickets only, read page by page (AppScript v10.0)
-      const tickets = await API.Tickets.getAll({ sla: 'overdue' }); // v10.0 CR4-06/07: the server filters
-      if (!tickets || tickets.length === 0) return [];
-
-      // Filter for overdue tickets
-      const { getSLAStatus } = await import('../utils/slaCalculator');
-
-      const overdueTickets = tickets
-        .filter(isOpenWithSLA)
-        .map(ticket => ({
-          ...ticket,
-          sla_status: getSLAStatus(ticket.step_due_date)
-        }))
-        .filter(ticket => ticket.sla_status.isOverdue);
-
-      return overdueTickets;
-    },
-    {
-      staleTime: 30 * 1000, // 30 seconds
-      refetchInterval: 60 * 1000 // Refresh every minute for real-time monitoring
-    }
-  );
-};
-
-/**
- * Hook for getting all tickets due today
- */
-export const useSLADueTodayTickets = () => {
-  return useAPIData(
-    ['sla_due_today_tickets'],
-    async () => {
-      // Open tickets only, read page by page (AppScript v10.0)
-      const tickets = await API.Tickets.getAll({ sla: 'due_today' }); // v10.0 CR4-06/07: the server filters
-      if (!tickets || tickets.length === 0) return [];
-
-      // Filter for tickets due today
-      const { getSLAStatus } = await import('../utils/slaCalculator');
-
-      const dueTodayTickets = tickets
-        .filter(isOpenWithSLA)
-        .map(ticket => ({
-          ...ticket,
-          sla_status: getSLAStatus(ticket.step_due_date)
-        }))
-        .filter(ticket => ticket.sla_status.isDueToday);
-
-      return dueTodayTickets;
-    },
-    {
-      staleTime: 60 * 1000, // 1 minute
-      refetchInterval: 2 * 60 * 1000 // Refresh every 2 minutes
-    }
-  );
-};
+// The SLA overdue / due-today lists are read from the server (getDashboard counts, getTickets with sla=...);
+// the browser-side hooks useSLAOverdueTickets / useSLADueTodayTickets were removed with the dashboard clean-up
+// (handoff 9 Nov 2026, compliance F1).
 
 /**
  * SLA escalation rules of a company (+ ticket type, + step) - AppScript v9.5 getSLAEscalationRules.
@@ -1242,8 +1180,6 @@ const useAPIModule = {
   // SLA hooks
   useSLAStatus,
   useWorkflowStepSLA,
-  useSLAOverdueTickets,
-  useSLADueTodayTickets,
   // Per-Company SLA Performance hooks (Phase 8.95)
   useSLAPerformanceByCompany,
   useSLAPerformanceByTicketType,
