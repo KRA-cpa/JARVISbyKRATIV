@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: REVIEW_UIErgonomics_20261110.md | Author: Kenneth R. Advento | Version: 1.1.0
+Document: REVIEW_UIErgonomics_20261110.md | Author: Kenneth R. Advento | Version: 1.2.0
 Created: 10 November 2026 UTC+8 (Philippine Standard Time) | Modified: 10 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Ergonomics review of the whole UI (signed-in app, Admin, public site, requester page) against the user's priorities, with the fix for each finding in the "Daloy" (current) or "Daloy Flow" (proposed) design system | Status: Review - designs next, nothing built
 REVISION HISTORY:
+- v1.2.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User's initial comments on the four systems recorded (Flow's FlowTrail + Loader liked; Routing Slip format for approving) - no pick yet
 - v1.1.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Flow judged "very AI-coded" by the user; concept systems Routing Slip + Quiet Utility added ("create systems separately, effectively 4 choices"); comparison canvas
 - v1.0.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 5f83b40e). User: "revisit the UI for more ergonomics, including the public sites", "all - to be consistent with the name Daloy or flow", review + designs first, design system from code + an alternative, priorities 3 density & readability, 1 fewer clicks for approvers, 4 accessibility; "is the logo while loading too dated?" -> "logo and app name, with flow water effect or what is more appropriate and modern"
 ===============================================================================
@@ -30,6 +31,10 @@ REVISION HISTORY:
   - **Daloy Quiet Utility**: near-monochrome, keyboard-first, a dense table with an inspector, IBM Plex. https://claude.ai/artifact/HuKF5ENy8yVYiF1dgt1uqB
 
   The comparison canvas has both loaders and both approval screens: https://claude.ai/artifact/8W9GpoveCYuaVh3y3EsYYS. The fixes listed below still apply whichever system is picked.
+- **Initial comments (user, v1.2, no pick yet):** "i like the flow trail of Daloy Flow, loader as well // router slip format seems sensible for easier approving -- initial comments only".
+  - Kept from **Daloy Flow**: the **FlowTrail** (the ticket's path as done / current / next steps with who acts and when) and the **Loader** (the mark's stream flows continuously, logo + name).
+  - Kept from **Routing Slip**: the approval format, where the decision ("Initial & approve", Return, Reject, comment) sits on the approver's own line of the slip.
+  - Direction this points to, pending the rest of the comments: a Routing Slip layout carrying Flow's trail and loader. The trail and loader would be redrawn in that system's colours and type, so Flow's generic tells (rounded cards, pastel pills, Figtree) stay out.
 - **Next:** canvas designs of each screen in the chosen system. The user picks per screen, and then the build.
 
 ## Findings
