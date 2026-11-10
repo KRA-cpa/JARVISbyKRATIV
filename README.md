@@ -1,4 +1,6 @@
-# JarvisByERP - Ticketing & Workflow Orchestration System
+# JARVIS / Daloy by KRAtiv - Ticketing & Workflow Orchestration System
+
+**Daloy** (Tagalog for "flow") by **KRAtiv Solutions** is the product name; **JARVIS** is the internal / repo name (`jarvisbyerp`).
 
 This project is a React-based multi-tenant ticketing system with workflow orchestration capabilities.
 

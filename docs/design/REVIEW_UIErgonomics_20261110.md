@@ -1,11 +1,12 @@
 <!--
 ===============================================================================
-JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
+JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: REVIEW_UIErgonomics_20261110.md | Author: Kenneth R. Advento | Version: 1.6.0
+Document: REVIEW_UIErgonomics_20261110.md | Author: Kenneth R. Advento | Version: 1.7.0
 Created: 10 November 2026 UTC+8 (Philippine Standard Time) | Modified: 10 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Ergonomics review of the whole UI (signed-in app, Admin, public site, requester page) against the user's priorities, with the fix for each finding in the "Daloy" (current) or "Daloy Flow" (proposed) design system | Status: Review - designs next, nothing built
 REVISION HISTORY:
+- v1.7.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Decisions move to `docs/design/DECISIONS_UIRefresh_20261110.md` (default-or-veto statements; superthink first; no answers yet); next session = migration (handoff `docs/planning/HANDOFF_DesignDecisions_Migration_20261110.md`); banner renamed
 - v1.6.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Form builder with live preview in four styles (River Slip canvas); skins per plan proposed (awaiting the user's OK); Snooze = Enterprise (plan tiers v1.7.0)
 - v1.5.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | New canvas "Daloy River Slip": Routing Slip format + Daloy Flow colours, trail and loader; four type options as a tweak; leave = title not asked
 - v1.4.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: titles can be required, but some requests just use the ticket type as the title - title rule per ticket type + list summary field; canvas board extended
@@ -63,6 +64,7 @@ REVISION HISTORY:
   - Proposed tiers: Basic and Basic+ pick one skin at setup (a later change goes through the platform admin); Advanced switches skins any time and sets an accent colour + logo; Enterprise also sets its own palette and fonts from a list, refused by the server if any pair fails the contrast check, and can give each organization its own skin.
   - Not gated: dark mode and keyboard shortcuts stay per-user preferences on every plan (accessibility).
   - Build: skin tokens ship with slice 1 (the default skin); the per-company setting and its plan gate go on the new server (Phase 4).
+- **Decisions (v1.7):** taken through `docs/design/DECISIONS_UIRefresh_20261110.md`: a superthink first, then default-or-veto statements in small batches. **None answered yet.** No UI build starts before batch 1 is answered. The next session is migration (`docs/planning/HANDOFF_DesignDecisions_Migration_20261110.md`).
 - **Next:** canvas designs of each screen in the chosen system. The user picks per screen, and then the build.
 
 ## Findings
