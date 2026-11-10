@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: REVIEW_UIErgonomics_20261110.md | Author: Kenneth R. Advento | Version: 1.5.0
+Document: REVIEW_UIErgonomics_20261110.md | Author: Kenneth R. Advento | Version: 1.6.0
 Created: 10 November 2026 UTC+8 (Philippine Standard Time) | Modified: 10 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Ergonomics review of the whole UI (signed-in app, Admin, public site, requester page) against the user's priorities, with the fix for each finding in the "Daloy" (current) or "Daloy Flow" (proposed) design system | Status: Review - designs next, nothing built
 REVISION HISTORY:
+- v1.6.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Form builder with live preview in four styles (River Slip canvas); skins per plan proposed (awaiting the user's OK); Snooze = Enterprise (plan tiers v1.7.0)
 - v1.5.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | New canvas "Daloy River Slip": Routing Slip format + Daloy Flow colours, trail and loader; four type options as a tweak; leave = title not asked
 - v1.4.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: titles can be required, but some requests just use the ticket type as the title - title rule per ticket type + list summary field; canvas board extended
 - v1.3.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | User: entry fields minimalist, not boxes; canvas board "Routing Slip - entering a request" added
@@ -54,6 +55,14 @@ REVISION HISTORY:
   - **Type as a tweak on every board:** River (Figtree + JetBrains Mono), Slip (Newsreader titles + Public Sans + IBM Plex Mono), Plain sans (Public Sans), Plex (IBM Plex Sans).
   - Boards: loader (Flow's continuous stream, light + dark) with colours and type; approving (list with a mini trail per row, request with the full FlowTrail on top, routing slip with the decision on your line); entering a request (line fields, route preview, leave request with the title not asked, Admin title rule).
   - User confirmed: leave requests need no title (title rule "Not asked").
+- **Form builder with a live preview (user, v1.6):** "add form builder board to the Daloy flow, river, utility, routing slip". Four boards on the River Slip canvas, same content: the field list (order, required / optional / hidden, the title rule, the picked field open for editing, "used by a routing rule - can be hidden, not removed"), the requester's form updating live, "Try it" with sample values showing the route a rule produces. Today only one field at a time is previewed (`AdminCustomFieldCreatePage.js:635`). Build: the preview is the real requester form fed with the unsaved setup.
+- **Skins per plan (user, v1.6, proposal - awaiting OK):** "can the boards be done as skins, one time pick in basic, basic+, customizable in advanced and enterprise; or is it too much?"
+  - Feasible **if a skin is colours + fonts + field style only**, on one shared layout (River Slip's). Each skin is a block of CSS variables chosen by `data-skin` on `<html>`; the contrast script checks every skin in light and dark.
+  - **Too much if a skin also changes layout** (Utility's three panes and key bar, Flow's cards and ApprovalBar, the slip): that is four UIs to build, test and fix forever.
+  - Proposed skins: **River** (default), **Paper** (Routing Slip colours, serif titles), **Quiet** (monochrome, Plex), **Classic** (Flow's boxed fields). Field style (lines / boxes) is a token, not a layout.
+  - Proposed tiers: Basic and Basic+ pick one skin at setup (a later change goes through the platform admin); Advanced switches skins any time and sets an accent colour + logo; Enterprise also sets its own palette and fonts from a list, refused by the server if any pair fails the contrast check, and can give each organization its own skin.
+  - Not gated: dark mode and keyboard shortcuts stay per-user preferences on every plan (accessibility).
+  - Build: skin tokens ship with slice 1 (the default skin); the per-company setting and its plan gate go on the new server (Phase 4).
 - **Next:** canvas designs of each screen in the chosen system. The user picks per screen, and then the build.
 
 ## Findings
