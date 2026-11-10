@@ -377,15 +377,15 @@ const AdminPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="min-h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
       {/* Header */}
       <Header
         user={user}
         userRole={userRoles?.[0]?.name?.toLowerCase() || 'admin'}
       />
 
-      {/* Main Content */}
-      <div className="py-6">
+      {/* Main Content - flex-1 keeps the footer at the bottom on short pages */}
+      <div className="flex-1 w-full py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Admin Header */}
           <div className="mb-8">

@@ -99,7 +99,7 @@ const TicketReport = () => {
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Ticket type *</label>
             <select
@@ -134,16 +134,17 @@ const TicketReport = () => {
               <option value="closed">Closed (completed, rejected, cancelled)</option>
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-2 lg:col-span-1">
+          {/* The date pair spans 2 columns so each box shows a full mm/dd/yyyy plus the picker icon (9 Nov 2026) */}
+          <div className="grid grid-cols-2 gap-2 sm:col-span-2 lg:col-span-2">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">From</label>
               <input type="date" value={criteria.dateFrom} onChange={e => setCriterion('dateFrom', e.target.value)}
-                className="w-full px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                className="w-full min-w-[9.5rem] px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
               <input type="date" value={criteria.dateTo} onChange={e => setCriterion('dateTo', e.target.value)}
-                className="w-full px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                className="w-full min-w-[9.5rem] px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
             </div>
           </div>
           <div className="flex gap-2">

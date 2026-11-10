@@ -98,7 +98,7 @@ const ProfilePage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
       <ToastContainer />
       <UserPreferencesPanel
         isOpen={showMoreSettings}
@@ -109,7 +109,7 @@ const ProfilePage = () => {
       />
       <Header user={user} userRole={userRoles?.[0]?.name} />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
@@ -390,8 +390,8 @@ const ProfilePage = () => {
             </div>
           </div>
         </div>
-        <Footer />
       </div>
+      <Footer />
     </div>
   );
 };
