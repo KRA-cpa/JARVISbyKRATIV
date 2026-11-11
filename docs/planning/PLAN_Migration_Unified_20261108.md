@@ -128,12 +128,18 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       10 Nov 2026, commits `749bd4a` / `c3b824f` / `52813f8`): Dashboard A (counts from `getDashboard`, one 10-ticket
       page, old SLA widgets deleted), compact Tickets filters (Clear now clears tags), Reports date widths, footer pinned
       on the signed-in pages. Test revision `daloy-00005-sos` on the `first` tag (pages 200, `ping` via `gas`, `no-store`). **You:** check the three pages there.
-- [ ] **H.3 Claude + You** - production deploy, Firebase custom domain `daloy.blueknight.xyz` (MX / forwarding records
+- [x] **H.3 Claude + You** - production deploy, Firebase custom domain `daloy.blueknight.xyz` (MX / forwarding records
       untouched), Firebase authorized domain, Script Property `APP_URL`. **Gate:** the new domain works end to end.
       *GUIDE §C.* **Claude part done 11 Nov 2026:** `AUTH_MODE=enforce` production deploy → revision `daloy-00007-z66`
       takes 100 % (test tag `first` stays on `daloy-00006-hib`), Firebase Hosting released; `krativ-daloy.web.app`: pages +
       `/plans` 200, `ping` 200 (`x-backend: gas`, `no-store`, API 10.2.0), no token → 401 `NOT_SIGNED_IN`, no errors /
       5xx in the revision logs. Subdomain `daloy` kept (user asked daloy vs daloy-krativ; blueknight.xyz is interim).
+      **Gate met 11 Nov 2026:** DNS = **CNAME `daloy` → `krativ-daloy.web.app`** (Firebase asked for a CNAME, not an A
+      record; the `hosting-site=` TXT on `daloy` had to go - a CNAME can't share a name) + TXT `_acme-challenge.daloy`;
+      certificate Google Trust Services WR3 (to 9 Feb 2027, auto-renewed); authorized domains `daloy.blueknight.xyz` +
+      `krativ-daloy.web.app` in `jarvisbyerp` (checked); `APP_URL` set (user). On the domain: `/`, `/plans`, `/status`,
+      `/dashboard` 200 with strict TLS, `ping` via `gas` + `no-store`, no token → 401; the user signed in and saved a
+      display time zone (user: "timezone change = reflected"). Optional: remove the old `jarvis.blueknight.xyz` authorized domain.
 - [ ] **H.4 Claude → You** - (`vercel.json` ready on branch `h4/vercel-previews-only`, commit `1db367a`; merged into
       main3 only after H.3) `vercel.json` host-scoped redirect, one last Vercel production push, then Vercel Production
       Branch → `vercel-production-retired`. Update `Claude.md` working rule 3 + memory `feedback_batch_then_deploy_check`
@@ -294,7 +300,7 @@ Order (each = design section → `/api/rpc` handlers + tests → screens → con
 | Phase | Done | Notes |
 |---|---|---|
 | F | ✅ (open v10.2 user steps remain) | 8 Nov 2026 |
-| H | code ✅, H.1 ✅, H.2 ✅, UI fixes ✅, H.3 deploy ✅ (domain pending), H.4 ready | `d342c68`; UI fixes `749bd4a`..`52813f8`; H.4 `1db367a` (branch); prod `daloy-00007-z66` 11 Nov 2026 |
+| H | code ✅, H.1 ✅, H.2 ✅, UI fixes ✅, H.3 ✅ (daloy.blueknight.xyz live), H.4 ready | `d342c68`; UI fixes `749bd4a`..`52813f8`; H.4 `1db367a` (branch); prod `daloy-00007-z66` 11 Nov 2026 |
 | 0 | 0.7 part 1 ✅ | schema generator + migrations 0001 / 0002, 11 Nov 2026 |
 | 1 | - | |
 | 2 | - | |
