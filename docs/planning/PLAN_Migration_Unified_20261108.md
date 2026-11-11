@@ -1,11 +1,12 @@
 <!--
 ===============================================================================
-JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
+JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.5.0
-Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 10 November 2026 UTC+8 (Philippine Standard Time)
-Purpose: THE migration plan + step-by-step, top to bottom: Apps Script / Google Sheets → Google Cloud Run + Neon Postgres (all servers in Asia), previews on Vercel, Google Sheets kept as a customer option; then the remaining v10.2 features and organizations on the new server | Status: Active - current roadmap (Phase F done, Phase H code ready, nothing deployed)
+Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.6.0
+Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 11 November 2026 UTC+8 (Philippine Standard Time)
+Purpose: THE migration plan + step-by-step, top to bottom: Apps Script / Google Sheets → Google Cloud Run + Neon Postgres (all servers in Asia), previews on Vercel, Google Sheets kept as a customer option; then the remaining v10.2 features and organizations on the new server | Status: Active - current roadmap (Phase F done, H.3 production deployed - custom domain pending, 0.7 schema generated)
 REVISION HISTORY:
+- v1.6.0 | 11 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | H.3 Claude part done: production revision `daloy-00007-z66` (100 %) + Firebase Hosting live at krativ-daloy.web.app (user: test site "2 is ok"); custom domain / authorized domains / APP_URL wait for the user. 0.7 part 1: `scripts/gen-ddl.js` + `scripts/db/ddl-rules.js` → `migrations/postgres/0001` (54 tables: 45 from TABLE_SCHEMAS + 9 new) / `0002` (uniques + FKs after the load, with a preflight report); `npm run check:ddl`; checked on real Postgres (PGlite). Session 44cbe47d
 - v1.5.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Before H.3: UI fixes from the test-site review built + test-deployed (Dashboard A, compact Tickets filters, Reports dates, footer; handoff HANDOFF_UIFixes_ProdMove_20261109.md); H.4 redirect ready on branch `h4/vercel-previews-only` (merge after H.3). Session 5f83b40e
 - v1.4.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | H.1 + H.2 done (gate met; the Git Bash path-rewrite bug found and fixed in deploy-cloudrun.sh v1.2); new step 3.6 - Admin "Backend Integration Status" panel flagged (user: "flag for update once core is migrated off appscript (unless clients using Sheets)"); 3.1 STATUS note (Cloud Run build already drops Vercel)
 - v1.3.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | D12 servers in a new Google project `krativ-daloy` (user: "iwant to change to KRATIV_DALOY" → "New project krativ-daloy for servers"); sign-in stays in `jarvisbyerp` until Better Auth; H.1 updated
@@ -129,7 +130,10 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       on the signed-in pages. Test revision `daloy-00005-sos` on the `first` tag (pages 200, `ping` via `gas`, `no-store`). **You:** check the three pages there.
 - [ ] **H.3 Claude + You** - production deploy, Firebase custom domain `daloy.blueknight.xyz` (MX / forwarding records
       untouched), Firebase authorized domain, Script Property `APP_URL`. **Gate:** the new domain works end to end.
-      *GUIDE §C.*
+      *GUIDE §C.* **Claude part done 11 Nov 2026:** `AUTH_MODE=enforce` production deploy → revision `daloy-00007-z66`
+      takes 100 % (test tag `first` stays on `daloy-00006-hib`), Firebase Hosting released; `krativ-daloy.web.app`: pages +
+      `/plans` 200, `ping` 200 (`x-backend: gas`, `no-store`, API 10.2.0), no token → 401 `NOT_SIGNED_IN`, no errors /
+      5xx in the revision logs. Subdomain `daloy` kept (user asked daloy vs daloy-krativ; blueknight.xyz is interim).
 - [ ] **H.4 Claude → You** - (`vercel.json` ready on branch `h4/vercel-previews-only`, commit `1db367a`; merged into
       main3 only after H.3) `vercel.json` host-scoped redirect, one last Vercel production push, then Vercel Production
       Branch → `vercel-production-retired`. Update `Claude.md` working rule 3 + memory `feedback_batch_then_deploy_check`
@@ -162,6 +166,13 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       `ticket_attachments` additions, attachment rules + slots, step-required slots - PLAN_Attachments §4);
       `npm run db:migrate` on Neon `dev`. **Gate:** migrations apply from empty; `EXPLAIN` for the
       hot paths in `docs/perf/`. *PLAN_Migration §4, §12; PLAN_ServerCore §1–§2.*
+      **Part 1 done 11 Nov 2026:** `scripts/gen-ddl.js` v1.0 (TABLE_SCHEMAS has **45** tables in v10.2, not 49) +
+      the rules `scripts/db/ddl-rules.js` (types, keys, indexes, references, 9 new tables: organizations,
+      organization_members, approval_delegations, ticket_comments, idempotency_keys, drive_connections, attachment rules /
+      slots / step-required slots) → `migrations/postgres/0001_initial_schema` (tables, PKs, 45 indexes) and
+      `0002_constraints` (13 unique rules + 76 FKs, applied **after** the load once `0002_constraints.preflight.sql` reports 0
+      orphans / duplicates). `npm run check:ddl` (drift + `scripts/test-gen-ddl.js`, 8 tests; `--pglite <dir>` adds a run on
+      real Postgres - passed). Left for part 2: the `db:migrate` runner (needs the 0.6 packages), apply on Neon `dev`, `EXPLAIN`.
 - [ ] **0.8 Claude writes, You run in the editor** - a **read-only export** route in a new AppScript fix file;
       `repairCompanyLocksApply()` first; the transform (booleans, blank → NULL, `jsonb`, dates, the **`TS_UTC_SINCE` −8 h
       rule** per column); load into `dev` in dependency order. **Gate:** row counts per table + 10 tickets end to end.
@@ -283,8 +294,8 @@ Order (each = design section → `/api/rpc` handlers + tests → screens → con
 | Phase | Done | Notes |
 |---|---|---|
 | F | ✅ (open v10.2 user steps remain) | 8 Nov 2026 |
-| H | code ✅, H.1 ✅, H.2 ✅, UI fixes ✅ (test), H.3 -, H.4 ready | `d342c68`; UI fixes `749bd4a`..`52813f8`; H.4 `1db367a` (branch) |
-| 0 | - | |
+| H | code ✅, H.1 ✅, H.2 ✅, UI fixes ✅, H.3 deploy ✅ (domain pending), H.4 ready | `d342c68`; UI fixes `749bd4a`..`52813f8`; H.4 `1db367a` (branch); prod `daloy-00007-z66` 11 Nov 2026 |
+| 0 | 0.7 part 1 ✅ | schema generator + migrations 0001 / 0002, 11 Nov 2026 |
 | 1 | - | |
 | 2 | - | |
 | 3 | - | |

@@ -30,6 +30,8 @@
     "build": "react-scripts build",
     "build:ci": "node scripts/build-ci.js",
     "test:server": "node scripts/test-cloudrun-server.js",
+    "db:gen-ddl": "node scripts/gen-ddl.js",
+    "check:ddl": "node scripts/gen-ddl.js --check && node scripts/test-gen-ddl.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "test:setup": "node scripts/setup-tests.js",
