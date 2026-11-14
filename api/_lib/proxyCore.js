@@ -5,6 +5,8 @@
 // scripts/test-proxy-auth.js can run it in plain Node.
 // v9.6: forwards the Google-verified email (_auth_email, for invites) and refuses sign-ins older than
 // MAX_SESSION_HOURS (default 12) - the "fresh sign-in daily" cap. 401s carry a code the app reacts to.
+// 14 Nov 2026 (migration 0.6): the sign-in rules moved into createAuthenticator() so /api/rpc (rpcCore.js) shares them;
+// the proxy's behaviour is unchanged (scripts/test-proxy-auth.js).
 
 const { createRemoteJWKSet, jwtVerify } = require('jose');
 
@@ -105,56 +107,91 @@ function sessionTooOld(identity, hours, nowMs = Date.now()) {
   return nowMs - identity.auth_time * 1000 > hours * 60 * 60 * 1000;
 }
 
+/** env AUTH_MODE as one of AUTH_MODES (default 'warn'). */
+function authMode(env) {
+  const value = String(env.AUTH_MODE || '').toLowerCase();
+  return AUTH_MODES.includes(value) ? value : 'warn';
+}
+
+/**
+ * The sign-in rules shared by the Apps Script proxy and /api/rpc (migration 0.6) - one copy, so both answer the same
+ * 401 codes (compliance F6).
+ * @param {Object} options - { env, adapters }
+ * @returns {{ mode: string, capHours: number, authenticate: Function }} authenticate(headers, action) ->
+ *   { uid, identity, auth ('verified' | 'max_age' | 'invalid' | 'none'), authError, refusal (null or { code, error }) }
+ *   refusal is set only in enforce mode, for a request without a valid identity, except `ping`
+ */
+function createAuthenticator({ env = process.env, adapters = null } = {}) {
+  const mode = authMode(env);
+  const projectId = env.FIREBASE_PROJECT_ID || env.REACT_APP_FIREBASE_PROJECT_ID || '';
+  const capHours = maxSessionHours(env);
+  let identityAdapters = adapters;
+
+  async function authenticate(headers, action) {
+    // Created on first use, so a cold start that only answers OPTIONS doesn't build the key set
+    identityAdapters = identityAdapters || [firebaseAdapter(projectId)];
+    const token = bearerToken(headers);
+    const { identity: verifiedIdentity, error: authError, expired } = await identify(token, identityAdapters);
+    // v9.6: a sign-in older than MAX_SESSION_HOURS counts as no identity
+    const tooOld = sessionTooOld(verifiedIdentity, capHours);
+    const identity = tooOld ? null : verifiedIdentity;
+    const uid = identity ? identity.uid : null;
+    const auth = uid ? 'verified' : (tooOld ? 'max_age' : (token ? 'invalid' : 'none'));
+    let refusal = null;
+    if (mode === 'enforce' && !uid && action !== 'ping') {
+      refusal = tooOld
+        ? { code: 'SESSION_MAX_AGE', error: `Your session reached ${capHours} hours. Please sign in again.` }
+        : !token ? { code: 'NOT_SIGNED_IN', error: 'Not signed in' }
+          : expired ? { code: 'SESSION_EXPIRED', error: 'Session expired: sign in again' }
+            : { code: 'TOKEN_REJECTED', error: 'Your sign-in could not be verified right now. Try again.' };
+    }
+    return { uid, identity, auth, authError, refusal };
+  }
+
+  return { mode, capHours, authenticate };
+}
+
+/** CORS headers for the API routes; true when the request was a preflight that is now answered. */
+function answerCors(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return true;
+  }
+  return false;
+}
+
 /**
  * Build the Vercel handler.
  * @param {Object} options - { env, fetchImpl, adapters, log }
  * @returns {Function} async (req, res)
  */
 function createProxyHandler({ env = process.env, fetchImpl = globalThis.fetch, adapters = null, log = console.log } = {}) {
-  const mode = AUTH_MODES.includes(String(env.AUTH_MODE || '').toLowerCase()) ? String(env.AUTH_MODE).toLowerCase() : 'warn';
   const appsScriptUrl = env.APPS_SCRIPT_URL || DEFAULT_APPS_SCRIPT_URL;
   const secret = env.PROXY_SECRET || '';
-  const projectId = env.FIREBASE_PROJECT_ID || env.REACT_APP_FIREBASE_PROJECT_ID || '';
-  const capHours = maxSessionHours(env);
-  let identityAdapters = adapters;
+  const { mode, authenticate } = createAuthenticator({ env, adapters });
 
   return async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    if (req.method === 'OPTIONS') {
-      res.status(200).end();
-      return;
-    }
+    if (answerCors(req, res)) return;
 
     const started = Date.now();
     const input = requestInput(req);
     const action = input.action || 'ping';
-    // Created on first use, so a cold start that only answers OPTIONS doesn't build the key set
-    identityAdapters = identityAdapters || [firebaseAdapter(projectId)];
-    const token = bearerToken(req.headers);
-    const { identity: verifiedIdentity, error: authError, expired } = await identify(token, identityAdapters);
-    // v9.6: a sign-in older than MAX_SESSION_HOURS counts as no identity
-    const tooOld = sessionTooOld(verifiedIdentity, capHours);
-    const identity = tooOld ? null : verifiedIdentity;
-    const uid = identity ? identity.uid : null;
+    const { uid, identity, auth, authError, refusal } = await authenticate(req.headers, action);
     const finish = (status, body) => {
       res.setHeader('X-Backend', 'gas');
       res.setHeader('X-Response-Time', `${Date.now() - started}ms`);
       log(JSON.stringify({
         action, duration_ms: Date.now() - started, user_id: uid, company_id: input.company_id || null,
-        auth: uid ? 'verified' : (tooOld ? 'max_age' : (token ? 'invalid' : 'none')), mode, status, backend: 'gas',
+        auth, mode, status, backend: 'gas',
         ...(authError ? { auth_error: authError } : {})
       }));
       res.status(status).json(body);
     };
 
-    if (mode === 'enforce' && !uid && action !== 'ping') {
-      const refusal = tooOld
-        ? { code: 'SESSION_MAX_AGE', error: `Your session reached ${capHours} hours. Please sign in again.` }
-        : !token ? { code: 'NOT_SIGNED_IN', error: 'Not signed in' }
-          : expired ? { code: 'SESSION_EXPIRED', error: 'Session expired: sign in again' }
-            : { code: 'TOKEN_REJECTED', error: 'Your sign-in could not be verified right now. Try again.' };
+    if (refusal) {
       finish(401, { success: false, status: 'error', ...refusal });
       return;
     }
@@ -185,4 +222,7 @@ function createProxyHandler({ env = process.env, fetchImpl = globalThis.fetch, a
   };
 }
 
-module.exports = { createProxyHandler, firebaseAdapter, identify, bearerToken, requestInput, sessionTooOld, maxSessionHours, IDENTITY_FIELDS };
+module.exports = {
+  createProxyHandler, createAuthenticator, answerCors, authMode, firebaseAdapter, identify, bearerToken, requestInput,
+  sessionTooOld, maxSessionHours, IDENTITY_FIELDS
+};

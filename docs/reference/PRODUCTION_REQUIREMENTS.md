@@ -1,7 +1,7 @@
 # JarvisByERP Production Requirements
 
-**Date**: September 17, 2025 (production host move noted 8 November 2026)
-**Version**: 1.1
+**Date**: September 17, 2025 (production host move noted 8 November 2026; `pg` added 14 November 2026)
+**Version**: 1.2
 **Status**: Current Production Stack Documentation
 
 ## Runtime Environment Requirements
@@ -41,11 +41,14 @@
 {
   "firebase": "^11.9.0",
   "@firebase/analytics": "^0.10.16",
-  "jose": "^5.9.6"
+  "jose": "^5.9.6",
+  "pg": "^8.23.1"
 }
 ```
 - **`jose`** *(added 30 Oct 2026, AppScript v9.4)*: used only by the Vercel function `api/appscript-proxy.js` (never bundled into the React app) to verify the Firebase ID token against Google's securetoken JWKS before forwarding to Apps Script (compliance F6). v5 runs on Node 18+ (Vercel's Node runtime) in both ESM and CJS.
 - **`express` + `jose` in the Cloud Run image** *(8 Nov 2026, no new packages)*: `server/app.js` (Express 5) serves the same `api/_lib/proxyCore.js` handler and the React build on Cloud Run. The image installs only these two from `server/package.json` (exact versions **5.1.0 / 5.9.6**, kept equal to the root `package.json` - change both together). Test: `node scripts/test-cloudrun-server.js` (13).
+- **`pg` (node-postgres) 8.23.1** *(added 14 Nov 2026, migration step 0.6, session 92b85189)*: the Postgres driver for Neon (`aws-ap-southeast-1`). Server-only - used by `api/_lib/db.js` (`/api/rpc` handlers on Cloud Run) and `scripts/db-migrate.js` (`npm run db:migrate`); never imported from `src/`. A normal TCP `Pool` over Neon's **direct** connection string (`sslmode=require`), because Cloud Run is a long-running container; pool size small (default 5) for Neon Free. Pure JavaScript (no native `pg-native`), Node ≥ 16. Pinned exactly in `server/package.json` (Cloud Run image), `^` in the root - change both together.
+  - **Not added (decided 14 Nov 2026):** `@neondatabase/serverless` (HTTP / WebSocket driver for edge functions - not needed on Cloud Run), `drizzle-orm` / `drizzle-kit` (the schema already comes from `scripts/gen-ddl.js` as plain SQL in `migrations/postgres/`; plain SQL keeps every query visible for the query budgets). **`better-auth`** comes with step 1.3 (sign-in move), not before.
 
 ### **UI Framework & Styling**
 ```json
@@ -351,6 +354,8 @@ const dataObject = data.payload || {
 | Tailwind CSS | v3.4.17 | v3.0.0 | Sept 2025 |
 | Firebase | v11.9.0 | v10.0.0 | Sept 2025 |
 | Material-UI | v7.1.1 | v6.0.0 | Sept 2025 |
+| pg (server only) | v8.23.1 | v8.23.1 | 14 Nov 2026 |
+| PostgreSQL (Neon) | 18 | 16 | 14 Nov 2026 |
 
 ---
 
