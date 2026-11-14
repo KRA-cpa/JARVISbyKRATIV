@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.7.0
+Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.7.1
 Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 14 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: THE migration plan + step-by-step, top to bottom: Apps Script / Google Sheets → Google Cloud Run + Neon Postgres (all servers in Asia), previews on Vercel, Google Sheets kept as a customer option; then the remaining v10.2 features and organizations on the new server | Status: Active - current roadmap (Phase F done, H.3 production deployed - custom domain pending, 0.7 schema generated)
 REVISION HISTORY:
+- v1.7.1 | 14 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 0.8 built (user: "next"; "get unbroken data only"; "seed data is ok"): editor-only export file + `db:load-sheets` loader (clean rows only, skip report, lock repair on the copy); waiting for the export run. Session 92b85189
 - v1.7.0 | 14 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | D15 data residency in Singapore approved (0.3 clearance part; user: "record ok as confirmed by Kenneth Advento, owner of krativ. wala man tayong choice since no PH locaton available"). 0.6 done (user: "go 0.6"): `pg` driver, `/api/rpc` + Apps Script fallback, `db:migrate`; 0.7 part 2 started - `0001` applied on Neon `dev`. Session 92b85189
 - v1.6.0 | 11 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | H.3 Claude part done: production revision `daloy-00007-z66` (100 %) + Firebase Hosting live at krativ-daloy.web.app (user: test site "2 is ok"); custom domain / authorized domains / APP_URL wait for the user. 0.7 part 1: `scripts/gen-ddl.js` + `scripts/db/ddl-rules.js` → `migrations/postgres/0001` (54 tables: 45 from TABLE_SCHEMAS + 9 new) / `0002` (uniques + FKs after the load, with a preflight report); `npm run check:ddl`; checked on real Postgres (PGlite). Session 44cbe47d
 - v1.5.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Before H.3: UI fixes from the test-site review built + test-deployed (Dashboard A, compact Tickets filters, Reports dates, footer; handoff HANDOFF_UIFixes_ProdMove_20261109.md); H.4 redirect ready on branch `h4/vercel-previews-only` (merge after H.3). Session 5f83b40e
@@ -241,6 +242,18 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       `repairCompanyLocksApply()` first; the transform (booleans, blank → NULL, `jsonb`, dates, the **`TS_UTC_SINCE` −8 h
       rule** per column); load into `dev` in dependency order. **Gate:** row counts per table + 10 tickets end to end.
       *PLAN_Migration §7.*
+      **Built 14 Nov 2026 (session 92b85189) - waiting for your export run.** User rules: *"get unbroken data only"* (copy
+      clean rows only, nothing in the Sheet changes, skipped rows + reasons in a report) and *"seed data is ok"* (seed rows
+      load like any other). Choices made: the export is an **editor-only script file**, not a web route (no company data
+      over the web address, no redeploy) - `appscript_files/EXPORT_ForPostgres_v1.0_20261114_2216.txt` (`export.gs`,
+      `exportForPostgres()` → one JSON in your Drive; test `appscript_files/tools/EXPORT_TEST.js`, 5).
+      `repairCompanyLocksApply()` is **not** run on the Sheet: the loader applies the same repair to the copy.
+      Loader `npm run db:load-sheets -- <export.json> [--check-db | --apply]` (`scripts/db-load-sheets.js`): skips a row
+      with a missing id / required value, an unreadable value (catches shifted columns), a conflicting repeated id, or a
+      missing / skipped parent (every 0002 foreign key + custom-field entities; repeats until stable); keeps one of exact
+      copies; −8 h for pre-`TS_UTC_SINCE` text date-times except the role dates; JSON columns with plain text kept as a
+      JSON string; default organization `org_default` (D9); one transaction with the 0002 preflight inside; then verify.
+      The export and the report must stay **outside the repo**. Test `scripts/test-db-load-sheets.js` (12 incl. PGlite).
 - [ ] **0.9 Claude** - **reverse export** (Postgres → Sheets) written **and tested** - the rollback for Phase 2, and the
       first half of the bridge / export work (Phase 5).
 - [ ] **0.10 Claude drafts, You send** - new DPA Annex C + transfers, Privacy providers / transfers / cookies, Terms
