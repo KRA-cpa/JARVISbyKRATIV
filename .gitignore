@@ -43,3 +43,6 @@ api-*.log
 
 # Claude Code local settings (per-machine permissions + SessionStart hook — see REF_SessionLog.md §4)
 .claude/settings.local.json
+
+# Firebase CLI deploy cache (firebase deploy --only hosting)
+.firebase/
