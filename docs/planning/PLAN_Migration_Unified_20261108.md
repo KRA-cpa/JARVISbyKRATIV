@@ -140,7 +140,9 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       `krativ-daloy.web.app` in `jarvisbyerp` (checked); `APP_URL` set (user). On the domain: `/`, `/plans`, `/status`,
       `/dashboard` 200 with strict TLS, `ping` via `gas` + `no-store`, no token → 401; the user signed in and saved a
       display time zone (user: "timezone change = reflected"). Optional: remove the old `jarvis.blueknight.xyz` authorized domain.
-- [ ] **H.4 Claude → You** - (`vercel.json` ready on branch `h4/vercel-previews-only`, commit `1db367a`; merged into
+- [ ] **H.4 Claude → You** - **Claude part done 14 Nov 2026** (user: "push"): merged (`6ced602`), checks run, main3
+      pushed, Claude.md v4.6 rule 3 + memory `feedback_batch_then_deploy_check` updated. **Left: You** - Vercel Production
+      Branch → `vercel-production-retired`, then the gate check. (`vercel.json` was on branch `h4/vercel-previews-only`, commit `1db367a`; merged into
       main3 only after H.3) `vercel.json` host-scoped redirect, one last Vercel production push, then Vercel Production
       Branch → `vercel-production-retired`. Update `Claude.md` working rule 3 + memory `feedback_batch_then_deploy_check`
       (production check = Cloud Run). **Gate:** `jarvis-by-erp.vercel.app/plans` lands on the new domain; pushes build
@@ -300,7 +302,7 @@ Order (each = design section → `/api/rpc` handlers + tests → screens → con
 | Phase | Done | Notes |
 |---|---|---|
 | F | ✅ (open v10.2 user steps remain) | 8 Nov 2026 |
-| H | code ✅, H.1 ✅, H.2 ✅, UI fixes ✅, H.3 ✅ (daloy.blueknight.xyz live), H.4 ready | `d342c68`; UI fixes `749bd4a`..`52813f8`; H.4 `1db367a` (branch); prod `daloy-00007-z66` 11 Nov 2026 |
+| H | code ✅, H.1 ✅, H.2 ✅, UI fixes ✅, H.3 ✅ (daloy.blueknight.xyz live), H.4 pushed (Vercel setting left) | `d342c68`; UI fixes `749bd4a`..`52813f8`; H.4 `1db367a` (branch); prod `daloy-00007-z66` 11 Nov 2026 |
 | 0 | 0.7 part 1 ✅ | schema generator + migrations 0001 / 0002, 11 Nov 2026 |
 | 1 | - | |
 | 2 | - | |
