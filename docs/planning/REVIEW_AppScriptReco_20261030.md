@@ -138,7 +138,11 @@ Script (API 10.2.0). Read-only. This is the number the Postgres `/api/rpc` must 
 | getDropdownLists | 3,518 | 3,752 | simple read ≤ 150 | ~23× |
 | getTicketsForApproval | 5,329 | 5,940 | list ≤ 300 | ~18× |
 | getDashboard | 6,165 | 6,296 | list / dashboard ≤ 300 | ~21× |
-| getReportData | - | - | report ≤ 1,500 | not measured: the script sent no `ticket_type_id` (required since v9.2) → `--report-type seed_tt_pr` added; re-run pending |
+| getReportData (`seed_tt_pr`) | 7,815 | 8,892 | report ≤ 1,500 at 10k tickets | ~5× (on a few seed tickets - Sheets cost grows with the whole tab) |
+
+Re-runs the same evening (runs 2 + 3) were in line: getTickets 5,406 / 5,351, getDropdownLists 4,011 / 3,711,
+getTicketsForApproval 5,253 / 4,577, getDashboard 6,195 / 6,623 ms median; worst up to 8,347 ms. (`--report-type` added
+to the script after run 1: getReportData needs a ticket type since v9.2.)
 
 Times are end to end from the browser side (network + Cloud Run + Apps Script); the targets are server time, so the real
 gap is a little smaller. Writes (createTicket / approve on seed data) not measured yet (`--writes`).
