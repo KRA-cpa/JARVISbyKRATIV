@@ -1,15 +1,15 @@
 # JarvisByERP Production Requirements
 
-**Date**: September 17, 2025 (production host move noted 8 November 2026; `pg` added 14 November 2026)
-**Version**: 1.2
+**Date**: September 17, 2025 (production host move noted 8 November 2026; `pg` added 14 November 2026; local Node 22.23.5 recorded 15 November 2026)
+**Version**: 1.3
 **Status**: Current Production Stack Documentation
 
 ## Runtime Environment Requirements
 
 ### **Node.js Runtime**
-- **Current Version**: Node.js v22.14.0
-- **Minimum Required**: Node.js v18.0.0 or higher
-- **Package Manager**: npm v10.9.2
+- **Current Version**: Node.js v22.23.5 on the dev PC (15 Nov 2026; was v22.14.0); the Cloud Run image is `node:22-slim` (latest 22.x at build time). Stay on the **22.x line** on both until a planned move to the next LTS (Dockerfile + this file together)
+- **Minimum Required**: Node.js v18.0.0 or higher (server: >=22)
+- **Package Manager**: npm v10.9.9 (was v10.9.2)
 - **Deployment Platform**: Vercel (React SPA deployment) - **moving (user, 8 Nov 2026):** production → Google Cloud Run `asia-southeast1` behind Firebase Hosting (`daloy.blueknight.xyz`), Vercel keeps previews; see *Deployment Platform* below
 
 ### **Browser Support**
@@ -348,8 +348,8 @@ const dataObject = data.payload || {
 
 | Component | Current Version | Minimum Required | Last Updated |
 |-----------|----------------|------------------|--------------|
-| Node.js | v22.14.0 | v18.0.0 | Sept 2025 |
-| npm | v10.9.2 | v8.0.0 | Sept 2025 |
+| Node.js | v22.23.5 | v18.0.0 (server: >=22) | Nov 2026 |
+| npm | v10.9.9 | v8.0.0 | Nov 2026 |
 | React | v19.1.0 | v18.0.0 | Sept 2025 |
 | Tailwind CSS | v3.4.17 | v3.0.0 | Sept 2025 |
 | Firebase | v11.9.0 | v10.0.0 | Sept 2025 |
