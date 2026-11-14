@@ -5,6 +5,12 @@
       "has": [{ "type": "host", "value": "jarvis-by-erp.vercel.app" }],
       "destination": "https://daloy.blueknight.xyz/:path",
       "permanent": false
+    },
+    {
+      "source": "/:path((?!api/).*)",
+      "has": [{ "type": "host", "value": "jarvis.blueknight.xyz" }],
+      "destination": "https://daloy.blueknight.xyz/:path",
+      "permanent": false
     }
   ]
 }
