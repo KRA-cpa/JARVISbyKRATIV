@@ -112,7 +112,7 @@ create table if not exists "companies" (
   "deactivated_at" timestamptz,
   "deactivated_by" text,
   "deactivation_reason" text,
-  "email_enabled" boolean,
+  "email_enabled" text,
   "email_sender_name" text,
   "email_reply_to" text,
   "email_cc" text,

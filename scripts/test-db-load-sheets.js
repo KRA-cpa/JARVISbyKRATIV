@@ -52,7 +52,8 @@ const holidayCell = { $d: '2026-12-24T16:00:00.000Z', $l: '2026-12-25T00:00:00' 
 function sampleExport() {
   return makeExport({
     companies: [
-      { id: 'co_1', name: 'Secret Co', code: 'SEC', is_active: true, created_at: '2026-10-01T10:00:00.000Z' },
+      { id: 'co_1', name: 'Secret Co', code: 'SEC', is_active: true, created_at: '2026-10-01T10:00:00.000Z',
+        email_enabled: 'default' },                                                        // v9.6: default | on | off, not a boolean
       { id: 'co_2', name: 'Shifted', code: 'SHF', is_active: '2026-10-01T10:00:00.000Z' },   // a date under is_active
       { id: 'co_3', name: 'Gamma', code: 'GAM', is_active: '' },                           // blank is_active → true
       { id: 'co_4', name: 'Old', code: 'OLD', code_locked: { $d: '2025-09-22T02:00:00.000Z', $l: '2025-09-22T10:00:00' },
@@ -195,6 +196,26 @@ function withExtraTab(data) {
     const v3 = plan.skipped.find(s => s.id === 'v3');
     assert.match(v3.reason, /roles "r_none" not found .*entity role/);
     assert.match(plan.skipped.find(s => s.table === 'tickets' && s.id === '6').reason, /ticket_number: required value missing/);
+  });
+
+  await test('plan: first real export - email_enabled text kept, spaces-only rows skipped, a blank surrogate id generated', () => {
+    assert.strictEqual(plan.tables.companies.rows.find(r => r.record.id === 'co_1').record.email_enabled, 'default');
+    // comment_requirements: the Sheet has an id column after TABLE_SCHEMAS (blank), plus rows of spaces
+    const headers = [...schemas.comment_requirements, 'id'];
+    const row = (n, values) => ({ n, v: headers.map(h => (h in values ? values[h] : '')) });
+    const data = makeExport({ ticket_types: [{ id: 'tt_1', code: 'PR', name: 'Purchase', is_active: true }] });
+    data.tabs.comment_requirements = { headers, blank_rows: 0, rows: [
+      row(2, { ticket_type_id: ' ', require_on_approve: ' ', id: ' ' }),
+      row(3, { ticket_type_id: 'tt_1', require_on_approve: true, is_active: true, id: '' }),
+      row(4, { ticket_type_id: 'tt_1', company_id: 'co_9', require_on_approve: false, id: 'cr_keep' })
+    ] };
+    const p = L.buildLoadPlan(data, model);
+    const kept = p.tables.comment_requirements.rows.map(r => r.record);
+    assert.strictEqual(kept.length, 1, 'the real global rule only (row 4 has no company)');
+    assert.match(kept[0].id, /^cr_[0-9a-f]{32}$/);
+    assert.strictEqual(p.tables.comment_requirements.info.ids_generated, 1);
+    assert.match(p.skipped.find(s => s.row === 2).reason, /^empty row/);
+    assert.match(L.formatSummary(p), /new ids \(no id in Sheets\) 1/);
   });
 
   await test('plan: conversions land in the records (-8 h, date cells, JSON text, role dates untouched, calendar days)', () => {

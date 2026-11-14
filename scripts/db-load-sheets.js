@@ -38,6 +38,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const gen = require('./gen-ddl');
 const RULES = require('./db/ddl-rules');
 const migrate = require('./db-migrate');
@@ -65,6 +66,13 @@ const isGenerated = def => /\bgenerated\s+always\b/i.test(def);
 const isNotNull = def => /\bnot null\b/i.test(def);
 const isBlank = v => v === '' || v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
 const isDateTag = v => Boolean(v) && typeof v === 'object' && typeof v.$d === 'string';
+/** The prefix of a surrogate-key default from ddl-rules ("default ('cr_' || replace(gen_random_uuid()...") or null. */
+const surrogatePrefix = def => {
+  const m = /\bdefault\s*\(\s*'([a-z0-9_]*)'\s*\|\|\s*replace\(\s*gen_random_uuid\(\)/i.exec(def);
+  return m ? m[1] : null;
+};
+/** Same shape as the database default: prefix + 32 hex characters. */
+const newSurrogateId = prefix => prefix + crypto.randomUUID().replace(/-/g, '');
 
 /** A short description of a bad value for the report (local file only). */
 function describe(raw) {
@@ -233,9 +241,20 @@ function buildLoadPlan(exportData, model, { defaultOrg = DEFAULT_ORG } = {}) {
       && !isGenerated(c.def) && !(name === 'companies' && c.name === 'organization_id'));
     const loaderSet = name === 'companies' ? ['organization_id'] : [];
     entry.columns = [...fromSheet, ...loaderSet.filter(c => !fromSheet.includes(c))];
+    // A key the Sheets schema never had (ddl-rules EXTRA_COLUMNS surrogate, e.g. comment_requirements.id): a blank
+    // cell gets a new id of the database default's shape instead of failing "required value missing"
+    const surrogates = new Map(def.columns
+      .filter(c => !sheetSchema.includes(c.name) && surrogatePrefix(c.def) !== null)
+      .map(c => [c.name, surrogatePrefix(c.def)]));
 
     const candidates = [];
     for (const original of tab.rows) {
+      // Every cell blank or spaces only (the export drops truly empty rows, not rows of spaces)
+      if (original.v.every(isBlank)) {
+        skipped.push({ table: name, row: original.n, id: null, reason: 'empty row (blank / spaces only)' });
+        info.skipped += 1;
+        continue;
+      }
       const row = name === 'companies' ? repairCompanyLockCells(original, index, info) : original;
       const record = {};
       const problems = missingRequired.map(c => `${c.name}: column missing in the tab`);
@@ -255,6 +274,10 @@ function buildLoadPlan(exportData, model, { defaultOrg = DEFAULT_ORG } = {}) {
         }
         let value = result.value;
         if (value === null && defaultValue(column) !== undefined) value = defaultValue(column);
+        if (value === null && surrogates.has(column)) {
+          value = newSurrogateId(surrogates.get(column));
+          info.ids_generated = (info.ids_generated || 0) + 1;
+        }
         if (value === null && isNotNull(colDef)) problems.push(`${column}: required value missing`);
         record[column] = value;
       }
@@ -519,6 +542,7 @@ function formatSummary(plan) {
     if (i.duplicate_copies_dropped) notes.push(`${i.duplicate_copies_dropped} exact copies dropped`);
     if (i.repaired_code_locked) notes.push(`code_locked repaired (pre-v9.1 date) ${i.repaired_code_locked}`);
     if (i.recounted_ticket_count) notes.push(`ticket_count recounted ${i.recounted_ticket_count}`);
+    if (i.ids_generated) notes.push(`new ids (no id in Sheets) ${i.ids_generated}`);
     if (i.locked_by_repair) notes.push(`locked (has tickets) ${i.locked_by_repair}`);
     const shifted = Object.entries(i.shifted_timestamps || {});
     if (shifted.length) notes.push(`-8 h: ${shifted.map(([c, n]) => `${c} ${n}`).join(', ')}`);

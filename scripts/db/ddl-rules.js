@@ -1,5 +1,6 @@
 /**
- * ddl-rules.js v1.1 (14 Nov 2026; v1.0 11 Nov) - v1.1: mail_connections + organizations / companies mail columns (D13 E7). — the hand-tuning that turns AppScript TABLE_SCHEMAS into the first Postgres schema.
+ * ddl-rules.js v1.2 (15 Nov 2026; v1.0 11 Nov) - v1.2: companies.email_enabled is text (default | on | off), not
+ * boolean - found by the first real export (step 0.8). v1.1: mail_connections + organizations / companies mail columns (D13 E7). — the hand-tuning that turns AppScript TABLE_SCHEMAS into the first Postgres schema.
  *
  * Read by scripts/gen-ddl.js (migration step 0.7, docs/planning/PLAN_Migration_Unified_20261108.md §5). The column
  * lists themselves come from TABLE_SCHEMAS in the newest AppScript file - nothing here repeats them; this file only says
@@ -41,8 +42,10 @@ const TYPE_BY_COLUMN = {
   code_locked: 'boolean', dark_mode: 'boolean', email_notifications: 'boolean', desktop_notifications: 'boolean',
   auto_refresh: 'boolean', exclude_weekends: 'boolean', exclude_holidays: 'boolean', escalation_enabled: 'boolean',
   approval_required: 'boolean', requires_certification: 'boolean', enforce_blocking_rules: 'boolean',
-  email_enabled: 'boolean', notify_current_approvers: 'boolean', notify_requester: 'boolean',
+  notify_current_approvers: 'boolean', notify_requester: 'boolean',
   notify_on_update: 'boolean', email_status: 'text',
+  // not a boolean: companies.email_enabled is default | on | off (v9.6 COMPANY_EMAIL_MODES; blank = default)
+  email_enabled: 'text',
   // instants that don't end in _at
   timestamp: 'timestamptz', step_due_date: 'timestamptz', step_started_at: 'timestamptz',
   upload_timestamp: 'timestamptz', access_timestamp: 'timestamptz', last_tag_update: 'timestamptz',
