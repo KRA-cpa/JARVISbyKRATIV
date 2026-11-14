@@ -56,8 +56,14 @@ approvals, the Apps Script editor; **Claude** = code, scripts, tests, docs, depl
 **D13 details (proposed defaults):**
 - **E1** Connection kinds: **Google Workspace** (Gmail API, one role mailbox such as `daloy@client.com`, scope `gmail.send` only), **Microsoft 365** (Graph `Mail.Send` for one mailbox), or **SMTP** (the client's host / port / user + app password, stored encrypted). Set per organization; a company may use its own.
 - **E2** The sender is that mailbox; the v9.6 company settings (sender name, Reply-To, CC, footer, on / off) stay.
-- **E3** No connection = **no email** for that organization; in-app notifications (bell) still work. No platform fallback sender.
-- **E4** Platform mail to organization admins (trial end, invoices, new-organization invites) goes through **KRAtiv's own mailbox connected the same way**.
+- **E3** *(revised 14 Nov 2026, user: "initial: sa google service natin, since we have to invite the client admin")*
+  **Initial sender = KRAtiv's own Google mailbox.** The invite to the client admin - and the organization's
+  notifications until it connects its own mail - go out from Daloy's Google sender; once the client connects (E1), its
+  mail goes through its own service. Catch: Google daily sending limits apply to our mailbox (Workspace ≈ 2,000 / day per
+  user; a consumer Gmail / Apps Script MailApp only 100 recipients / day) - a **Google Workspace** mailbox on our domain
+  is needed before several clients share it.
+- **E4** Platform mail to organization admins (trial end, invoices, new-organization invites) always goes from that same
+  KRAtiv Google mailbox.
 - **E5** Google: offer both D11-style options - role-account OAuth (needs Google's verification of our OAuth app for the sensitive `gmail.send` scope, weeks) **or** a Daloy service account with domain-wide delegation limited to `gmail.send` for the one mailbox (the client's super admin grants it; no Google verification).
 - **E6** Until the connector ships (Phase 4, with 4.7 attachments), **Apps Script keeps sending**: after the write cutover it drains the Postgres `email_outbox` through a small bridge route - so Phase 2 does not wait for D13.
 - **E7** The table is reserved in the first schema now (`mail_connections`, like `drive_connections`) so no later migration.
