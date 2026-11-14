@@ -37,6 +37,8 @@
     "test:db-migrate": "node scripts/test-db-migrate.js",
     "db:load-sheets": "node scripts/db-load-sheets.js",
     "test:db-load-sheets": "node scripts/test-db-load-sheets.js",
+    "db:explain": "node scripts/db-explain.js",
+    "test:db-explain": "node scripts/test-db-explain.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "test:setup": "node scripts/setup-tests.js",

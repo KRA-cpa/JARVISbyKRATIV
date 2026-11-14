@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.7.1
+Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.7.2
 Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 14 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: THE migration plan + step-by-step, top to bottom: Apps Script / Google Sheets → Google Cloud Run + Neon Postgres (all servers in Asia), previews on Vercel, Google Sheets kept as a customer option; then the remaining v10.2 features and organizations on the new server | Status: Active - current roadmap (Phase F done, H.3 production deployed - custom domain pending, 0.7 schema generated)
 REVISION HISTORY:
+- v1.7.2 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 0.8 done (user: "ok"): 303 clean rows loaded on Neon `dev`, 28 skipped, gate met; `0002` applied. 0.7 done: `db:explain` → `docs/perf/EXPLAIN_HotPaths_20261115.md` (17 / 17 indexed at scale). Rules v1.2 (`email_enabled` text). Session 92b85189
 - v1.7.1 | 14 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 0.8 built (user: "next"; "get unbroken data only"; "seed data is ok"): editor-only export file + `db:load-sheets` loader (clean rows only, skip report, lock repair on the copy); waiting for the export run. Session 92b85189
 - v1.7.0 | 14 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | D15 data residency in Singapore approved (0.3 clearance part; user: "record ok as confirmed by Kenneth Advento, owner of krativ. wala man tayong choice since no PH locaton available"). 0.6 done (user: "go 0.6"): `pg` driver, `/api/rpc` + Apps Script fallback, `db:migrate`; 0.7 part 2 started - `0001` applied on Neon `dev`. Session 92b85189
 - v1.6.0 | 11 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | H.3 Claude part done: production revision `daloy-00007-z66` (100 %) + Firebase Hosting live at krativ-daloy.web.app (user: test site "2 is ok"); custom domain / authorized domains / APP_URL wait for the user. 0.7 part 1: `scripts/gen-ddl.js` + `scripts/db/ddl-rules.js` → `migrations/postgres/0001` (54 tables: 45 from TABLE_SCHEMAS + 9 new) / `0002` (uniques + FKs after the load, with a preflight report); `npm run check:ddl`; checked on real Postgres (PGlite). Session 44cbe47d
@@ -220,7 +221,7 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       **Live:** `/api/rpc` `dbHealth` → Neon `dev`: 200, `X-Backend: pg`, `query_count` 2; Postgres 18.7; round trip
       **≈ 70 ms from the office PC** (611 ms on the first call while the compute woke up) - from Cloud Run in Singapore it
       will be measured after the first deploy with `DATABASE_URL`.
-- [ ] **0.7 Claude** - schema: `scripts/gen-ddl.js` from the **49 tables** of `TABLE_SCHEMAS` (latest AppScript file) →
+- [x] **0.7 Claude** - schema: `scripts/gen-ddl.js` from the **49 tables** of `TABLE_SCHEMAS` (latest AppScript file) →
       migration `0001` with types, keys, constraints, the day-one indexes, the v10 tables, **plus `organizations` +
       `organization_id`** (D9) **and the attachment columns / tables of D11** (`drive_connections`, the
       `ticket_attachments` additions, attachment rules + slots, step-required slots - PLAN_Attachments §4);
@@ -238,7 +239,15 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       **Part 2 started 14 Nov 2026 (session 92b85189):** `npm run db:migrate -- --to 0001` applied on Neon `dev` (532 ms;
       56 tables incl. `schema_migrations`). `0002` waits for the load (0.8) and its preflight. Left: `EXPLAIN` for the hot
       paths in `docs/perf/` (needs rows - after 0.8).
-- [ ] **0.8 Claude writes, You run in the editor** - a **read-only export** route in a new AppScript fix file;
+      **Done 15 Nov 2026 (session 92b85189):** rules v1.2 (`companies.email_enabled` is text `default | on | off`, not
+      boolean - found by the real export); `0001` re-applied on the empty `dev`; after the load **`0002` applied** (370 ms,
+      preflight clean). `npm run db:explain` (`scripts/db-explain.js`, test `test:db-explain` 5 incl. PGlite) →
+      `docs/perf/EXPLAIN_HotPaths_20261115.md`: **17 / 17 hot paths can use an index at scale** (`enable_seqscan = off`:
+      a Seq Scan then means no index fits = FAIL); 4 use another index than the one named (watch at volume:
+      `uq_user_role_assignments_grant` already leads with `user_id`, so `idx_user_role_assignments_user` may be redundant;
+      participants should use `idx_ticket_participants_user_ticket`, recheck at 10k tickets). Server time today 0.04–0.8 ms
+      per query. The 10k-row rule = when to plan an index; the proof is the Phase 1 timing at 10k tickets (§9 p95 targets).
+- [x] **0.8 Claude writes, You run in the editor** - a **read-only export** route in a new AppScript fix file;
       `repairCompanyLocksApply()` first; the transform (booleans, blank → NULL, `jsonb`, dates, the **`TS_UTC_SINCE` −8 h
       rule** per column); load into `dev` in dependency order. **Gate:** row counts per table + 10 tickets end to end.
       *PLAN_Migration §7.*
@@ -254,6 +263,11 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       copies; −8 h for pre-`TS_UTC_SINCE` text date-times except the role dates; JSON columns with plain text kept as a
       JSON string; default organization `org_default` (D9); one transaction with the 0002 preflight inside; then verify.
       The export and the report must stay **outside the repo**. Test `scripts/test-db-load-sheets.js` (12 incl. PGlite).
+      **Done 15 Nov 2026 (user: "ok"):** export `daloy-export-20261115-0213.json` (your My Drive; Apps Script 10.2.0).
+      The first check skipped 204 / 331 - a loader type error (`email_enabled`), not Sheet damage; fixed (rules v1.2) + the
+      loader now skips rows of only spaces and gives `comment_requirements` (no id in Sheets) a `cr_…` id (test 13).
+      **Loaded 303 rows, skipped 28** (15 rows of spaces / no id, 2 shifted rows, 11 whose parent is gone - the report
+      next to the export). **Gate met:** row counts match, 10 tickets end to end match; `0002` applied after.
 - [ ] **0.9 Claude** - **reverse export** (Postgres → Sheets) written **and tested** - the rollback for Phase 2, and the
       first half of the bridge / export work (Phase 5).
 - [ ] **0.10 Claude drafts, You send** - new DPA Annex C + transfers, Privacy providers / transfers / cookies, Terms
@@ -373,6 +387,7 @@ Order (each = design section → `/api/rpc` handlers + tests → screens → con
 | F | ✅ (open v10.2 user steps remain) | 8 Nov 2026 |
 | H | ✅ 14 Nov 2026 (H.1–H.4; Vercel = previews only; redirect → permanent after ~21 Nov) | `d342c68`; UI fixes `749bd4a`..`52813f8`; H.4 `1db367a` (branch); prod `daloy-00007-z66` 11 Nov 2026 |
 | 0 | 0.7 part 1 ✅ | schema generator + migrations 0001 / 0002, 11 Nov 2026 |
+| 0 | 0.8 + 0.7 ✅ | Sheets data on Neon dev (303 clean rows), 0002 applied, hot-path EXPLAIN, 15 Nov 2026 |
 | 1 | - | |
 | 2 | - | |
 | 3 | - | |
