@@ -5,6 +5,7 @@
  *
  * Usage:
  *   ID_TOKEN=<Firebase ID token> node scripts/measure-api-latency.js [--url <proxy url>] [--runs 5] [--user <uid>]
+ *        [--report-type <ticket type id>]   (getReportData needs one since v9.2; seed data: seed_tt_pr)
  *   node scripts/measure-api-latency.js --writes --company <seed company id> --ticket-type <seed type id> --approver <uid>
  *
  * Reads only by default: getTickets, getDropdownLists, getTicketsForApproval, getReportData, getDashboard (v9.4+).
@@ -79,7 +80,13 @@ async function main() {
   rows.push(await measure('getDropdownLists', () => call('GET', 'getDropdownLists')));
   if (USER) {
     rows.push(await measure('getTicketsForApproval', () => call('GET', 'getTicketsForApproval', { user_id: USER })));
-    rows.push(await measure('getReportData', () => call('GET', 'getReportData', { user_id: USER })));
+    // v9.2+: the report needs a ticket type (seed data: seed_tt_pr = Seed Purchase Request)
+    const reportType = option('report-type', option('ticket-type'));
+    if (reportType) {
+      rows.push(await measure('getReportData', () => call('GET', 'getReportData', { user_id: USER, ticket_type_id: reportType })));
+    } else {
+      console.log('(--report-type not given: skipped getReportData - e.g. --report-type seed_tt_pr)');
+    }
     rows.push(await measure('getDashboard', () => call('GET', 'getDashboard', { user_id: USER })));
   } else {
     console.log('(--user not given: skipped getTicketsForApproval, getReportData, getDashboard)');

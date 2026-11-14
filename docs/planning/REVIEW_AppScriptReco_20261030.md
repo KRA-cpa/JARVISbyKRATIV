@@ -125,6 +125,24 @@ Baseline (v9.3) vs v9.4, median / worst of 5 runs from Manila via the proxy — 
 | createTicket (seed) | | | | |
 | approve (seed) | | | | |
 
+*(The v9.3 / v9.4 columns were never filled - no run was made on Vercel before the host move.)*
+
+### §5.1 Migration baseline (step 0.5) - Apps Script v10.2 behind Cloud Run (14 Nov 2026)
+Unified plan step 0.5: `node scripts/measure-api-latency.js --url https://daloy.blueknight.xyz/api/appscript-proxy`, 5 runs
+per action, signed in (`AUTH_MODE=enforce`), from Manila, Cloud Run `asia-southeast1` revision `daloy-00007-z66` → Apps
+Script (API 10.2.0). Read-only. This is the number the Postgres `/api/rpc` must beat (Claude.md targets).
+
+| Action | median ms | worst ms | Target on Postgres (server p95) | Factor to target |
+|---|---|---|---|---|
+| getTickets | 5,873 | 6,824 | list ≤ 300 | ~20× |
+| getDropdownLists | 3,518 | 3,752 | simple read ≤ 150 | ~23× |
+| getTicketsForApproval | 5,329 | 5,940 | list ≤ 300 | ~18× |
+| getDashboard | 6,165 | 6,296 | list / dashboard ≤ 300 | ~21× |
+| getReportData | - | - | report ≤ 1,500 | not measured: the script sent no `ticket_type_id` (required since v9.2) → `--report-type seed_tt_pr` added; re-run pending |
+
+Times are end to end from the browser side (network + Cloud Run + Apps Script); the targets are server time, so the real
+gap is a little smaller. Writes (createTicket / approve on seed data) not measured yet (`--writes`).
+
 ---
 
 ## Appendix A — The reco (19 Oct 2026), summary of its sections
