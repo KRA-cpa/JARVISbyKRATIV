@@ -188,6 +188,12 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       **SES `ap-southeast-1`** (domain DKIM / SPF / DMARC on blueknight.xyz, production-access request - the sandbox is
       200 / 24 h); connection strings and keys in Secret Manager. *(Object storage in Asia: **deferred** - files go to the
       client's Drive, D11; revisit only if a customer without Workspace needs uploads.)*
+      **Neon done 14 Nov 2026:** project `daloy` (`falling-brook-59657512`, org `org-shy-haze-40497133`), region
+      `aws-ap-southeast-1`, Postgres 18, Free; branches `production` (default) + `dev` (`br-muddy-band-aocsslat`); database
+      `daloy` (owner `neondb_owner`; Neon's default `neondb` left unused). Secret **`daloy-db-dev-url`** in `krativ-daloy`
+      (replication **asia-southeast1 only**; direct, not pooled; `sslmode=require`) - written by the Neon CLI straight into
+      Secret Manager, never printed. Neon MCP added to the repo `.mcp.json` (OAuth, URL only, scoped to this project);
+      Neon skills not installed (CLI needs Node ≥ 22.20, PC has 22.14). AWS / SES: dropped (D13).
 - [ ] **0.5 Claude (You run)** - baseline: `node scripts/measure-api-latency.js --url https://daloy.blueknight.xyz/api/appscript-proxy`
       (5 runs per action), recorded in `docs/planning/REVIEW_AppScriptReco_20261030.md` §5.
 - [ ] **0.6 Claude** - `docs/reference/PRODUCTION_REQUIREMENTS.md` first (new packages: `@neondatabase/serverless`,
