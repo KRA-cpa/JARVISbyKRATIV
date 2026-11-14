@@ -50,7 +50,17 @@ approvals, the Apps Script editor; **Claude** = code, scripts, tests, docs, depl
 | D10 | Method = PLAN_Migration Option A: copy Sheets → Postgres, move reads, freeze + move writes, clean up; the API contract (`{ action, ...payload }` → `{ success, data, message }`) never changes | user, 30 Oct 2026 |
 | D11 | **Attachments are uploaded into the client's own Google Workspace Drive** (a Shared Drive): option 1 role-account OAuth (`drive.file`) or option 2 Daloy service account as a member; on / off per organization and company (off by default); Daloy checks the ticket rules, then serves the file; folder `<COMPANY>/<TYPE>/<YYYY>/<ticket_number>/`; slots per ticket type. No Workspace → links only; **platform object storage deferred**. Built in step 4.7 - `docs/planning/PLAN_Attachments_ClientDrive_20261109.md` | user, 9 Nov 2026 |
 | D12 | **Servers in a new Google project `krativ-daloy`** (display name KRATIV DALOY - `KRATIV_DALOY` is not a valid id; ids never change): Cloud Run, Firebase Hosting, Secret Manager, billing, later the Drive service accounts (`daloy-org-<id>@krativ-daloy.iam.gserviceaccount.com`) and the Better Auth / Drive OAuth clients. **Sign-in stays in `jarvisbyerp`** (Firebase Auth) until Better Auth (1.3), so no user moves; then `jarvisbyerp` retires. `deploy-cloudrun.sh` v1.1 keeps the two ids apart | user, 9 Nov 2026 ("iwant to change to KRATIV_DALOY" → "New project krativ-daloy for servers") |
-| **To confirm** | Neon Singapore + Better Auth + SES Singapore for the data move (step 0.1) | - |
+| D13 | **Emails go through the client's own mail service** - no platform email provider (SES dropped from the stack). Same shape as D11: a connection per organization (company may override). Details E1–E7 below proposed 14 Nov 2026, awaiting ok / no / skip | user, 14 Nov 2026 ("no emails first", "emails should go throug client service") |
+| **To confirm** | Neon Singapore + Better Auth for the data move (step 0.1); D13 details E1–E7 | - |
+
+**D13 details (proposed defaults):**
+- **E1** Connection kinds: **Google Workspace** (Gmail API, one role mailbox such as `daloy@client.com`, scope `gmail.send` only), **Microsoft 365** (Graph `Mail.Send` for one mailbox), or **SMTP** (the client's host / port / user + app password, stored encrypted). Set per organization; a company may use its own.
+- **E2** The sender is that mailbox; the v9.6 company settings (sender name, Reply-To, CC, footer, on / off) stay.
+- **E3** No connection = **no email** for that organization; in-app notifications (bell) still work. No platform fallback sender.
+- **E4** Platform mail to organization admins (trial end, invoices, new-organization invites) goes through **KRAtiv's own mailbox connected the same way**.
+- **E5** Google: offer both D11-style options - role-account OAuth (needs Google's verification of our OAuth app for the sensitive `gmail.send` scope, weeks) **or** a Daloy service account with domain-wide delegation limited to `gmail.send` for the one mailbox (the client's super admin grants it; no Google verification).
+- **E6** Until the connector ships (Phase 4, with 4.7 attachments), **Apps Script keeps sending**: after the write cutover it drains the Postgres `email_outbox` through a small bridge route - so Phase 2 does not wait for D13.
+- **E7** The table is reserved in the first schema now (`mail_connections`, like `drive_connections`) so no later migration.
 
 ## §2 Storage options for customers (D7)
 | Option | Where the data lives | Asia rule | Features | Limits | Set-up |
