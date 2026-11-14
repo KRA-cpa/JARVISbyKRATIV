@@ -1,5 +1,5 @@
 /**
- * ddl-rules.js v1.0 (11 Nov 2026) — the hand-tuning that turns AppScript TABLE_SCHEMAS into the first Postgres schema.
+ * ddl-rules.js v1.1 (14 Nov 2026; v1.0 11 Nov) - v1.1: mail_connections + organizations / companies mail columns (D13 E7). — the hand-tuning that turns AppScript TABLE_SCHEMAS into the first Postgres schema.
  *
  * Read by scripts/gen-ddl.js (migration step 0.7, docs/planning/PLAN_Migration_Unified_20261108.md §5). The column
  * lists themselves come from TABLE_SCHEMAS in the newest AppScript file - nothing here repeats them; this file only says
@@ -106,6 +106,8 @@ const EXTRA_COLUMNS = {
     ['organization_id', 'text'],                                   // D9 (set to the default organization at the load)
     ['drive_setting', "text not null default 'inherit'"],          // D11: inherit | on_own_connection | off
     ['drive_connection_id', 'text'],
+    ['mail_setting', "text not null default 'inherit'"],           // D13: inherit | on_own_connection | off
+    ['mail_connection_id', 'text'],
   ],
   tickets: [
     ['version', 'integer not null default 0'],                     // optimistic lock (one transition per approval)
@@ -128,6 +130,7 @@ const EXTRA_TABLES = {
     ['storage', "text not null default 'platform'"],               // platform | sheet
     ['bridge_url', 'text'], ['bridge_secret_ref', 'text'],         // Sheet organizations (Phase 5); a secret NAME, never the value
     ['drive_attachments_enabled', 'boolean not null default false'], ['drive_mode', 'text'], ['drive_connection_id', 'text'],
+    ['mail_connection_id', 'text'],                                // D13: null = no notification email (E3)
     ...AUDIT,
   ],
   organization_members: [                                          // O4: one identity, several organizations
@@ -157,6 +160,17 @@ const EXTRA_TABLES = {
     ['roots', "jsonb not null default '[]'::jsonb"],
     ['status', "text not null default 'ok'"],                      // ok | broken | disconnected
     ['last_checked_at', 'timestamptz'],
+    ...AUDIT,
+  ],
+  mail_connections: [                                              // D13 (unified plan §1, E1-E7): the client's own mail
+    ['id', 'text not null'], ['organization_id', 'text not null'], ['company_id', 'text'], // company_id null = organization level
+    ['kind', 'text not null'],                                     // google_oauth | google_service_account | microsoft365 | smtp
+    ['mailbox_email', 'text'],                                     // the sender (e.g. daloy@client.com)
+    ['token_ciphertext', 'text'],                                  // OAuth refresh token (google_oauth / microsoft365), encrypted
+    ['service_account_email', 'text'],                             // google_service_account (domain-wide delegation, gmail.send)
+    ['smtp_host', 'text'], ['smtp_port', 'integer'], ['smtp_username', 'text'], ['smtp_secret_ciphertext', 'text'],
+    ['status', "text not null default 'ok'"],                      // ok | broken | disconnected
+    ['last_checked_at', 'timestamptz'], ['last_error', 'text'],
     ...AUDIT,
   ],
   ticket_type_attachment_rules: [
@@ -240,6 +254,7 @@ const INDEXES = [
   ['user_profiles', 'email', '(lower(email))'],
   ['organization_members', 'user', '(user_id) where is_active'],
   ['companies', 'organization', '(organization_id)'],
+  ['mail_connections', 'owner', '(organization_id, company_id) where is_active'],
   ['idempotency_keys', 'created', '(created_at)'],
 ];
 
@@ -271,6 +286,10 @@ const FOREIGN_KEYS = [
   ['organizations', 'drive_connection_id', 'drive_connections'],
   ['drive_connections', 'organization_id', 'organizations'],
   ['drive_connections', 'company_id', 'companies'],
+  ['companies', 'mail_connection_id', 'mail_connections'],
+  ['organizations', 'mail_connection_id', 'mail_connections'],
+  ['mail_connections', 'organization_id', 'organizations'],
+  ['mail_connections', 'company_id', 'companies'],
   ['roles', 'company_id', 'companies'],
   ['roles', 'role_type_id', 'role_types'],
   ['role_types', 'company_id', 'companies'],

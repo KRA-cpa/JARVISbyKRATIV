@@ -23,6 +23,18 @@ union all
 select 'fk_drive_connections_company_id' as rule, count(*) as bad_rows from "drive_connections" t
   where t."company_id" is not null and not exists (select 1 from "companies" r where r."id" = t."company_id")
 union all
+select 'fk_companies_mail_connection_id' as rule, count(*) as bad_rows from "companies" t
+  where t."mail_connection_id" is not null and not exists (select 1 from "mail_connections" r where r."id" = t."mail_connection_id")
+union all
+select 'fk_organizations_mail_connection_id' as rule, count(*) as bad_rows from "organizations" t
+  where t."mail_connection_id" is not null and not exists (select 1 from "mail_connections" r where r."id" = t."mail_connection_id")
+union all
+select 'fk_mail_connections_organization_id' as rule, count(*) as bad_rows from "mail_connections" t
+  where t."organization_id" is not null and not exists (select 1 from "organizations" r where r."id" = t."organization_id")
+union all
+select 'fk_mail_connections_company_id' as rule, count(*) as bad_rows from "mail_connections" t
+  where t."company_id" is not null and not exists (select 1 from "companies" r where r."id" = t."company_id")
+union all
 select 'fk_roles_company_id' as rule, count(*) as bad_rows from "roles" t
   where t."company_id" is not null and not exists (select 1 from "companies" r where r."id" = t."company_id")
 union all

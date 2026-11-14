@@ -36,6 +36,7 @@ drop table if exists "report_configurations" cascade;
 drop table if exists "organizations" cascade;
 drop table if exists "organization_members" cascade;
 drop table if exists "notifications" cascade;
+drop table if exists "mail_connections" cascade;
 drop table if exists "idempotency_keys" cascade;
 drop table if exists "email_outbox" cascade;
 drop table if exists "dropdown_options" cascade;

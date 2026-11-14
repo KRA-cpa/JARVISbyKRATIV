@@ -53,6 +53,26 @@ do $$ begin
   end if;
 end $$;
 do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'fk_companies_mail_connection_id') then
+    alter table "companies" add constraint "fk_companies_mail_connection_id" foreign key ("mail_connection_id") references "mail_connections" ("id");
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'fk_organizations_mail_connection_id') then
+    alter table "organizations" add constraint "fk_organizations_mail_connection_id" foreign key ("mail_connection_id") references "mail_connections" ("id");
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'fk_mail_connections_organization_id') then
+    alter table "mail_connections" add constraint "fk_mail_connections_organization_id" foreign key ("organization_id") references "organizations" ("id");
+  end if;
+end $$;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'fk_mail_connections_company_id') then
+    alter table "mail_connections" add constraint "fk_mail_connections_company_id" foreign key ("company_id") references "companies" ("id");
+  end if;
+end $$;
+do $$ begin
   if not exists (select 1 from pg_constraint where conname = 'fk_roles_company_id') then
     alter table "roles" add constraint "fk_roles_company_id" foreign key ("company_id") references "companies" ("id");
   end if;

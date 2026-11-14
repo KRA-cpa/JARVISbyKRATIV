@@ -50,22 +50,22 @@ approvals, the Apps Script editor; **Claude** = code, scripts, tests, docs, depl
 | D10 | Method = PLAN_Migration Option A: copy Sheets → Postgres, move reads, freeze + move writes, clean up; the API contract (`{ action, ...payload }` → `{ success, data, message }`) never changes | user, 30 Oct 2026 |
 | D11 | **Attachments are uploaded into the client's own Google Workspace Drive** (a Shared Drive): option 1 role-account OAuth (`drive.file`) or option 2 Daloy service account as a member; on / off per organization and company (off by default); Daloy checks the ticket rules, then serves the file; folder `<COMPANY>/<TYPE>/<YYYY>/<ticket_number>/`; slots per ticket type. No Workspace → links only; **platform object storage deferred**. Built in step 4.7 - `docs/planning/PLAN_Attachments_ClientDrive_20261109.md` | user, 9 Nov 2026 |
 | D12 | **Servers in a new Google project `krativ-daloy`** (display name KRATIV DALOY - `KRATIV_DALOY` is not a valid id; ids never change): Cloud Run, Firebase Hosting, Secret Manager, billing, later the Drive service accounts (`daloy-org-<id>@krativ-daloy.iam.gserviceaccount.com`) and the Better Auth / Drive OAuth clients. **Sign-in stays in `jarvisbyerp`** (Firebase Auth) until Better Auth (1.3), so no user moves; then `jarvisbyerp` retires. `deploy-cloudrun.sh` v1.1 keeps the two ids apart | user, 9 Nov 2026 ("iwant to change to KRATIV_DALOY" → "New project krativ-daloy for servers") |
-| D13 | **Emails go through the client's own mail service** - no platform email provider (SES dropped from the stack). Same shape as D11: a connection per organization (company may override). Details E1–E7 below proposed 14 Nov 2026, awaiting ok / no / skip | user, 14 Nov 2026 ("no emails first", "emails should go throug client service") |
-| **To confirm** | Neon Singapore + Better Auth for the data move (step 0.1); D13 details E1–E7 | - |
+| D13 | **Emails go through the client's own mail service** - no platform email provider (SES dropped from the stack). Same shape as D11: a connection per organization (company may override). Details E1–E7 below - **all decided 14 Nov 2026** (E3 revised twice) | user, 14 Nov 2026 ("no emails first", "emails should go throug client service", "rest is ok") |
+| D14 | **Data stack confirmed (step 0.1):** Neon Postgres Singapore (Free while building, Launch before the first paying customer), Better Auth in Neon with Google sign-in (Firebase Auth retires at 1.3), Cloud Scheduler for the jobs, attachments in the client's Drive (D11), email per D13 | user, 14 Nov 2026 ("rest is ok") |
 
 **D13 details (proposed defaults):**
 - **E1** Connection kinds: **Google Workspace** (Gmail API, one role mailbox such as `daloy@client.com`, scope `gmail.send` only), **Microsoft 365** (Graph `Mail.Send` for one mailbox), or **SMTP** (the client's host / port / user + app password, stored encrypted). Set per organization; a company may use its own.
 - **E2** The sender is that mailbox; the v9.6 company settings (sender name, Reply-To, CC, footer, on / off) stay.
 - **E3** *(revised 14 Nov 2026, user: "initial: sa google service natin, since we have to invite the client admin")*
-  **Initial sender = KRAtiv's own Google mailbox.** The invite to the client admin - and the organization's
-  notifications until it connects its own mail - go out from Daloy's Google sender; once the client connects (E1), its
-  mail goes through its own service. Catch: Google daily sending limits apply to our mailbox (Workspace ≈ 2,000 / day per
-  user; a consumer Gmail / Apps Script MailApp only 100 recipients / day) - a **Google Workspace** mailbox on our domain
-  is needed before several clients share it.
+  **Initial sender = KRAtiv's own Google mailbox, for the client-admin invite only.** *(Final, 14 Nov 2026, user: "The
+  client's notifications - off until it connects to their service, rest is ok")*: the organization's **notification emails
+  stay off until it connects its own mail** (E1); in-app notifications work meanwhile. So our mailbox carries only invites
+  + platform mail (E4) - low volume; Google's limits (Workspace ≈ 2,000 / day, consumer Gmail / MailApp 100 recipients /
+  day) still argue for a Workspace mailbox on our own domain before launch.
 - **E4** Platform mail to organization admins (trial end, invoices, new-organization invites) always goes from that same
   KRAtiv Google mailbox.
 - **E5** Google: offer both D11-style options - role-account OAuth (needs Google's verification of our OAuth app for the sensitive `gmail.send` scope, weeks) **or** a Daloy service account with domain-wide delegation limited to `gmail.send` for the one mailbox (the client's super admin grants it; no Google verification).
-- **E6** Until the connector ships (Phase 4, with 4.7 attachments), **Apps Script keeps sending**: after the write cutover it drains the Postgres `email_outbox` through a small bridge route - so Phase 2 does not wait for D13.
+- **E6** Until the connector ships (Phase 4, with 4.7 attachments), **Apps Script keeps sending** for the companies that get email today (no change for current users): after the write cutover it drains the Postgres `email_outbox` through a small bridge route - so Phase 2 does not wait for D13. The E3 rule (off until connected) applies from the connector on; existing companies are asked to connect their mail then.
 - **E7** The table is reserved in the first schema now (`mail_connections`, like `drive_connections`) so no later migration.
 
 ## §2 Storage options for customers (D7)
@@ -170,12 +170,13 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
 - **Rollback:** GUIDE §E.
 
 ### Phase 0 — Foundations
-- [ ] **0.1 You** - confirm the data stack (Neon Singapore + Better Auth + SES Singapore). *CHECK §6.*
+- [x] **0.1 You** - confirm the data stack (Neon Singapore + Better Auth + SES Singapore). *CHECK §6.* **Done 14 Nov
+      2026 → D14** (SES replaced by D13: email through the client's own mail service).
       **14 Nov 2026 - email deferred** (user: "no emails first"): no AWS / SES account now. Until the email provider is
       chosen, notification emails keep going out from **Apps Script** (MailApp + the 15-minute outbox trigger) as today;
       the new server writes in-app notifications + `email_outbox` rows only. The provider must be decided **before the
       write cutover (Phase 2)**, when tickets stop flowing through Apps Script. Neon (1), Better Auth (2), Cloud Scheduler
-      (4), attachments in the client's Drive (5): awaiting the user's answer.
+      (4), attachments in the client's Drive (5): confirmed the same day (D14).
 - [ ] **0.2 You + Claude** - verify the UNVERIFIED prices (Cloud Run Tier 2 Singapore, egress) in the Google calculator;
       watch the budget alerts since Phase H. *CHECK §4.*
 - [ ] **0.3 You** - Data Privacy Act / IT clearance to move company data to Singapore; the IP / invention-assignment
@@ -206,6 +207,8 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       `0002_constraints` (13 unique rules + 76 FKs, applied **after** the load once `0002_constraints.preflight.sql` reports 0
       orphans / duplicates). `npm run check:ddl` (drift + `scripts/test-gen-ddl.js`, 8 tests; `--pglite <dir>` adds a run on
       real Postgres - passed). Left for part 2: the `db:migrate` runner (needs the 0.6 packages), apply on Neon `dev`, `EXPLAIN`.
+      **14 Nov 2026 (rules v1.1, D13 E7):** + `mail_connections`, `organizations.mail_connection_id`, `companies.mail_setting`
+      / `mail_connection_id` → **55 tables** (10 new), 46 indexes, 13 unique rules, 80 FKs; tests + PGlite pass.
 - [ ] **0.8 Claude writes, You run in the editor** - a **read-only export** route in a new AppScript fix file;
       `repairCompanyLocksApply()` first; the transform (booleans, blank → NULL, `jsonb`, dates, the **`TS_UTC_SINCE` −8 h
       rule** per column); load into `dev` in dependency order. **Gate:** row counts per table + 10 tickets end to end.

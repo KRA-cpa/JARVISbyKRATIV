@@ -71,6 +71,10 @@ alter table if exists "user_profile_types" drop constraint if exists "fk_user_pr
 alter table if exists "role_types" drop constraint if exists "fk_role_types_company_id";
 alter table if exists "roles" drop constraint if exists "fk_roles_role_type_id";
 alter table if exists "roles" drop constraint if exists "fk_roles_company_id";
+alter table if exists "mail_connections" drop constraint if exists "fk_mail_connections_company_id";
+alter table if exists "mail_connections" drop constraint if exists "fk_mail_connections_organization_id";
+alter table if exists "organizations" drop constraint if exists "fk_organizations_mail_connection_id";
+alter table if exists "companies" drop constraint if exists "fk_companies_mail_connection_id";
 alter table if exists "drive_connections" drop constraint if exists "fk_drive_connections_company_id";
 alter table if exists "drive_connections" drop constraint if exists "fk_drive_connections_organization_id";
 alter table if exists "organizations" drop constraint if exists "fk_organizations_drive_connection_id";
