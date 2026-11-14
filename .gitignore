@@ -46,3 +46,8 @@ api-*.log
 
 # Firebase CLI deploy cache (firebase deploy --only hosting)
 .firebase/
+
+# Sheets exports + load reports (migration 0.8) hold company data - never in the repo
+daloy-export-*.json
+*.load-report.json
+*.load-report.txt

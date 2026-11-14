@@ -207,6 +207,9 @@ function formatDate(date, timeZone, pattern) {
   }).formatToParts(new Date(date)).map(p => [p.type, p.value]));
   const known = {
     'yyyy-MM-dd': `${parts.year}-${parts.month}-${parts.day}`,
+    // 14 Nov 2026: the Postgres export (EXPORT_ForPostgres_v1.0) - local date-time of a date cell + the file name stamp
+    "yyyy-MM-dd'T'HH:mm:ss": `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`,
+    'yyyyMMdd-HHmm': `${parts.year}${parts.month}${parts.day}-${parts.hour}${parts.minute}`,
     'HH:mm:ss': `${parts.hour}:${parts.minute}:${parts.second}`,
     'HH:mm': `${parts.hour}:${parts.minute}`,
     'HH': parts.hour,

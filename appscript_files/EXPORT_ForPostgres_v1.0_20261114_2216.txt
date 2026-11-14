@@ -1,0 +1,122 @@
+/**
+ * ===============================================================================
+ * JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
+ * ===============================================================================
+ * File: EXPORT_ForPostgres_v1.0_20261114_2216.txt | Author: Kenneth R. Advento | Version: 1.0
+ * Created: 14 November 2026 UTC+8 (Philippine Standard Time)
+ * Purpose: migration step 0.8 - copy every tab of the Sheet into ONE JSON file in your Google Drive, for the load into
+ *          Neon (scripts/db-load-sheets.js). READ-ONLY: nothing in the Sheet is changed, added or deleted.
+ * Works with: the AppScript file in the same project, v9.4 or later (uses SPREADSHEET_ID; TABLE_SCHEMAS / API_VERSION /
+ *          DEFAULT_TZ when present). Production runs 10.2.0.
+ *
+ * HOW TO USE (editor only - no web route, no redeploy):
+ *   1. Apps Script editor → Files → + → Script → name it `export` → paste this whole file → Save.
+ *   2. Function list at the top → `exportForPostgres` → Run. (No new permission: Drive was granted for the
+ *      configuration backup in v9.3. If Google asks anyway, allow it - it only creates the one file.)
+ *   3. Execution log → the file name + link (daloy-export-<yyyyMMdd-HHmm>.json in My Drive) and the rows per tab.
+ *   4. Download that file to this PC OUTSIDE the repo (it holds company data), e.g. Downloads. Then tell Claude the path.
+ *   Optional: `exportForPostgresDryRun` logs the rows per tab and writes no file.
+ *
+ * File format (export_version 1):
+ *   { meta: { export_version, exported_at, api_version, spreadsheet_time_zone, ts_utc_since, table_schemas, tabs },
+ *     tabs: { <tab name>: { headers: [..], rows: [{ n: <sheet row number>, v: [cell, ...] }], blank_rows: <count> } } }
+ *   A cell is the value Sheets holds: text, number or true / false. A date cell becomes
+ *   { "$d": <the instant, ISO UTC>, "$l": <the same instant in the spreadsheet's time zone, yyyy-MM-ddTHH:mm:ss> }, so the
+ *   loader can tell a real date cell from text that looks like a date (the pre-v9.4 timestamps, TS_UTC_SINCE rule).
+ * Test: node appscript_files/tools/EXPORT_TEST.js <APPSCRIPT file> <this file>
+ */
+
+/** Read every tab and write the JSON file to Drive. @returns {{ file_name, file_id, url, rows, tabs }} */
+function exportForPostgres() {
+  const data = buildPostgresExport_();
+  const stamp = Utilities.formatDate(new Date(), data.meta.spreadsheet_time_zone, 'yyyyMMdd-HHmm');
+  const name = 'daloy-export-' + stamp + '.json';
+  const file = DriveApp.createFile(name, JSON.stringify(data), 'application/json');
+  const summary = {
+    file_name: name,
+    file_id: file.getId(),
+    url: file.getUrl(),
+    rows: data.meta.tabs.reduce((sum, t) => sum + t.rows, 0),
+    tabs: data.meta.tabs
+  };
+  logPostgresExport_(summary);
+  return summary;
+}
+
+/** The same reads, no file: rows per tab in the log. */
+function exportForPostgresDryRun() {
+  const data = buildPostgresExport_();
+  const summary = { file_name: null, rows: data.meta.tabs.reduce((sum, t) => sum + t.rows, 0), tabs: data.meta.tabs };
+  logPostgresExport_(summary);
+  return summary;
+}
+
+function logPostgresExport_(summary) {
+  Logger.log(summary.file_name ? ('Export written: ' + summary.file_name + '\n' + summary.url) : 'Dry run - no file written');
+  Logger.log('Rows: ' + summary.rows + ' in ' + summary.tabs.length + ' tabs');
+  summary.tabs.forEach(t => Logger.log('  ' + t.name + ': ' + t.rows + ' rows' + (t.blank_rows ? ' (+' + t.blank_rows + ' blank skipped)' : '')));
+}
+
+/** Every tab of the spreadsheet as headers + rows (read-only). */
+function buildPostgresExport_() {
+  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const timeZone = postgresExportTimeZone_(spreadsheet);
+  const tabs = {};
+  const tabSummary = [];
+  spreadsheet.getSheets().forEach(sheet => {
+    const name = sheet.getName();
+    const values = sheet.getDataRange().getValues();
+    const headers = (values[0] || []).map(h => String(h === null || h === undefined ? '' : h).trim());
+    const rows = [];
+    let blankRows = 0;
+    for (let i = 1; i < values.length; i++) {
+      const row = values[i];
+      if (row.every(cell => cell === '' || cell === null || cell === undefined)) {
+        blankRows++;
+        continue;
+      }
+      rows.push({ n: i + 1, v: row.map(cell => encodePostgresExportCell_(cell, timeZone)) });
+    }
+    tabs[name] = { headers: headers, rows: rows, blank_rows: blankRows };
+    tabSummary.push({ name: name, rows: rows.length, blank_rows: blankRows, columns: headers.filter(h => h).length });
+  });
+
+  let tsUtcSince = null;
+  try {
+    tsUtcSince = PropertiesService.getScriptProperties().getProperty('TS_UTC_SINCE');
+  } catch (error) {
+    tsUtcSince = null;
+  }
+  return {
+    meta: {
+      export_version: 1,
+      exported_at: new Date().toISOString(),
+      api_version: typeof API_VERSION !== 'undefined' ? API_VERSION : null,
+      spreadsheet_time_zone: timeZone,
+      ts_utc_since: tsUtcSince,
+      table_schemas: typeof TABLE_SCHEMAS !== 'undefined' ? TABLE_SCHEMAS : null,
+      tabs: tabSummary
+    },
+    tabs: tabs
+  };
+}
+
+/** The spreadsheet's time zone (date cells are midnight there), else DEFAULT_TZ (v10.1+), else the script's. */
+function postgresExportTimeZone_(spreadsheet) {
+  if (spreadsheet && typeof spreadsheet.getSpreadsheetTimeZone === 'function') {
+    const zone = spreadsheet.getSpreadsheetTimeZone();
+    if (zone) return zone;
+  }
+  if (typeof DEFAULT_TZ !== 'undefined' && DEFAULT_TZ) return DEFAULT_TZ;
+  return Session.getScriptTimeZone();
+}
+
+/** A cell as JSON: dates tagged (see the header), everything else as Sheets holds it. */
+function encodePostgresExportCell_(cell, timeZone) {
+  if (Object.prototype.toString.call(cell) === '[object Date]') {
+    if (isNaN(cell.getTime())) return { $bad: 'invalid date' };
+    return { $d: cell.toISOString(), $l: Utilities.formatDate(cell, timeZone, "yyyy-MM-dd'T'HH:mm:ss") };
+  }
+  if (cell === null || cell === undefined) return '';
+  return cell;
+}
