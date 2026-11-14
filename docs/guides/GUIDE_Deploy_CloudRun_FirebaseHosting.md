@@ -2,10 +2,11 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_Deploy_CloudRun_FirebaseHosting.md | Author: Kenneth R. Advento | Version: 1.2.1
-Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 9 November 2026 UTC+8 (Philippine Standard Time)
+Document: GUIDE_Deploy_CloudRun_FirebaseHosting.md | Author: Kenneth R. Advento | Version: 1.3.0
+Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 14 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Move PRODUCTION from Vercel to Google Cloud Run (asia-southeast1, Singapore) behind Firebase Hosting at daloy.blueknight.xyz; Vercel keeps the previews. Backend unchanged (Apps Script) - the Postgres move follows CHECKLIST_Deploy_PostgresNeon_20261108.md | Status: Ready to run (nothing deployed yet) - the runbook for Phase H of docs/planning/PLAN_Migration_Unified_20261108.md
 REVISION HISTORY:
+- v1.3.0 | 14 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §G database for `/api/rpc` (migration 0.6): `DATABASE_URL` from Secret Manager when a phase needs it; without it `/api/rpc` = Apps Script. Session 92b85189
 - v1.2.1 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §F: the Git Bash path-rewrite catch (deploy-cloudrun.sh v1.2); $10 budget example
 - v1.2.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Servers in a new project `krativ-daloy` (display name KRATIV DALOY; user: "iwant to change to KRATIV_DALOY" → "New project krativ-daloy for servers"); sign-in stays in `jarvisbyerp` until Better Auth (unified plan D12); §A creates the project; authorized domains are added in `jarvisbyerp`; deploy-cloudrun.sh v1.1
 - v1.1.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Runbook for Phase H of PLAN_Migration_Unified_20261108.md; step D also updates Claude.md working rule 3 + the deploy-check memory
@@ -151,3 +152,18 @@ previews = push a branch (Vercel); the preview-link-before-push habit is unchang
   Apps Script.
 - Legal pages (DPA Annex C, Privacy providers, `/status`): Google Cloud joins, Vercel stays for previews only - update at
   CHECKLIST_Deploy_PostgresNeon step 11 (`CHECK_HostingPricing` §7).
+
+## G. Database for `/api/rpc` (later - not set today)
+*(Added 14 Nov 2026, migration step 0.6.)* `server/app.js` also serves **`/api/rpc`**. While the service has **no
+`DATABASE_URL`**, every `/api/rpc` action goes to Apps Script exactly like `/api/appscript-proxy`, so today's deploys
+change nothing. When a phase needs Postgres on Cloud Run:
+1. **Claude:** a connection-string secret for the target Neon branch, written by the Neon CLI straight into Secret
+   Manager (as `daloy-db-dev-url`, replication `asia-southeast1` only). A non-dev secret is used by `npm run db:migrate`
+   only with `--allow-non-dev`.
+2. **Claude:** give the Cloud Run service account `roles/secretmanager.secretAccessor` on that one secret.
+3. **Claude:** add `DATABASE_URL=<secret>:latest` to `--set-secrets` in `scripts/deploy-cloudrun.sh` (optional
+   `DB_POOL_MAX`, default 5), deploy a **test** revision, check `POST /api/rpc {"action":"dbHealth"}` signed in →
+   `X-Backend: pg` and the Singapore round trip; then production on your "go".
+- **Undo:** remove `DATABASE_URL` from the service (`gcloud run services update daloy --region asia-southeast1
+  --remove-secrets DATABASE_URL`) - `/api/rpc` falls back to Apps Script at once.
+- Migrations: `npm run db:migrate -- --status` / `--to <version>` (`scripts/db-migrate.js`; it never prints the URL).

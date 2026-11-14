@@ -2,8 +2,8 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_NeonVercel_20261030.md | Author: Kenneth R. Advento | Version: 1.4.2
-Created: 30 October 2026 UTC+8 (Philippine Standard Time) | Modified: 9 November 2026 UTC+8 (Philippine Standard Time)
+Document: PLAN_Migration_NeonVercel_20261030.md | Author: Kenneth R. Advento | Version: 1.4.3
+Created: 30 October 2026 UTC+8 (Philippine Standard Time) | Modified: 14 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Plan to move the backend from Google Sheets + Apps Script to Neon Postgres (Singapore), served from Google Cloud Run (Singapore) behind Firebase Hosting - previews on Vercel - designed for heavy use, without changing the frontend's API contract (file name kept from the Vercel version for links) | Status: Design reference — the order and checkboxes are in docs/planning/PLAN_Migration_Unified_20261108.md
 REVISION HISTORY:
 - v1.0.0 | 30 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Initial plan (session 7e008704), from the reco (19 Oct 2026) and docs/planning/REVIEW_AppScriptReco_20261030.md
@@ -11,6 +11,7 @@ REVISION HISTORY:
 - v1.2.0 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §12 v10 features on Postgres (pointer to PLAN_FeatureGaps_Volume_20261031.md §6; session 2d369f00)
 - v1.2.1 | 31 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §12: the notification partition drop approved by the user
 - v1.4.1 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Files: attachments go to the client's Google Workspace Drive (unified D11, PLAN_Attachments_ClientDrive_20261109.md); platform object storage deferred
+- v1.4.3 | 14 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2 database access as built in step 0.6: `pg` + plain SQL + `db:migrate` (no `@neondatabase/serverless`, no Drizzle). Session 92b85189
 - v1.4.2 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Frontend row: Hosting in the new project `krativ-daloy`, sign-in stays in `jarvisbyerp` until Better Auth (unified D12)
 - v1.4.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Host decided (user: "move production to not vercel, preview in vercel"): production on Cloud Run asia-southeast1 behind Firebase Hosting (daloy.blueknight.xyz), previews on Vercel Hobby; new Phase H = docs/guides/GUIDE_Deploy_CloudRun_FirebaseHosting.md (server/app.js, Dockerfile, firebase.json, scripts/deploy-cloudrun.sh); §1 / §2 / Phase 0 / sync / §9 / §11 moved from Vercel functions + Vercel Cron to Cloud Run + Cloud Scheduler; email SES Singapore; files storage location to check (Asia rule); now the design reference of PLAN_Migration_Unified_20261108.md (Sheets / Apps Script kept as a customer option)
 - v1.3.0 | 8 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Asia rule + hosting check (session 61523343): servers must be in Asia; Firebase Auth is US-only and Vercel functions default to iad1 (US); recommended cheapest all-Asia stack (Cloud Run Singapore + Neon Singapore + Better Auth + SES Singapore) pending the user's confirmation - CHECK_HostingPricing_20261108.md; chronological deploy steps - docs/guides/CHECKLIST_Deploy_PostgresNeon_20261108.md
@@ -58,7 +59,7 @@ Browser ─► Firebase Hosting ─► /api/rpc  (Cloud Run "daloy", asia-southe
 
 - **Route:** mount `/api/rpc` in `server/app.js` next to `/api/appscript-proxy` (Phase H already serves the proxy there); keep `/api/appscript-proxy` until the frontend base URL switches. Logic stays in `api/_lib/` (testable in plain Node, like `proxyCore.js` today; `scripts/test-cloudrun-server.js` covers the server).
 - **Handler registry:** `api/_lib/handlers/<group>.js` exports `{ actionName: async (payload, ctx) => data }`; `ctx = { user, db, log, now }`. A handler returns the unwrapped data; the route wraps it.
-- **Database access:** `@neondatabase/serverless` (HTTP for single queries, WebSocket `Pool` for transactions), Drizzle ORM for typed queries and migrations (`drizzle/` folder, `npm run db:migrate`).
+- **Database access:** ~~`@neondatabase/serverless` (HTTP for single queries, WebSocket `Pool` for transactions), Drizzle ORM for typed queries and migrations (`drizzle/` folder, `npm run db:migrate`).~~ **Built 14 Nov 2026 (step 0.6):** `pg` (node-postgres) TCP `Pool` over Neon's direct URL - Cloud Run is a long-running container, not an edge function; plain SQL in handlers (`api/_lib/db.js`, per-request query count, `transaction`); schema from `scripts/gen-ddl.js` → `migrations/postgres/`, applied by `npm run db:migrate` (`scripts/db-migrate.js`, `schema_migrations`). No ORM. The route: `api/_lib/rpcCore.js`; no `DATABASE_URL` → every action to Apps Script.
 - **Region:** Cloud Run in `asia-southeast1` and Neon in `aws-ap-southeast-1` - both Singapore (a short in-city round trip; measure it in Phase 0, not assumed). Previews on Vercel reach the API through the old Vercel proxy (`iad1`) until the base URL switches.
 - **Observability:** the proxy's log line (action, duration_ms, user_id, company_id, auth, backend, status) gains `query_count`; Cloud Logging (`gcloud run services logs read daloy`) and a log-based metric for p95 per action.
 

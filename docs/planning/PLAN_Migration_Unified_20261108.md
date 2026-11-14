@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.6.0
-Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 11 November 2026 UTC+8 (Philippine Standard Time)
+Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.7.0
+Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 14 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: THE migration plan + step-by-step, top to bottom: Apps Script / Google Sheets → Google Cloud Run + Neon Postgres (all servers in Asia), previews on Vercel, Google Sheets kept as a customer option; then the remaining v10.2 features and organizations on the new server | Status: Active - current roadmap (Phase F done, H.3 production deployed - custom domain pending, 0.7 schema generated)
 REVISION HISTORY:
+- v1.7.0 | 14 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | D15 data residency in Singapore approved (0.3 clearance part; user: "record ok as confirmed by Kenneth Advento, owner of krativ. wala man tayong choice since no PH locaton available"). 0.6 done (user: "go 0.6"): `pg` driver, `/api/rpc` + Apps Script fallback, `db:migrate`; 0.7 part 2 started - `0001` applied on Neon `dev`. Session 92b85189
 - v1.6.0 | 11 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | H.3 Claude part done: production revision `daloy-00007-z66` (100 %) + Firebase Hosting live at krativ-daloy.web.app (user: test site "2 is ok"); custom domain / authorized domains / APP_URL wait for the user. 0.7 part 1: `scripts/gen-ddl.js` + `scripts/db/ddl-rules.js` → `migrations/postgres/0001` (54 tables: 45 from TABLE_SCHEMAS + 9 new) / `0002` (uniques + FKs after the load, with a preflight report); `npm run check:ddl`; checked on real Postgres (PGlite). Session 44cbe47d
 - v1.5.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Before H.3: UI fixes from the test-site review built + test-deployed (Dashboard A, compact Tickets filters, Reports dates, footer; handoff HANDOFF_UIFixes_ProdMove_20261109.md); H.4 redirect ready on branch `h4/vercel-previews-only` (merge after H.3). Session 5f83b40e
 - v1.4.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | H.1 + H.2 done (gate met; the Git Bash path-rewrite bug found and fixed in deploy-cloudrun.sh v1.2); new step 3.6 - Admin "Backend Integration Status" panel flagged (user: "flag for update once core is migrated off appscript (unless clients using Sheets)"); 3.1 STATUS note (Cloud Run build already drops Vercel)
@@ -52,6 +53,7 @@ approvals, the Apps Script editor; **Claude** = code, scripts, tests, docs, depl
 | D12 | **Servers in a new Google project `krativ-daloy`** (display name KRATIV DALOY - `KRATIV_DALOY` is not a valid id; ids never change): Cloud Run, Firebase Hosting, Secret Manager, billing, later the Drive service accounts (`daloy-org-<id>@krativ-daloy.iam.gserviceaccount.com`) and the Better Auth / Drive OAuth clients. **Sign-in stays in `jarvisbyerp`** (Firebase Auth) until Better Auth (1.3), so no user moves; then `jarvisbyerp` retires. `deploy-cloudrun.sh` v1.1 keeps the two ids apart | user, 9 Nov 2026 ("iwant to change to KRATIV_DALOY" → "New project krativ-daloy for servers") |
 | D13 | **Emails go through the client's own mail service** - no platform email provider (SES dropped from the stack). Same shape as D11: a connection per organization (company may override). Details E1–E7 below - **all decided 14 Nov 2026** (E3 revised twice) | user, 14 Nov 2026 ("no emails first", "emails should go throug client service", "rest is ok") |
 | D14 | **Data stack confirmed (step 0.1):** Neon Postgres Singapore (Free while building, Launch before the first paying customer), Better Auth in Neon with Google sign-in (Firebase Auth retires at 1.3), Cloud Scheduler for the jobs, attachments in the client's Drive (D11), email per D13 | user, 14 Nov 2026 ("rest is ok") |
+| D15 | **Data residency in Singapore approved (step 0.3, clearance part):** company data may be stored and processed in Singapore (Cloud Run `asia-southeast1`, Neon `aws-ap-southeast-1`). Reason: no provider offers a Philippine region (D2, CHECK §2) - Singapore is the nearest. Approved by **Kenneth R. Advento, owner of KRAtiv Solutions**. The IP / invention-assignment clause and the lawyer's review of the DPA / Privacy / Terms changes stay open (0.3, 0.10) | user, 14 Nov 2026 ("record ok as confirmed by Kenneth Advento, owner of krativ. wala man tayong choice since no PH locaton available") |
 
 **D13 details (proposed defaults):**
 - **E1** Connection kinds: **Google Workspace** (Gmail API, one role mailbox such as `daloy@client.com`, scope `gmail.send` only), **Microsoft 365** (Graph `Mail.Send` for one mailbox), or **SMTP** (the client's host / port / user + app password, stored encrypted). Set per organization; a company may use its own.
@@ -181,6 +183,8 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       watch the budget alerts since Phase H. *CHECK §4.*
 - [ ] **0.3 You** - Data Privacy Act / IT clearance to move company data to Singapore; the IP / invention-assignment
       clause; a lawyer reviews the DPA / Privacy / Terms changes. *CHECK §7; PLAN_Migration §10.*
+      **Clearance done 14 Nov 2026 → D15** (approved by Kenneth R. Advento, owner of KRAtiv Solutions: no Philippine
+      region exists). Still open: the IP / invention-assignment clause; the lawyer's review (with 0.10).
 - [ ] **0.4 You** - accounts: Neon project **`aws-ap-southeast-1`** (branches `main`, `dev`; **Free while building** - no
       subscription, no monthly fee: 100 CU-h / project / month, 0.5 GB, suspends after 5 min idle, 6 h restore history,
       at the limit the compute stops until next month (data kept); **Launch** - pay per use, no minimum - before the
@@ -196,10 +200,25 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       Neon skills not installed (CLI needs Node ≥ 22.20, PC has 22.14). AWS / SES: dropped (D13).
 - [ ] **0.5 Claude (You run)** - baseline: `node scripts/measure-api-latency.js --url https://daloy.blueknight.xyz/api/appscript-proxy`
       (5 runs per action), recorded in `docs/planning/REVIEW_AppScriptReco_20261030.md` §5.
-- [ ] **0.6 Claude** - `docs/reference/PRODUCTION_REQUIREMENTS.md` first (new packages: `@neondatabase/serverless`,
+- [x] **0.6 Claude** - `docs/reference/PRODUCTION_REQUIREMENTS.md` first (new packages: `@neondatabase/serverless`,
       `drizzle-orm` / `drizzle-kit`, `better-auth`), then `/api/rpc` in `server/app.js`: handler registry
       (`api/_lib/handlers/<group>.js`), the Apps Script fallback for unported actions, `X-Backend: pg | gas` +
       `query_count` in the log line; `npm run check:api-contract` / `check:code-rules` / `test:server` pass. *PLAN_Migration §2.*
+      **Done 14 Nov 2026 (session 92b85189, not deployed):** package = **`pg` 8.23.1 only** (TCP pool on Cloud Run;
+      `@neondatabase/serverless` + Drizzle dropped - plain SQL from `gen-ddl.js`, queries visible for the budgets;
+      `better-auth` at 1.3). `api/_lib/db.js` (per-request query count, all-or-nothing `transaction`, `sslmode` →
+      `verify-full`, URLs redacted), `createAuthenticator` shared by the proxy and `api/_lib/rpcCore.js` (same 401 codes),
+      `api/_lib/handlers/` (registry, duplicate names refused - A20; first handler `dbHealth`, 2 queries),
+      `rpcErrors.js` (`requireUser`, 400 / 403 / 404). **No `DATABASE_URL` → every action goes to Apps Script**, so
+      production is unchanged until the variable is set. `npm run db:migrate` (`scripts/db-migrate.js`: secret read into
+      memory, `schema_migrations` + sha256, advisory lock, preflight gate, `--status` / `--dry-run` / `--to` /
+      `--down --yes`). Tests: `test:server` 24 (13 + 11 rpc), `test:db-migrate` 14 (+ PGlite 1), proxy 26.
+      **Not done here:** `check:api-contract` still checks against Apps Script only - the frontend calls
+      `/api/appscript-proxy` (`src/config/apiConfig.js`), so counting rpc handlers as routes now would hide a real gap.
+      It changes with the base-URL switch to `/api/rpc` (Phase 1).
+      **Live:** `/api/rpc` `dbHealth` → Neon `dev`: 200, `X-Backend: pg`, `query_count` 2; Postgres 18.7; round trip
+      **≈ 70 ms from the office PC** (611 ms on the first call while the compute woke up) - from Cloud Run in Singapore it
+      will be measured after the first deploy with `DATABASE_URL`.
 - [ ] **0.7 Claude** - schema: `scripts/gen-ddl.js` from the **49 tables** of `TABLE_SCHEMAS` (latest AppScript file) →
       migration `0001` with types, keys, constraints, the day-one indexes, the v10 tables, **plus `organizations` +
       `organization_id`** (D9) **and the attachment columns / tables of D11** (`drive_connections`, the
@@ -215,6 +234,9 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       real Postgres - passed). Left for part 2: the `db:migrate` runner (needs the 0.6 packages), apply on Neon `dev`, `EXPLAIN`.
       **14 Nov 2026 (rules v1.1, D13 E7):** + `mail_connections`, `organizations.mail_connection_id`, `companies.mail_setting`
       / `mail_connection_id` → **55 tables** (10 new), 46 indexes, 13 unique rules, 80 FKs; tests + PGlite pass.
+      **Part 2 started 14 Nov 2026 (session 92b85189):** `npm run db:migrate -- --to 0001` applied on Neon `dev` (532 ms;
+      56 tables incl. `schema_migrations`). `0002` waits for the load (0.8) and its preflight. Left: `EXPLAIN` for the hot
+      paths in `docs/perf/` (needs rows - after 0.8).
 - [ ] **0.8 Claude writes, You run in the editor** - a **read-only export** route in a new AppScript fix file;
       `repairCompanyLocksApply()` first; the transform (booleans, blank → NULL, `jsonb`, dates, the **`TS_UTC_SINCE` −8 h
       rule** per column); load into `dev` in dependency order. **Gate:** row counts per table + 10 tickets end to end.
