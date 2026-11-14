@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: HANDOFF_Migration_Phase0_20261114.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: HANDOFF_Migration_Phase0_20261114.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 14 November 2026 UTC+8 (Philippine Standard Time) | Modified: 14 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Handoff from session 44cbe47d (Phase H done, Phase 0 started) to the next session after a Claude Code restart | Status: Open - read at the start of the next session
 REVISION HISTORY:
+- v1.1.0 | 14 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §1a: the full list of Neon set-up changes (user: "record these as well in the handoff")
 - v1.0.0 | 14 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 44cbe47d). User: "pause session, as i will restart claude"
 ===============================================================================
 -->
@@ -42,6 +43,47 @@ REVISION HISTORY:
   (55 tables incl. `mail_connections`); `npm run check:ddl`; PGlite check passed (PGlite was in the old scratchpad).
 - Claude.md v4.6 (working rule 3: production = Cloud Run; `check:ddl` before a push); memories
   `feedback_batch_then_deploy_check` (updated), `feedback_spell_out_interactive_steps` (new).
+
+## §1a Neon set-up (14 Nov 2026) - every change made
+The Neon database is ready and its dev connection string is stored in Secret Manager; the password was never printed.
+The Neon MCP server is installed for this project; the Neon skills are not (they need a newer Node.js).
+
+**Neon account**
+| Change | Detail |
+|---|---|
+| Project checked | `daloy` (`falling-brook-59657512`, org `org-shy-haze-40497133`): Singapore (`aws-ap-southeast-1`), Postgres 18, Free plan |
+| Database added | `daloy` on the `production` branch (owner `neondb_owner`). Neon's default `neondb` is left alone and unused |
+| Branch created | `dev` (`br-muddy-band-aocsslat`), copied from `production` (`br-cold-feather-aoyphgfz`), so it has the `daloy` database too |
+
+**Google Cloud (`krativ-daloy`)**
+| Change | Detail |
+|---|---|
+| New secret `daloy-db-dev-url` | The `dev` branch's connection string to the `daloy` database (direct, not pooled; `sslmode=require`, `channel_binding=require`). Replication **asia-southeast1 only**, unlike the older `daloy-proxy-secret` / `daloy-apps-script-url` (automatic = worldwide). Labels `app=daloy`, `env=dev` |
+| How it got there | `neon connection-string dev --database-name daloy --role-name neondb_owner` piped straight into `gcloud secrets versions add` - never printed. Checked by shape only: Neon Singapore host `ep-snowy-waterfall-aoxq6js9.c-2.ap-southeast-1.aws.neon.tech`, database `/daloy`, user `neondb_owner`, a password present |
+
+**Repo (not committed)**
+| Change | Detail |
+|---|---|
+| New file `.mcp.json` | Neon MCP server for Claude Code in this project: `type: http`, URL `https://mcp.neon.tech/mcp?projectId=falling-brook-59657512` only - no key or password (OAuth: Neon asks the user to sign in on first use), limited to the `daloy` project. Written by `neon mcp --oauth --project --agent claude-code --project-id falling-brook-59657512 -y` |
+
+**This PC**
+| Change | Detail |
+|---|---|
+| Neon CLI 9.5.0 | Installed in the old session's scratch folder (not global; gone with that folder). `npx neon@9.5.0` failed on an npm cache lock (EPERM) |
+| Neon CLI sign-in | Saved under the user profile (profile `DEFAULT`); revocable in Neon's account settings |
+
+**Not done**
+- **Neon skills:** `neon skills -s neon --agent claude-code -y` refused - it needs Node.js ≥ 22.20, the PC has 22.14.0. Node
+  was not upgraded (whole machine + `docs/reference/PRODUCTION_REQUIREMENTS.md`). To get them: update Node to the current
+  22.x LTS, then say "install neon skills".
+- **Neon's `init` / `link` / `env pull`:** they write the database password into `.env`, and plain `.env` is not
+  git-ignored in this repo. Secret Manager replaces them.
+- **Neon's feedback report:** not requested.
+
+Recorded in the migration plan (0.4) as commit `909e484`.
+
+**Open for the user:** restart Claude Code in this folder so it loads `.mcp.json` (trust the Neon server; sign in on
+first use); say whether to commit `.mcp.json` (Claude's default: yes - no secret in it, cloud sessions get the server too).
 
 ## §2 Next steps
 | Step | Who | What |
