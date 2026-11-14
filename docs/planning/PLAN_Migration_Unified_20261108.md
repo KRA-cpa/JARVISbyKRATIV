@@ -155,6 +155,11 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
 
 ### Phase 0 — Foundations
 - [ ] **0.1 You** - confirm the data stack (Neon Singapore + Better Auth + SES Singapore). *CHECK §6.*
+      **14 Nov 2026 - email deferred** (user: "no emails first"): no AWS / SES account now. Until the email provider is
+      chosen, notification emails keep going out from **Apps Script** (MailApp + the 15-minute outbox trigger) as today;
+      the new server writes in-app notifications + `email_outbox` rows only. The provider must be decided **before the
+      write cutover (Phase 2)**, when tickets stop flowing through Apps Script. Neon (1), Better Auth (2), Cloud Scheduler
+      (4), attachments in the client's Drive (5): awaiting the user's answer.
 - [ ] **0.2 You + Claude** - verify the UNVERIFIED prices (Cloud Run Tier 2 Singapore, egress) in the Google calculator;
       watch the budget alerts since Phase H. *CHECK §4.*
 - [ ] **0.3 You** - Data Privacy Act / IT clearance to move company data to Singapore; the IP / invention-assignment
@@ -162,7 +167,7 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
 - [ ] **0.4 You** - accounts: Neon project **`aws-ap-southeast-1`** (branches `main`, `dev`; **Free while building** - no
       subscription, no monthly fee: 100 CU-h / project / month, 0.5 GB, suspends after 5 min idle, 6 h restore history,
       at the limit the compute stops until next month (data kept); **Launch** - pay per use, no minimum - before the
-      first paying customer, CHECK §2.1 / §5); AWS +
+      first paying customer, CHECK §2.1 / §5); *(AWS / SES part deferred 14 Nov 2026 - see 0.1)* AWS +
       **SES `ap-southeast-1`** (domain DKIM / SPF / DMARC on blueknight.xyz, production-access request - the sandbox is
       200 / 24 h); connection strings and keys in Secret Manager. *(Object storage in Asia: **deferred** - files go to the
       client's Drive, D11; revisit only if a customer without Workspace needs uploads.)*
