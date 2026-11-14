@@ -140,9 +140,13 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       `krativ-daloy.web.app` in `jarvisbyerp` (checked); `APP_URL` set (user). On the domain: `/`, `/plans`, `/status`,
       `/dashboard` 200 with strict TLS, `ping` via `gas` + `no-store`, no token → 401; the user signed in and saved a
       display time zone (user: "timezone change = reflected"). Optional: remove the old `jarvis.blueknight.xyz` authorized domain.
-- [ ] **H.4 Claude → You** - **Claude part done 14 Nov 2026** (user: "push"): merged (`6ced602`), checks run, main3
-      pushed, Claude.md v4.6 rule 3 + memory `feedback_batch_then_deploy_check` updated. **Left: You** - Vercel Production
-      Branch → `vercel-production-retired`, then the gate check. (`vercel.json` was on branch `h4/vercel-previews-only`, commit `1db367a`; merged into
+- [x] **H.4 Claude → You** - **Done 14 Nov 2026** (user: "push"): merged (`6ced602`), 22 checks passed, main3 pushed,
+      Claude.md v4.6 rule 3 + memory `feedback_batch_then_deploy_check` updated. **Found:** a second Vercel production
+      domain `jarvis.blueknight.xyz` still served the old app → redirected too (`d1602c3`, pushed before the switch).
+      Vercel wanted the branch to exist → `vercel-production-retired` created on GitHub at `d1602c3` (= the redirect
+      build; **never push to it**). Branch Tracking saved (user screenshot); no redeploy. **Gate met:**
+      `jarvis-by-erp.vercel.app/plans` + `jarvis.blueknight.xyz/plans` → 307 `daloy.blueknight.xyz/plans`, `/api` still 200.
+      Step 4 below (redirect `permanent: true`) after a week without problems. (`vercel.json` was on branch `h4/vercel-previews-only`, commit `1db367a`; merged into
       main3 only after H.3) `vercel.json` host-scoped redirect, one last Vercel production push, then Vercel Production
       Branch → `vercel-production-retired`. Update `Claude.md` working rule 3 + memory `feedback_batch_then_deploy_check`
       (production check = Cloud Run). **Gate:** `jarvis-by-erp.vercel.app/plans` lands on the new domain; pushes build
@@ -302,7 +306,7 @@ Order (each = design section → `/api/rpc` handlers + tests → screens → con
 | Phase | Done | Notes |
 |---|---|---|
 | F | ✅ (open v10.2 user steps remain) | 8 Nov 2026 |
-| H | code ✅, H.1 ✅, H.2 ✅, UI fixes ✅, H.3 ✅ (daloy.blueknight.xyz live), H.4 pushed (Vercel setting left) | `d342c68`; UI fixes `749bd4a`..`52813f8`; H.4 `1db367a` (branch); prod `daloy-00007-z66` 11 Nov 2026 |
+| H | ✅ 14 Nov 2026 (H.1–H.4; Vercel = previews only; redirect → permanent after ~21 Nov) | `d342c68`; UI fixes `749bd4a`..`52813f8`; H.4 `1db367a` (branch); prod `daloy-00007-z66` 11 Nov 2026 |
 | 0 | 0.7 part 1 ✅ | schema generator + migrations 0001 / 0002, 11 Nov 2026 |
 | 1 | - | |
 | 2 | - | |
