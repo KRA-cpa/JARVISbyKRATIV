@@ -53,6 +53,11 @@
       @keyframes daloy-flow { to { stroke-dashoffset: 0; } }
       @keyframes daloy-in { from { opacity: 0; } to { opacity: 1; } }
       @media (prefers-reduced-motion: reduce) { .daloy-stream-base { opacity: 1; } .daloy-stream-flow { display: none; } }
+      /* /platform addresses: the console's loader (src/components/shared/PlatformLoadingScreen.js) */
+      #daloy-splash .accent { color: #d97706; }
+      #daloy-splash .staff { font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: .05em; text-transform: uppercase; color: #4b5563; }
+      #daloy-splash.dark .accent { color: #fbbf24; }
+      #daloy-splash.dark .staff { color: #9ca3af; }
     </style>
   </head>
   <body>
@@ -78,6 +83,25 @@
           var dark = saved !== null ? JSON.parse(saved) === true : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
           if (dark) document.getElementById('daloy-splash').className = 'dark';
         } catch (e) { /* storage blocked: stay light */ }
+      })();
+      // The Platform console (/platform, /platform/login) opens with its own loader - the same drawing as
+      // src/components/shared/PlatformLoadingScreen.js (slate tile, amber edge, three streams rippling 0.6 s apart).
+      (function () {
+        if (!/^\/platform(\/|$)/.test(window.location.pathname)) return;
+        var loader = document.querySelector('#daloy-splash .daloy-loader');
+        if (!loader) return;
+        var streams = ['M5 12.5c3 0 3-1.8 6-1.8s3 1.8 6 1.8 3-1.8 6-1.8', 'M5 17.5c3 0 3-1.8 6-1.8s3 1.8 6 1.8 3-1.8 6-1.8',
+          'M5 22.5c3 0 3-1.8 6-1.8s3 1.8 6 1.8 3-1.8 6-1.8'];
+        var paths = streams.map(function (d, i) {
+          var delay = Math.round(((3 - i) * 600) % 1800);
+          return '<path class="daloy-stream-base" d="' + d + '" fill="none" stroke="#FCD34D" stroke-opacity="0.45" stroke-width="1.8" stroke-linecap="round" />' +
+            '<path class="daloy-stream-flow" d="' + d + '" pathLength="100" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" style="animation-delay:-' + delay + 'ms" />';
+        }).join('');
+        loader.innerHTML = '<svg width="56" height="56" viewBox="0 0 32 32" aria-hidden="true" focusable="false">' +
+          '<rect x="0.75" y="0.75" width="30.5" height="30.5" rx="7.5" fill="#0F172A" stroke="#F59E0B" stroke-width="1.5" />' +
+          '<path d="M10 7v18h5.5a9 9 0 0 0 0-18H10z" fill="none" stroke="#F8FAFC" stroke-width="2.4" stroke-linejoin="round" />' + paths +
+          '</svg><span class="name">Daloy <span class="accent">Platform</span></span><span class="staff">KRAtiv staff console</span>' +
+          '<span class="sr">Loading the Daloy Platform console</span>';
       })();
     </script>
     <!--

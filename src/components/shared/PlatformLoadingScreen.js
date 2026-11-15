@@ -41,12 +41,23 @@ export const PlatformMark = ({ size = 28, animated = false, phase = 0, title }) 
   </svg>
 );
 
+const FADE_DELAY_MS = 300;
+
+/**
+ * Highlights continue on the page clock, and the fade-in waits only what is left of the 300 ms when the pre-React splash
+ * (public/index.html, which shows this same drawing on /platform addresses) is still on screen - as LoadingScreen does.
+ */
+const timing = () => {
+  const now = typeof performance !== 'undefined' ? performance.now() : 0;
+  const fromSplash = typeof document !== 'undefined' && document.getElementById('daloy-splash') !== null;
+  return { phase: Math.round(now % FLOW_MS), fadeDelay: `${Math.round(fromSplash ? Math.max(0, FADE_DELAY_MS - now) : FADE_DELAY_MS)}ms` };
+};
+
 const PlatformLoadingScreen = () => {
-  // Continue the highlights on the page clock (as LoadingScreen), so a re-mount doesn't restart them visibly
-  const [phase] = useState(() => (typeof performance !== 'undefined' ? Math.round(performance.now() % FLOW_MS) : 0));
+  const [{ phase, fadeDelay }] = useState(timing);
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
-      <div role="status" className="daloy-loader flex flex-col items-center gap-3">
+      <div role="status" className="daloy-loader flex flex-col items-center gap-3" style={{ animationDelay: fadeDelay }}>
         <PlatformMark size={56} animated phase={phase} />
         <span className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">
           Daloy <span className="text-amber-600 dark:text-amber-400">Platform</span>

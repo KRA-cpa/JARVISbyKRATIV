@@ -81,7 +81,7 @@ const SmartRedirect = () => {
 const WithNotices = ({ children }) => <><PrivacyNoticeGate /><AnnouncementBanner /><LoginNoticeBanner />{children}</>;
 
 // Protected Route Component with Development Toggle
-const ProtectedRoute = ({ children, requireAdmin = false, loginPath = '/login' }) => {
+const ProtectedRoute = ({ children, requireAdmin = false, loginPath = '/login', loader = null }) => {
   const { isAuthenticated, isAdmin, loading } = useUser();
   const location = useLocation();
 
@@ -90,9 +90,9 @@ const ProtectedRoute = ({ children, requireAdmin = false, loginPath = '/login' }
     return <WithNotices>{children}</WithNotices>;
   }
 
-  // Original authentication logic for production
+  // Original authentication logic for production - the route's own loader (the Platform console has its own)
   if (loading) {
-    return <LoadingScreen />;
+    return loader || <LoadingScreen />;
   }
 
   // Sign-in comes back to this page (e.g. a notice link from an email), not the dashboard - src/utils/returnPath.js
@@ -223,7 +223,7 @@ const AppRoutes = () => {
           {/* The notice a sign-in banner links to (src/config/notices.js) - signed-in users of the organizations addressed */}
           <Route path="/notices/:id" element={<ProtectedRoute><NoticePage /></ProtectedRoute>} />
           {/* Platform console: signed in here; the page itself allows platform admins (any signed-in user on previews) */}
-          <Route path="/platform" element={<ProtectedRoute loginPath="/platform/login"><Suspense fallback={<PlatformLoadingScreen />}><PlatformPage /></Suspense></ProtectedRoute>} />
+          <Route path="/platform" element={<ProtectedRoute loginPath="/platform/login" loader={<PlatformLoadingScreen />}><Suspense fallback={<PlatformLoadingScreen />}><PlatformPage /></Suspense></ProtectedRoute>} />
           {/* The staff sign-in for the console (user, 15 Nov 2026: "platform login still goes to /login. why?") - its own
               page; signed in already → /platform */}
           <Route path="/platform/login" element={<OpenRoute><Suspense fallback={<PlatformLoadingScreen />}><PlatformLoginPage /></Suspense></OpenRoute>} />
