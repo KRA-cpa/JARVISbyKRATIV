@@ -13,7 +13,7 @@ export const PLATFORM_LOGIN_PATH = '/platform/login';
 
 export const PLATFORM_GROUPS = ['Operate', 'Commercial', 'Content', 'Governance'];
 
-/** M1-M16 in the order of the left rail (design §2). */
+/** M1-M17 in the order of the left rail (design §2; M17 Costs proposed 16 Nov 2026 - OPEN O14). */
 export const PLATFORM_MODULES = [
   { id: 'overview', code: 'M1', group: 'Operate', name: 'Overview', phase: 'PM1',
     summary: 'Tiles for customers, trials, sessions, notices and requests, the Needs attention list and the last platform actions.' },
@@ -46,8 +46,53 @@ export const PLATFORM_MODULES = [
   { id: 'privacy', code: 'M16', group: 'Governance', name: 'Privacy desk', phase: 'PM1',
     summary: 'Rights requests with due dates, deletion cases with their export / delete runs, retention runs, review dates.' },
   { id: 'team', code: 'M13', group: 'Governance', name: 'Team & audit', phase: 'PM1',
-    summary: 'Platform admins and their roles, 2-step verification check dates, the platform audit log.' }
+    summary: 'Platform admins and their roles, 2-step verification check dates, the platform audit log.' },
+  { id: 'costs', code: 'M17', group: 'Governance', name: 'Costs', phase: 'PM1',
+    summary: 'What running Daloy costs: Google Cloud from the billing export, Neon usage against the Free limits, other bills typed in; budget alerts.' }
 ];
+
+/**
+ * WIREFRAME sample data for M17 Costs (proposed 16 Nov 2026 - OPEN_PlatformManager O14; user: "can we api to the
+ * privders to get the latest billing - and view it in platform admin?"). Invented figures; amounts only (no card or
+ * invoice data). Google Cloud = the Cloud Billing export to BigQuery (asia-southeast1), read daily; Neon = the project's
+ * usage numbers (Free plan); the rest typed in by hand.
+ */
+export const WIREFRAME_COSTS = {
+  month: 'November 2026',
+  asOf: '16 Nov 06:00',
+  lagNote: 'Google Cloud billing data arrives up to a day late.',
+  rate: { usdPhp: 58.2, source: 'BSP rate for November (M6 Exchange rates)' },
+  budget: { usd: 10, alertsAt: [50, 90, 100] },
+  monthToDateUsd: 0.47,
+  forecastUsd: 0.91,
+  lastMonthUsd: 0.38,
+  /** Daily total, 1-16 Nov (USD). */
+  daily: [0.01, 0.01, 0.02, 0.02, 0.01, 0.01, 0.02, 0.03, 0.06, 0.04, 0.03, 0.02, 0.03, 0.05, 0.06, 0.05],
+  providers: [
+    { provider: 'Google Cloud', source: 'Billing export (BigQuery, Singapore)', services: [
+      { name: 'Cloud Run (Singapore)', usd: 0.0, note: 'inside the free tier: 9 400 vCPU-s of 180 000' },
+      { name: 'Cloud Build (deploys)', usd: 0.21, note: '7 builds' },
+      { name: 'Artifact Registry (images)', usd: 0.12, note: '1.2 GB stored' },
+      { name: 'Secret Manager', usd: 0.08, note: '4 secrets, 11 000 reads' },
+      { name: 'Cloud Scheduler', usd: 0.0, note: '2 jobs of the 3 free' },
+      { name: 'Firebase Hosting', usd: 0.0, note: '0.4 GB served of 10.8 GB free' },
+      { name: 'Cloud Logging', usd: 0.06, note: '0.3 GB ingested' }
+    ] },
+    { provider: 'Neon (Postgres, Singapore)', source: 'Project usage (Free plan)', services: [
+      { name: 'Compute - production + dev', usd: 0.0, note: 'Free plan' }
+    ] },
+    { provider: 'Typed in by hand', source: 'Entered in the console', services: [
+      { name: 'Domain blueknight.xyz', usd: 0.0, note: 'yearly - next renewal shown in Needs attention' },
+      { name: 'GitHub', usd: 0.0, note: 'free plan' }
+    ] }
+  ],
+  /** Neon Free limits this month (the 1.1 sync is planned at ~81 CU-h). */
+  neon: [
+    { label: 'Compute (CU-hours)', used: 38.6, forecast: 79, limit: 100, unit: 'CU-h',
+      note: 'At 100 the database stops until 1 Dec - upgrade to Launch before that.' },
+    { label: 'Storage', used: 0.03, forecast: 0.04, limit: 0.5, unit: 'GB', note: '' }
+  ]
+};
 
 /** WIREFRAME sample data for the Overview - invented, no real customer. */
 export const WIREFRAME_OVERVIEW = {

@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: OPEN_PlatformManager_20261115.md | Author: Kenneth R. Advento | Version: 1.0.0
-Created: 15 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
+Document: OPEN_PlatformManager_20261115.md | Author: Kenneth R. Advento | Version: 1.1.0
+Created: 15 November 2026 UTC+8 (Philippine Standard Time) | Modified: 16 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Open items of the Platform manager design - each with the DEFAULT the design uses until you answer, so you can come back to it | Status: Open (defaults in use)
 REVISION HISTORY:
+- v1.1.0 | 16 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | O14 added - provider costs in the console (user: "can we api to the privders to get the latest billing - and view it in platform admin?")
 - v1.0.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 461f9ea9). User: "create separate list of open items in plan", "use defaults, but create a doc so i can go back to it"
 ===============================================================================
 -->
@@ -33,5 +34,6 @@ marks the row done. "ok" = keep the default.
 | O11 | Visual design - the UI refresh decisions (`docs/design/DECISIONS_UIRefresh_20261110.md`, none answered yet) | the current app look | PM-D19, every screen | You | before the first `/platform` screen ships | | |
 | O12 | Progress scope +5 pts (PM-D10) | applied: roadmap 154 → 159 (`PROGRESS_FeatureCompletion.md`) | PROGRESS | You (ok) | now | | |
 | O13 | Retention periods the console shows and runs (privacy checklist A5) | email outbox 90 days, sign-in rows 1 year | M16 retention, `scripts/db-retention.js` | You / counsel | PM1 | | |
+| O14 | **Provider costs in the console** (proposed module M17 *Costs*, Governance group, PM1). Google Cloud (Cloud Run, Firebase Hosting, Secret Manager, Scheduler): the Cloud Billing export to BigQuery - a dataset in `asia-southeast1` (data from the day it is switched on; a region dataset gets no back-fill), read by a daily `/api/cron/costs` job into `platform_costs` (day, provider, service, cost, currency). Neon: the usage numbers on the project (CPU seconds / CU-h, storage) on Free; the billing-grade consumption API needs Launch or above. GitHub, Vercel previews, the domain: no costs to read (free / yearly) - typed in by hand. Shows: month to date per provider + service, forecast, the Neon Free gauge (CU-h of 100 - the 1.1 sync budget), budget alerts into M1 "Needs attention" | M17 as described; read-only, owner + billing roles; no card or invoice data stored - amounts only | new M17; §5 `platform_costs`; §6 `platformGetCosts` (read ≤ 3 queries) | You (switch the export on in Billing → Billing export - a billing-account admin step) → Claude | PM1 (the Neon gauge could come earlier, with 1.1) | | |
 
 **Done:** (rows move here with the answer and date)
