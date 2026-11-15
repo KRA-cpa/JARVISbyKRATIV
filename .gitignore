@@ -10,6 +10,8 @@
 
 # production
 /build
+# written by scripts/deploy-cloudrun.sh for the Cloud Run image (TABLE_SCHEMAS of the newest APPSCRIPT file)
+/server/table-schemas.json
 
 # misc
 .DS_Store

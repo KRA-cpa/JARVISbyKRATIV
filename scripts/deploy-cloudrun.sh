@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
-# deploy-cloudrun.sh v1.3 - build the React app and deploy Daloy to Google Cloud Run (asia-southeast1, Singapore).
+# deploy-cloudrun.sh v1.4 - build the React app and deploy Daloy to Google Cloud Run (asia-southeast1, Singapore).
 # v1.1 (9 Nov 2026): servers in project krativ-daloy; sign-in (Firebase Auth) stays in jarvisbyerp until Better Auth
 #   (unified plan D12) - the two project ids are separate settings, checked against .env.production.local.
 # v1.2 (9 Nov 2026): no Git Bash path rewriting of REACT_APP_API_BASE_URL; REACT_APP_HOSTING=cloudrun (/status lists
 #   Google only); the build is checked for both before deploying.
 # v1.3 (15 Nov 2026): keeps the live forced sign-out cutoff SESSIONS_VALID_AFTER (scripts/revoke-sessions.sh) - --set-env-vars
 #   replaces every variable, so without this a deploy right after a forced sign-out would let the old sign-ins back in.
+# v1.4 (16 Nov 2026): migration 1.1 - the Sheet -> Neon production sync at /api/cron/sync (server/cronSync.js): secret
+#   daloy-db-prod-url -> SYNC_DATABASE_URL (NOT DATABASE_URL: /api/rpc stays on Apps Script until 1.2), SYNC_SHEET_ID,
+#   TS_UTC_SINCE, CRON_INVOKER, CRON_AUDIENCE; server/table-schemas.json written from the newest APPSCRIPT file.
+#   SKIP_HOSTING=1 with `production`: route Cloud Run only, leave the website on Firebase Hosting as it is.
 # Guide: docs/guides/GUIDE_Deploy_CloudRun_FirebaseHosting.md
 #
 # Usage (Git Bash, from the repo root, after `gcloud auth login` and `firebase login`):
@@ -23,6 +27,10 @@ PROJECT="${GCP_PROJECT:-krativ-daloy}"                # servers: Cloud Run, Fire
 AUTH_PROJECT="${FIREBASE_AUTH_PROJECT:-jarvisbyerp}"  # sign-in: the Firebase project that issues the ID tokens
 REGION="asia-southeast1"
 SERVICE="daloy"
+# Migration 1.1 sync settings (not secrets - PLAN_Migration_Unified 1.1)
+SYNC_SHEET_ID="${SYNC_SHEET_ID:-1EjFpr_yktSU6QAeBSAvcr6iWVtmaOCV1t5unvImmot4}"
+TS_UTC_SINCE="${TS_UTC_SINCE:-2026-10-31T08:13:50.821Z}"
+CRON_INVOKER="daloy-scheduler@${PROJECT}.iam.gserviceaccount.com"
 
 MODE="${1:-}"
 TAG="${2:-}"
@@ -71,12 +79,21 @@ if ! grep -q 'REACT_APP_HOSTING:"cloudrun"' build/static/js/main.*.js; then
   exit 3
 fi
 
+# TABLE_SCHEMAS for the sync in the image (the Apps Script source itself stays out of it)
+node -e 'const g=require("./scripts/gen-ddl");const fs=require("fs");fs.writeFileSync("server/table-schemas.json",JSON.stringify(g.loadTableSchemas(fs.readFileSync(g.newestAppScript(),"utf8"))))'
+[ -s server/table-schemas.json ] || { echo "server/table-schemas.json was not written - not deploying." >&2; exit 3; }
+
+# The scheduler's token is checked against the service URL (the audience Cloud Scheduler signs for)
+CRON_AUDIENCE="$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format='value(status.url)' 2>/dev/null || true)"
+[ -n "$CRON_AUDIENCE" ] || { echo "Could not read the service URL for CRON_AUDIENCE." >&2; exit 3; }
+
 # The forced sign-out cutoff in force now (empty when none) - carried into the new revision unless given explicitly
 if [ -z "${SESSIONS_VALID_AFTER+x}" ]; then
   SESSIONS_VALID_AFTER="$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format=json 2>/dev/null \
     | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const e=(JSON.parse(s).spec.template.spec.containers[0].env||[]).find(v=>v.name==="SESSIONS_VALID_AFTER");process.stdout.write(e&&e.value?e.value:"")}catch(_){}})')"
 fi
 ENV_VARS="AUTH_MODE=$AUTH_MODE,FIREBASE_PROJECT_ID=$AUTH_PROJECT,MAX_SESSION_HOURS=${MAX_SESSION_HOURS:-12}"
+ENV_VARS="$ENV_VARS,SYNC_SHEET_ID=$SYNC_SHEET_ID,TS_UTC_SINCE=$TS_UTC_SINCE,CRON_INVOKER=$CRON_INVOKER,CRON_AUDIENCE=$CRON_AUDIENCE"
 if [ -n "$SESSIONS_VALID_AFTER" ]; then
   echo "    keeping the forced sign-out cutoff SESSIONS_VALID_AFTER=$SESSIONS_VALID_AFTER"
   ENV_VARS="$ENV_VARS,SESSIONS_VALID_AFTER=$SESSIONS_VALID_AFTER"
@@ -89,7 +106,7 @@ DEPLOY_ARGS=(
   --project "$PROJECT"
   --region "$REGION"
   --allow-unauthenticated
-  --set-secrets "PROXY_SECRET=daloy-proxy-secret:latest,APPS_SCRIPT_URL=daloy-apps-script-url:latest"
+  --set-secrets "PROXY_SECRET=daloy-proxy-secret:latest,APPS_SCRIPT_URL=daloy-apps-script-url:latest,SYNC_DATABASE_URL=daloy-db-prod-url:latest"
   --set-env-vars "$ENV_VARS"
   --min-instances 0
   --max-instances 3
@@ -118,5 +135,9 @@ fi
 
 echo "3/3 Routing all traffic to the new revision and publishing Firebase Hosting..."
 gcloud run services update-traffic "$SERVICE" --project "$PROJECT" --region "$REGION" --to-latest
+if [ "${SKIP_HOSTING:-}" = "1" ]; then
+  echo "SKIP_HOSTING=1: Firebase Hosting (the website) left as it is - only the server changed."
+  exit 0
+fi
 firebase deploy --only hosting --project "$PROJECT"
 echo "Done: https://daloy.blueknight.xyz (and https://$PROJECT.web.app)."

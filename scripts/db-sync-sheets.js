@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * db-sync-sheets.js v1.0 (15 Nov 2026, session 461f9ea9) - migration step 1.1: one run of the Sheet → Postgres sync
+ * db-sync-sheets.js v1.1 (16 Nov 2026: the shared run in scripts/lib/syncRun.js + the advisory lock; v1.0 15 Nov 2026, session 461f9ea9) - migration step 1.1: one run of the Sheet → Postgres sync
  * from a terminal (the scheduled runs will call the same code from /api/cron/sync).
  *
  * Usage (npm run db:sync-sheets -- <options>):
@@ -17,13 +17,9 @@
 
 'use strict';
 
-const fs = require('fs');
-const gen = require('./gen-ddl');
-const RULES = require('./db/ddl-rules');
 const migrate = require('./db-migrate');
-const L = require('./db-load-sheets');
 const S = require('./lib/sheetsExport');
-const { syncPlan, stableSurrogates } = require('./lib/sheetsSync');
+const { readPlan, syncOnce } = require('./lib/syncRun');
 const { strictSsl, redact } = require('../api/_lib/db');
 
 function parseArgs(argv) {
@@ -38,16 +34,6 @@ function parseArgs(argv) {
     else throw new Error(`unknown argument ${a}`);
   }
   return opts;
-}
-
-/** Read the Sheet and build the plan of clean rows with stable ids. */
-async function readPlan({ sheetId, token, tsUtcSince, fetchImpl = fetch }) {
-  const schemas = gen.loadTableSchemas(fs.readFileSync(gen.newestAppScript(), 'utf8'));
-  const model = gen.buildModel(schemas, RULES);
-  const spreadsheet = await S.fetchSpreadsheet(sheetId, token, { fetchImpl });
-  const exported = S.exportFromSpreadsheet(spreadsheet, { tsUtcSince, tableSchemas: schemas });
-  const plan = stableSurrogates(L.buildLoadPlan(exported, model), model, schemas);
-  return { plan, model };
 }
 
 async function main(argv) {
@@ -67,7 +53,9 @@ async function main(argv) {
   await client.connect();
   console.log(`Connected: ${migrate.describeTarget(url)} (${source}; password hidden)`);
   try {
-    const r = await syncPlan(migrate.pgAdapter(client), plan, model, { apply: opts.apply, allowShrink: opts.allowShrink });
+    const run = await syncOnce(migrate.pgAdapter(client), plan, model, { apply: opts.apply, allowShrink: opts.allowShrink });
+    if (run.busy) throw new Error('another sync is running (a scheduled run?) - try again in a minute');
+    const r = run.result;
     console.log(r.applied ? 'Synced:' : 'Dry run (rolled back) - would change:');
     Object.entries(r.tables).filter(([, s]) => s.inserted || s.updated || s.deleted)
       .forEach(([t, s]) => console.log(`  ${t}: +${s.inserted} new, ${s.updated} changed, -${s.deleted} removed (${s.rows} in the Sheet)`));

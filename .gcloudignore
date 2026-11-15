@@ -9,6 +9,17 @@
 !api/_lib/**
 !build/
 !build/**
+!scripts/
+!scripts/gen-ddl.js
+!scripts/db-load-sheets.js
+!scripts/db-migrate.js
+!scripts/db/
+!scripts/db/ddl-rules.js
+!scripts/lib/
+!scripts/lib/sheetsExport.js
+!scripts/lib/sheetsSync.js
+!scripts/lib/syncRun.js
+!scripts/lib/companyScope.js
 # Never upload these even if a negation above matches
 **/.env*
 **/node_modules/

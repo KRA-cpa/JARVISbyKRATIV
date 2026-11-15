@@ -41,6 +41,7 @@
     "test:privacy-db": "node scripts/test-privacy-db.js",
     "test:sheets-export": "node scripts/test-sheets-export.js",
     "test:sheets-sync": "node scripts/test-sheets-sync.js",
+    "test:cron-sync": "node scripts/test-cron-sync.js",
     "db:sync-sheets": "node scripts/db-sync-sheets.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject",

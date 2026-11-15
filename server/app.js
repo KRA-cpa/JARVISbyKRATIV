@@ -11,6 +11,8 @@
  *                          api/_lib/handlers/ answer from Neon (X-Backend: pg) once DATABASE_URL is set; every other
  *                          action - and every action while DATABASE_URL is unset - goes through the same proxy handler
  *                          (X-Backend: gas). api/_lib/rpcCore.js; PLAN_Migration_NeonVercel_20261030.md §2
+ *   /api/cron/sync        (migration 1.1, 16 Nov 2026) Sheet → Neon production sync, called by Cloud Scheduler only (a
+ *                          Google-signed token for CRON_INVOKER; server/cronSync.js)
  *   /healthz              liveness for Cloud Run (no auth, no Apps Script call, no database call)
  *   everything else       the React build (optional: Firebase Hosting serves the site in production; serving it here
  *                          too lets a tagged Cloud Run revision be tested on its own URL)
@@ -26,6 +28,7 @@ const express = require('express');
 const { createProxyHandler } = require('../api/_lib/proxyCore');
 const { createRpcHandler, RPC_PATH } = require('../api/_lib/rpcCore');
 const { createDb } = require('../api/_lib/db');
+const { createCronSyncHandler, CRON_SYNC_PATH } = require('./cronSync');
 
 /** Vercel's request body limit (4.5 MB) - kept so both hosts accept the same requests. */
 const BODY_LIMIT = '4.5mb';
@@ -39,10 +42,11 @@ const PROXY_PATH = '/api/appscript-proxy';
  * @param {Function} [options.proxyHandler] - (req, res) handler for the proxy route (tests inject a fake)
  * @param {Function} [options.rpcHandler] - (req, res) handler for /api/rpc (default: rpcCore with the proxy as fallback)
  * @param {Object|null} [options.db] - database for the default rpc handler (default: createDb from DATABASE_URL)
+ * @param {Function} [options.cronSyncHandler] - (req, res) handler for /api/cron/sync (default: server/cronSync.js)
  * @returns {import('express').Express}
  */
 function createApp({ env = process.env, buildDir = path.join(__dirname, '..', 'build'), proxyHandler = null,
-  rpcHandler = null, db } = {}) {
+  rpcHandler = null, db, cronSyncHandler = null } = {}) {
   const app = express();
   app.disable('x-powered-by');
   // Behind Cloud Run / Firebase Hosting: trust the first proxy so req.ip and req.protocol are the client's
@@ -75,6 +79,7 @@ function createApp({ env = process.env, buildDir = path.join(__dirname, '..', 'b
   };
   app.all(PROXY_PATH, express.text({ type: () => true, limit: BODY_LIMIT }), mount(handler));
   app.all(RPC_PATH, express.text({ type: () => true, limit: BODY_LIMIT }), mount(rpc));
+  app.all(CRON_SYNC_PATH, mount(cronSyncHandler || createCronSyncHandler({ env })));
 
   // Unknown API paths answer as JSON, never with the SPA's index.html
   app.all('/api/*splat', (req, res) => res.status(404).json({ success: false, status: 'error', error: 'Not found' }));
@@ -100,4 +105,4 @@ function createApp({ env = process.env, buildDir = path.join(__dirname, '..', 'b
   return app;
 }
 
-module.exports = { createApp, PROXY_PATH, RPC_PATH, BODY_LIMIT };
+module.exports = { createApp, PROXY_PATH, RPC_PATH, CRON_SYNC_PATH, BODY_LIMIT };

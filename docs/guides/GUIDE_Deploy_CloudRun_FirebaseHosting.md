@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_Deploy_CloudRun_FirebaseHosting.md | Author: Kenneth R. Advento | Version: 1.5.0
-Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
+Document: GUIDE_Deploy_CloudRun_FirebaseHosting.md | Author: Kenneth R. Advento | Version: 1.6.0
+Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 16 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Move PRODUCTION from Vercel to Google Cloud Run (asia-southeast1, Singapore) behind Firebase Hosting at daloy.blueknight.xyz; Vercel keeps the previews. Backend unchanged (Apps Script) - the Postgres move follows CHECKLIST_Deploy_PostgresNeon_20261108.md | Status: Ready to run (nothing deployed yet) - the runbook for Phase H of docs/planning/PLAN_Migration_Unified_20261108.md
 REVISION HISTORY:
+- v1.6.0 | 16 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §J Sheet → Neon production sync (migration 1.1): /api/cron/sync, 2 Cloud Scheduler jobs, secret daloy-db-prod-url as SYNC_DATABASE_URL (not DATABASE_URL), run / pause / undo; deploy-cloudrun.sh v1.4 (SKIP_HOSTING=1)
 - v1.5.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §I announce maintenance / an outage (public/announcements.json, firebase deploy --only hosting)
 - v1.4.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §H who is signed in + forced sign-out (scripts/list-signed-in.sh, scripts/revoke-sessions.sh, env SESSIONS_VALID_AFTER); deploy-cloudrun.sh v1.3 keeps the cutoff
 - v1.3.0 | 14 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §G database for `/api/rpc` (migration 0.6): `DATABASE_URL` from Secret Manager when a phase needs it; without it `/api/rpc` = Apps Script. Session 92b85189
@@ -217,3 +218,32 @@ shown again); no Cloud Run deploy; works while Cloud Run / Apps Script is down.
 What users see: the banner at once (maintenance from 3 days before), a modal at a safe moment (not while typing or
 saving), "save your work" 15 minutes before, a banner that can't be hidden while a maintenance window runs, and the
 line on `/status` and the sign-in page.
+
+---
+
+## J. Sheet → Neon production sync (migration 1.1)
+
+*(Added 16 Nov 2026.)* Until the write cutover (migration Phase 2) the Google Sheet stays the source of truth; Neon
+`production` (database `daloy`) is kept equal to its clean rows. Nothing in the Sheet is changed (read-only scope).
+
+- **What runs:** Cloud Scheduler (`asia-southeast1`, time zone Asia/Manila) → `POST https://<service>.run.app/api/cron/sync`
+  with a Google-signed token for `daloy-scheduler@krativ-daloy.iam.gserviceaccount.com` (no roles, no keys).
+  Job **`daloy-sync-hourly`** `0 * * * *` and job **`daloy-sync-workhours`** `5-55/5 7-19 * * 1-5` - together every 5 min
+  Mon–Fri 07:00–20:00, hourly otherwise (≈ 81 Neon CU-h a month of the Free 100).
+- **One run:** the service borrows `daloy-sheet-reader` (read-only), reads the whole Sheet (1–3 s), and in one transaction
+  adds / updates / removes rows (`scripts/lib/syncRun.js` - the same code as `npm run db:sync-sheets`). An advisory lock
+  keeps runs from overlapping (terminal runs included). A table that would lose > 20 % of its rows refuses the whole run.
+- **Settings on the service:** secret `daloy-db-prod-url` → **`SYNC_DATABASE_URL`** (deliberately not `DATABASE_URL`:
+  `/api/rpc` keeps answering from Apps Script until the read cutover, 1.2), `SYNC_SHEET_ID`, `TS_UTC_SINCE`,
+  `CRON_INVOKER`, `CRON_AUDIENCE` (the service URL) - set by `scripts/deploy-cloudrun.sh` v1.4.
+- **Check:** Cloud Logging, `jsonPayload.event="cron_sync"` - `status` (synced / busy / refused / failed), `duration_ms`,
+  counts, changed table names (never row values). Cloud Scheduler → the job's last run shows success / failure.
+- **Run now:** `gcloud scheduler jobs run daloy-sync-hourly --location asia-southeast1 --project krativ-daloy`.
+- **From a terminal:** `npm run db:sync-sheets -- --secret daloy-db-prod-url --allow-non-dev` (dry run; `--apply` for
+  real) with `SYNC_SHEET_ID`, `TS_UTC_SINCE` and a reader token in `SHEETS_ACCESS_TOKEN` - needs Token Creator on the
+  reader, which only Cloud Run has from 16 Nov 2026 (grant it to yourself for the one run, then remove it).
+- **Pause:** `gcloud scheduler jobs pause daloy-sync-hourly ...` and `... daloy-sync-workhours ...` (`resume` to restart).
+- **A refused run** (a bad read): look at the Sheet tab named in the log; if the rows really were removed, one terminal
+  run with `--apply --allow-shrink`.
+- **Website deploys:** `SKIP_HOSTING=1 AUTH_MODE=enforce scripts/deploy-cloudrun.sh production` changes the server only and
+  leaves Firebase Hosting (the website) as it is.

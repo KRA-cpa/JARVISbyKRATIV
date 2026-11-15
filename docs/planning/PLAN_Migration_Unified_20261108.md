@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.8.5
-Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
+Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.8.6
+Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 16 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: THE migration plan + step-by-step, top to bottom: Apps Script / Google Sheets → Google Cloud Run + Neon Postgres (all servers in Asia), previews on Vercel, Google Sheets kept as a customer option; then the remaining v10.2 features and organizations on the new server | Status: Active - current roadmap (Phase F done, H.3 production deployed - custom domain pending, 0.7 schema generated)
 REVISION HISTORY:
+- v1.8.6 | 16 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 1.1 DONE on the user's "go": Neon `production` migrated (0001-0003) + first sync (322 rows; repeat 0); secret `daloy-db-prod-url` (Singapore only) as SYNC_DATABASE_URL; `/api/cron/sync` (server/cronSync.js, scheduler OIDC only) on revision daloy-00009-kec (website unchanged); jobs daloy-sync-hourly + daloy-sync-workhours; developer borrow grants removed
 - v1.8.5 | 16 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 1.1: write half built + first real sync into Neon dev (322 clean rows, +20 / -1, then a repeat run changes nothing); left: `/api/cron/sync` on Cloud Run + the 2 scheduler jobs (production change - on the user's go) and removing the developer's borrow grant afterwards
 - v1.8.4 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 1.1 started (user: option A): read-only service account `daloy-sheet-reader` + Sheets API; read half built (`scripts/lib/sheetsExport.js`); open: share the Sheet, the Sheet id, TS_UTC_SINCE, the write half (upsert with stable ids), the 2 scheduler jobs
 - v1.8.3 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 0.2 done: Cloud Run Tier 2 Singapore + data-transfer prices verified (CHECK_HostingPricing v1.2.0); Cloud Billing API enabled in krativ-daloy (user: "enable")
@@ -301,7 +302,7 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       (with the lawyer, 0.3); Claude before 3.1: set the Cloud Logging bucket region to Singapore.
 
 ### Phase 1 — Sync, reads, sign-in
-- [ ] **1.1 Claude** - sync → `/api/cron/sync` (watermark on `updated_at` / `created_at`, upsert into Neon `main`)
+- [x] **1.1 Claude** - sync → `/api/cron/sync` (watermark on `updated_at` / `created_at`, upsert into Neon `main`)
       from **2 Cloud Scheduler jobs** (time zone Asia/Manila, inside the 3 free jobs): job A **hourly, always**
       (`0 * * * *`); job B the other 5-minute slots **Mon–Fri 07:00–20:00** (`5-55/5 7-19 * * 1-5`) - together every
       5 min in working hours, hourly otherwise, never two runs at once. Not every 5 min around the clock: Neon suspends
@@ -332,6 +333,18 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
         without an id need a stable key, not a new random one per run), deletions, `/api/cron/sync` + the 2 Cloud Scheduler
         jobs, the lag gate. Whole-Sheet read per run instead of a watermark at today's size (303 rows) - simpler and it
         also catches edits that don't touch `updated_at`; switch to the watermark when a run takes > 10 s.
+      - **Done 16 Nov 2026 (user: "go"):** Neon `production` (`br-cold-feather-aoyphgfz`, database `daloy`): `0001`-`0003`
+        applied; secret **`daloy-db-prod-url`** (Singapore only, written by the Neon CLI, never printed; Cloud Run may read
+        it); first sync 322 rows, a repeat run 0 / 0 / 0. **`POST /api/cron/sync`** (`server/cronSync.js`, shared run
+        `scripts/lib/syncRun.js` + an advisory lock; caller = a Google-signed token for `daloy-scheduler@` only - no roles,
+        no keys) on revision **`daloy-00009-kec`** (tested on tag `sync1`: no token / a user token → 401, the scheduler's
+        token → synced in 1.3-4.5 s, read 0.8-2.3 s). The secret is **`SYNC_DATABASE_URL`, not `DATABASE_URL`** - `/api/rpc`
+        stays on Apps Script until 1.2. Production traffic moved to that revision only; Firebase Hosting (the website) not
+        republished (`deploy-cloudrun.sh` v1.4 `SKIP_HOSTING=1`). Cloud Scheduler `asia-southeast1`, Asia/Manila:
+        **`daloy-sync-hourly`** `0 * * * *` + **`daloy-sync-workhours`** `5-55/5 7-19 * * 1-5` - a manual run synced in 1.4 s.
+        The developer's Token Creator grants on the reader and the scheduler account are removed (only Cloud Run borrows the
+        reader). Runbook: deploy guide §J. **Gate - to watch:** lag < 5 / < 60 min (by schedule); Neon CU-h for the month
+        (check in the Neon console around 1 Dec; the Costs module, OPEN_PlatformManager O14, would show it).
 - [ ] **1.2 Claude** - port the read groups (dashboard, reference data, users, reports, notifications, SLA reads);
       handler tests on a Neon branch per run (the `ROUTES_TEST_v9.x` scenarios); Vercel preview first, then production.
       **Gate:** every ported read meets its `Claude.md` p95 + query budget; `X-Backend: pg`. *PLAN_Migration §6 Phase 1, §8.*

@@ -10,8 +10,15 @@ ENV NODE_ENV=production
 COPY server/package.json ./package.json
 RUN npm install --omit=dev --no-audit --no-fund && npm cache clean --force
 
-COPY server/app.js server/index.js ./server/
+COPY server/app.js server/index.js server/cronSync.js ./server/
 COPY api/_lib/ ./api/_lib/
+# Migration 1.1: the Sheet -> Neon sync behind /api/cron/sync (server/cronSync.js) - the same code as `npm run
+# db:sync-sheets`; TABLE_SCHEMAS as JSON (scripts/deploy-cloudrun.sh writes server/table-schemas.json from the newest
+# APPSCRIPT file), so no Apps Script source goes into the image
+COPY server/table-schemas.json ./server/
+COPY scripts/gen-ddl.js scripts/db-load-sheets.js scripts/db-migrate.js ./scripts/
+COPY scripts/db/ddl-rules.js ./scripts/db/
+COPY scripts/lib/sheetsExport.js scripts/lib/sheetsSync.js scripts/lib/syncRun.js scripts/lib/companyScope.js ./scripts/lib/
 COPY build/ ./build/
 
 USER node
