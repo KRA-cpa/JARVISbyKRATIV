@@ -88,6 +88,13 @@
       // src/components/shared/PlatformLoadingScreen.js (slate tile, amber edge, three streams rippling 0.6 s apart).
       (function () {
         if (!/^\/platform(\/|$)/.test(window.location.pathname)) return;
+        // The console's own tab icon from the first paint (src/hooks/useConsoleTab.js restores the app's on leaving)
+        Array.prototype.forEach.call(document.querySelectorAll('link[rel~="icon"]'), function (link) {
+          link.setAttribute('data-app-href', link.getAttribute('href'));
+          link.setAttribute('data-app-type', link.getAttribute('type') || '');
+          link.setAttribute('href', '%PUBLIC_URL%/favicon-platform.svg');
+          link.setAttribute('type', 'image/svg+xml');
+        });
         var loader = document.querySelector('#daloy-splash .daloy-loader');
         if (!loader) return;
         var streams = ['M5 12.5c3 0 3-1.8 6-1.8s3 1.8 6 1.8 3-1.8 6-1.8', 'M5 17.5c3 0 3-1.8 6-1.8s3 1.8 6 1.8 3-1.8 6-1.8',

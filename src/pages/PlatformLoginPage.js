@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import useSignInFlow from '../hooks/useSignInFlow';
+import useConsoleTab from '../hooks/useConsoleTab';
 import { PlatformMark } from '../components/shared/PlatformLoadingScreen';
 import PlatformLoadingScreen from '../components/shared/PlatformLoadingScreen';
 import { GoogleG } from './LoginPage';
@@ -19,15 +20,7 @@ import { PLATFORM_PATH } from '../config/platformConsole';
 const PlatformLoginPage = () => {
   const { loading, error, clearError, notice, isSigningIn, signIn } = useSignInFlow(PLATFORM_PATH);
 
-  React.useEffect(() => {
-    const meta = document.createElement('meta');
-    meta.name = 'robots';
-    meta.content = 'noindex, nofollow';
-    document.head.appendChild(meta);
-    const title = document.title;
-    document.title = 'Staff sign-in - Daloy Platform';
-    return () => { meta.remove(); document.title = title; };
-  }, []);
+  useConsoleTab('Staff sign-in - Daloy Platform');
 
   if (loading && !error) return <PlatformLoadingScreen />;
 

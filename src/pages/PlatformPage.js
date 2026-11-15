@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useCompanyPlans } from '../hooks/useAPI';
+import useConsoleTab from '../hooks/useConsoleTab';
 import PlatformHeader from '../components/shared/PlatformHeader';
 import PlatformLoadingScreen, { PlatformMark } from '../components/shared/PlatformLoadingScreen';
 import { IS_PREVIEW_BUILD } from '../config/platform';
@@ -25,19 +26,6 @@ const TONES = {
   amber: 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100',
   gray: 'border-gray-300 bg-gray-50 text-gray-800 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100'
 };
-
-/** Out of search engines; the tab says "Daloy Platform" (restored when leaving the console). */
-function useNoIndex() {
-  useEffect(() => {
-    const meta = document.createElement('meta');
-    meta.name = 'robots';
-    meta.content = 'noindex, nofollow';
-    document.head.appendChild(meta);
-    const title = document.title;
-    document.title = 'Daloy Platform - KRAtiv staff console';
-    return () => { meta.remove(); document.title = title; };
-  }, []);
-}
 
 const PhaseChip = ({ phase }) => (
   <span className="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-700 dark:bg-gray-700 dark:text-gray-200">{phase}</span>
@@ -295,7 +283,8 @@ const PlatformConsole = () => {
 };
 
 const PlatformPage = () => {
-  useNoIndex();
+  // Out of search engines; the tab says "Daloy Platform" with the console's own icon (restored when leaving)
+  useConsoleTab('Daloy Platform - KRAtiv staff console');
   // Production: only platform admins; previews: any signed-in user, for review (the page holds sample data only)
   const { isPlatformAdmin, loading } = useCompanyPlans({ enabled: !IS_PREVIEW_BUILD });
   const allowed = IS_PREVIEW_BUILD || isPlatformAdmin;
