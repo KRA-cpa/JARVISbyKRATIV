@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { BRAND_NAME, BRAND_PARENT_LINE, BRAND_TAGLINE_LOCAL, BRAND_COPYRIGHT_OWNER } from '../../config/site';
 import { PRIVACY_POLICY } from '../../config/legal/privacy';
 import { TERMS_OF_SERVICE } from '../../config/legal/terms';
+import { PLATFORM_LOGIN_PATH } from '../../config/platformConsole';
 
 // A notice of an upcoming MAJOR change (config pendingChange) is linked from every page footer (user, 1 Nov 2026)
 const PENDING_CHANGES = [[TERMS_OF_SERVICE, '/terms'], [PRIVACY_POLICY, '/privacy']]
@@ -45,6 +46,12 @@ const Footer = ({ className = "", publicSite = false }) => {
               <Link to="/privacy" className="whitespace-nowrap font-medium text-blue-600 hover:underline">Privacy Policy</Link>
               {' · '}<Link to="/terms" className="whitespace-nowrap font-medium text-blue-600 hover:underline">Terms</Link>
               {' · '}<Link to="/status" className="whitespace-nowrap font-medium text-blue-600 hover:underline">Status</Link>
+              {/* Public pages only: the KRAtiv staff sign-in of the Platform console - in the footer, where staff look for
+                  it and customers don't mistake it for their sign-in (user, 15 Nov 2026: "best place in homepage to
+                  situate the platform login") */}
+              {publicSite && (
+                <>{' · '}<Link to={PLATFORM_LOGIN_PATH} className="whitespace-nowrap text-gray-500 hover:text-gray-800 hover:underline">Staff</Link></>
+              )}
             </p>
           </div>
         </div>
