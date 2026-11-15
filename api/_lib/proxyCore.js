@@ -7,6 +7,10 @@
 // MAX_SESSION_HOURS (default 12) - the "fresh sign-in daily" cap. 401s carry a code the app reacts to.
 // 14 Nov 2026 (migration 0.6): the sign-in rules moved into createAuthenticator() so /api/rpc (rpcCore.js) shares them;
 // the proxy's behaviour is unchanged (scripts/test-proxy-auth.js).
+// 15 Nov 2026: forced sign-out - env SESSIONS_VALID_AFTER (a time) refuses every sign-in made before it with
+// SESSION_REVOKED, and the app signs the user out (user: "a check of all signed in users and force logout will still be
+// needed"). Set by scripts/revoke-sessions.sh; kept across deploys by scripts/deploy-cloudrun.sh. Effective in
+// AUTH_MODE=enforce (warn forwards the request without a uid, like an old sign-in).
 
 const { createRemoteJWKSet, jwtVerify } = require('jose');
 
@@ -17,6 +21,8 @@ const FIREBASE_JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/se
 const IDENTITY_FIELDS = ['_auth_uid', '_auth_email', '_proxy_secret', '_via_get'];
 const AUTH_MODES = ['off', 'warn', 'enforce'];
 const DEFAULT_MAX_SESSION_HOURS = 12;
+// A cutoff later than this past the server's clock is a mistake (it would lock everyone out until then)
+const CUTOFF_FUTURE_TOLERANCE_MS = 5 * 60 * 1000;
 
 /**
  * Identity adapter for Firebase ID tokens (the app's sign-in today). Checks signature (Google's securetoken
@@ -107,6 +113,32 @@ function sessionTooOld(identity, hours, nowMs = Date.now()) {
   return nowMs - identity.auth_time * 1000 > hours * 60 * 60 * 1000;
 }
 
+/**
+ * env SESSIONS_VALID_AFTER as ms since epoch, or null when unset / empty. Accepts an ISO time WITH an offset
+ * ('2026-11-20T09:00:00+08:00' / '...Z') or epoch seconds. A value that can't be read, or one more than 5 minutes in the
+ * future, throws: the server must not start with a forced sign-out it can't apply (Cloud Run keeps the old revision).
+ */
+function sessionsValidAfterMs(env, nowMs = Date.now()) {
+  const raw = String(env.SESSIONS_VALID_AFTER || '').trim();
+  if (!raw) return null;
+  let ms = NaN;
+  if (/^\d{9,11}$/.test(raw)) ms = Number(raw) * 1000;
+  else if (/(Z|[+-]\d{2}:?\d{2})$/i.test(raw)) ms = Date.parse(raw);
+  if (!Number.isFinite(ms)) {
+    throw new Error(`SESSIONS_VALID_AFTER "${raw}" is not an ISO time with an offset or epoch seconds`);
+  }
+  if (ms > nowMs + CUTOFF_FUTURE_TOLERANCE_MS) {
+    throw new Error(`SESSIONS_VALID_AFTER "${raw}" is in the future - it would sign everyone out until then`);
+  }
+  return ms;
+}
+
+/** Was this sign-in made before the forced sign-out cutoff? Without auth_time it can't be judged and is refused. */
+function sessionRevoked(identity, cutoffMs) {
+  if (!identity || cutoffMs === null || cutoffMs === undefined) return false;
+  return !identity.auth_time || identity.auth_time * 1000 < cutoffMs;
+}
+
 /** env AUTH_MODE as one of AUTH_MODES (default 'warn'). */
 function authMode(env) {
   const value = String(env.AUTH_MODE || '').toLowerCase();
@@ -118,13 +150,14 @@ function authMode(env) {
  * 401 codes (compliance F6).
  * @param {Object} options - { env, adapters }
  * @returns {{ mode: string, capHours: number, authenticate: Function }} authenticate(headers, action) ->
- *   { uid, identity, auth ('verified' | 'max_age' | 'invalid' | 'none'), authError, refusal (null or { code, error }) }
+ *   { uid, identity, auth ('verified' | 'revoked' | 'max_age' | 'invalid' | 'none'), authError, refusal (null or { code, error }) }
  *   refusal is set only in enforce mode, for a request without a valid identity, except `ping`
  */
 function createAuthenticator({ env = process.env, adapters = null } = {}) {
   const mode = authMode(env);
   const projectId = env.FIREBASE_PROJECT_ID || env.REACT_APP_FIREBASE_PROJECT_ID || '';
   const capHours = maxSessionHours(env);
+  const cutoffMs = sessionsValidAfterMs(env);
   let identityAdapters = adapters;
 
   async function authenticate(headers, action) {
@@ -134,12 +167,16 @@ function createAuthenticator({ env = process.env, adapters = null } = {}) {
     const { identity: verifiedIdentity, error: authError, expired } = await identify(token, identityAdapters);
     // v9.6: a sign-in older than MAX_SESSION_HOURS counts as no identity
     const tooOld = sessionTooOld(verifiedIdentity, capHours);
-    const identity = tooOld ? null : verifiedIdentity;
+    // 15 Nov 2026: a sign-in made before the forced sign-out cutoff counts as no identity
+    const revoked = !tooOld && sessionRevoked(verifiedIdentity, cutoffMs);
+    const identity = tooOld || revoked ? null : verifiedIdentity;
     const uid = identity ? identity.uid : null;
-    const auth = uid ? 'verified' : (tooOld ? 'max_age' : (token ? 'invalid' : 'none'));
+    const auth = uid ? 'verified' : (revoked ? 'revoked' : (tooOld ? 'max_age' : (token ? 'invalid' : 'none')));
     let refusal = null;
     if (mode === 'enforce' && !uid && action !== 'ping') {
-      refusal = tooOld
+      refusal = revoked
+        ? { code: 'SESSION_REVOKED', error: 'You were signed out for a security reason. Please sign in again.' }
+        : tooOld
         ? { code: 'SESSION_MAX_AGE', error: `Your session reached ${capHours} hours. Please sign in again.` }
         : !token ? { code: 'NOT_SIGNED_IN', error: 'Not signed in' }
           : expired ? { code: 'SESSION_EXPIRED', error: 'Session expired: sign in again' }
@@ -148,7 +185,7 @@ function createAuthenticator({ env = process.env, adapters = null } = {}) {
     return { uid, identity, auth, authError, refusal };
   }
 
-  return { mode, capHours, authenticate };
+  return { mode, capHours, cutoffMs, authenticate };
 }
 
 /** CORS headers for the API routes; true when the request was a preflight that is now answered. */
@@ -187,6 +224,8 @@ function createProxyHandler({ env = process.env, fetchImpl = globalThis.fetch, a
       res.setHeader('X-Response-Time', `${Date.now() - started}ms`);
       log(JSON.stringify({
         action, duration_ms: Date.now() - started, user_id: uid, company_id: input.company_id || null,
+        // 15 Nov 2026: when this user signed in - scripts/list-signed-in.sh counts who may still be signed in
+        signed_in_at: identity && identity.auth_time ? new Date(identity.auth_time * 1000).toISOString() : null,
         auth, mode, status, backend: 'gas',
         ...(authError ? { auth_error: authError } : {})
       }));
@@ -226,5 +265,5 @@ function createProxyHandler({ env = process.env, fetchImpl = globalThis.fetch, a
 
 module.exports = {
   createProxyHandler, createAuthenticator, answerCors, authMode, firebaseAdapter, identify, bearerToken, requestInput,
-  sessionTooOld, maxSessionHours, IDENTITY_FIELDS
+  sessionTooOld, maxSessionHours, sessionsValidAfterMs, sessionRevoked, IDENTITY_FIELDS
 };

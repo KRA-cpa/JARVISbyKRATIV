@@ -12,7 +12,7 @@
 
 const assert = require('assert');
 const { generateKeyPair, exportJWK, SignJWT, createLocalJWKSet } = require('jose');
-const { createProxyHandler, firebaseAdapter } = require('../api/_lib/proxyCore');
+const { createProxyHandler, firebaseAdapter, sessionsValidAfterMs } = require('../api/_lib/proxyCore');
 
 const PROJECT = 'demo-project';
 const SECRET = 's3cret';
@@ -178,6 +178,43 @@ async function main() {
     const warn = await call('warn', await sign(good.privateKey, { auth_time: now - 13 * 3600 }));
     assert.strictEqual(warn.res.statusCode, 200);
     assert.strictEqual(warn.forwarded._auth_uid, undefined);
+  });
+
+  await run('forced sign-out: SESSIONS_VALID_AFTER refuses sign-ins before it (SESSION_REVOKED), later ones pass', async () => {
+    const cutoff = new Date((now - 600) * 1000).toISOString();
+    const before = await call('enforce', await sign(good.privateKey, { auth_time: now - 3600 }), { env: { SESSIONS_VALID_AFTER: cutoff } });
+    assert.strictEqual(before.res.statusCode, 401);
+    assert.strictEqual(before.res.body.code, 'SESSION_REVOKED');
+    assert.match(before.res.body.error, /security reason/);
+    assert.strictEqual(before.fetchImpl.calls.length, 0, 'nothing forwarded');
+    assert.strictEqual(before.logs[0].auth, 'revoked');
+    const after = await call('enforce', await sign(good.privateKey, { auth_time: now - 60 }), { env: { SESSIONS_VALID_AFTER: cutoff } });
+    assert.strictEqual(after.res.statusCode, 200);
+    assert.strictEqual(after.forwarded._auth_uid, 'uid_123');
+    const epoch = await call('enforce', await sign(good.privateKey, { auth_time: now - 3600 }), { env: { SESSIONS_VALID_AFTER: String(now - 600) } });
+    assert.strictEqual(epoch.res.body.code, 'SESSION_REVOKED', 'epoch seconds work too');
+    const unset = await call('enforce', await sign(good.privateKey, { auth_time: now - 3600 }), { env: { SESSIONS_VALID_AFTER: '' } });
+    assert.strictEqual(unset.res.statusCode, 200, 'empty = no cutoff');
+  });
+
+  await run('forced sign-out: warn forwards a revoked sign-in without a uid; ping still answers', async () => {
+    const env = { SESSIONS_VALID_AFTER: new Date((now - 600) * 1000).toISOString() };
+    const warn = await call('warn', await sign(good.privateKey, { auth_time: now - 3600 }), { env });
+    assert.strictEqual(warn.res.statusCode, 200);
+    assert.strictEqual(warn.forwarded._auth_uid, undefined);
+    assert.strictEqual(warn.logs[0].auth, 'revoked');
+    const ping = await call('enforce', await sign(good.privateKey, { auth_time: now - 3600 }), { env, input: { action: 'ping' } });
+    assert.strictEqual(ping.res.statusCode, 200);
+  });
+
+  await run('forced sign-out: a cutoff that can\'t be read, has no offset or is in the future stops the server', async () => {
+    assert.throws(() => sessionsValidAfterMs({ SESSIONS_VALID_AFTER: 'yesterday' }), /not an ISO time/);
+    assert.throws(() => sessionsValidAfterMs({ SESSIONS_VALID_AFTER: '2026-11-15T09:00:00' }), /not an ISO time/, 'no offset = ambiguous');
+    assert.throws(() => sessionsValidAfterMs({ SESSIONS_VALID_AFTER: new Date(Date.now() + 3600 * 1000).toISOString() }), /in the future/);
+    assert.throws(() => createProxyHandler({ env: { AUTH_MODE: 'enforce', SESSIONS_VALID_AFTER: 'nope' } }), /SESSIONS_VALID_AFTER/);
+    assert.strictEqual(sessionsValidAfterMs({ SESSIONS_VALID_AFTER: '2026-11-15T09:00:00+08:00' }, Date.parse('2026-11-16T00:00:00Z')),
+      Date.parse('2026-11-15T01:00:00Z'));
+    assert.strictEqual(sessionsValidAfterMs({}), null);
   });
 
   await run('v9.6: 401 codes - NOT_SIGNED_IN without a token, SESSION_EXPIRED only for an expired one', async () => {

@@ -1,11 +1,12 @@
 <!--
 ===============================================================================
-JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
+JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_PlatformManager_20261106.md | Author: Kenneth R. Advento | Version: 1.0.0
-Created: 6 November 2026 UTC+8 (Philippine Standard Time) | Modified: 6 November 2026 UTC+8 (Philippine Standard Time)
+Document: PLAN_PlatformManager_20261106.md | Author: Kenneth R. Advento | Version: 1.1.0
+Created: 6 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: One plan for the Platform manager - the software owner's console (KRATIV / platform admins): customers, plans + subscriptions, usage + statements, prices, leads, template library, health, support access, platform admins, audit | Status: Draft (cloud session 017zmKfA) - decisions PM-D1..D10 open, not built
 REVISION HISTORY:
+- v1.1.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Session 461f9ea9: M14 Security notices (user: "security notices should be available historically in platform admin and for all admin users" - the customer side built now: Admin → Security Notices) and M15 Sessions (user: "might need forced logged out in platform admin for breaches" + "a check of all signed in users and force logout will still be needed" - interim built now: scripts/list-signed-in.sh, scripts/revoke-sessions.sh, server cutoff SESSIONS_VALID_AFTER); §4 tables, §7 PM1, PM-D11 / PM-D12
 - v1.0.0 | 6 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created; user: "Plan the platform manager". Collects the "Platform → ..." screens scattered over PLAN_PlanTiers_Subscriptions (§2a, §2c, §4a, §6), PLAN_PlatformWebsite (W2, W3), PLAN_ServerCore_OrgSheetBridge (§2, §4a, §6a, §6b) and PLAN_CountryCalendars (§4), and adds what none of them covers (support access, platform roles, re-auth, the coexistence with the Apps Script gate)
 ===============================================================================
 -->
@@ -83,6 +84,8 @@ A section of the app at **`/platform`**, for **platform admins only** (KRATIV st
 | M11 | **Reference data** | Country calendars + holiday packs (today in Admin → Country Calendars: they are global, so they move here), plan catalogue (read-only view of `PLAN_CATALOG`) | CountryCalendars §4 | PM1 (move), PM2 |
 | M12 | **Contract records** | Per customer: accepted General Terms / DPA versions + acceptance record, tax profile (withholding agent, CWT rate, Form 2307 received), notices sent (price changes need [[30]] days' notice - Terms §5.1b) | General Terms §0a, §5.1b; DPA | PM2 |
 | M13 | **Platform team** | Platform admins and their roles (§3), last sign-in, audit log of platform actions | new (replaces the Script Property) | PM1 |
+| M14 | **Security notices** | Every notice ever posted (all organizations): template, organizations addressed, posted, banner end (A 3 days, B / B2 7), status (ongoing / resolved), timeline, public flag + published at, PE sent at, link to the incident record; post / update / resolve / publish from the screen (reason + audit) instead of editing `src/config/notices.js`. Customer admins keep their own history in Admin → Security Notices (built 15 Nov 2026) | TEMPLATE_BreachNotice §5 / §6, D1 | PM1 |
+| M15 | **Sessions** | **Who is signed in now**: per user - organization(s), sign-in time, last request, active (< 60 min) / idle, signed out; filter by organization. **Force sign-out**: everyone / one organization / one user - `owner` only, reason required, re-auth (§3), audit row; the organization's admins are emailed when their users are signed out (unless the law forbids it). Interim (built 15 Nov 2026): `scripts/list-signed-in.sh` (from the request logs) and `scripts/revoke-sessions.sh` (everyone, server cutoff `SESSIONS_VALID_AFTER`) | new (TEMPLATE_BreachNotice §6 stage 5) | PM1 |
 
 Not in scope: payment gateway (U1), the official invoice (accounting system), customer-facing *Usage & charges* page
 (PlanTiers §2c - built alongside M4, but it is a company / organization screen, not a Platform one).
@@ -130,6 +133,9 @@ One person runs the platform today; roles cost little now and avoid a rewrite wh
 | `support_grants`, `support_sessions` | §5 |
 | `store_health`, `incidents` | ServerCore §6a / §6b |
 | `contract_records`, `tax_profiles`, `customer_notices` | M12 |
+| `security_notices`, `security_notice_events` | M14: the notice (texts, public texts, template, `company_ids`, posted_at, days, resolved_at, public, published_at) + its timeline entries (internal flag) and PE sends. Served to signed-in users by the server (only the notices addressed to them) - the texts leave the app bundle |
+| `user_sessions` | M15: uid, auth_time (the sign-in), first_seen, last_seen (written at most once per 5 min per session - no write per request), company ids seen, user agent family; rows older than 12 h + 1 day deleted daily |
+| `session_cutoffs` | M15: scope (`all` / `organization` / `user`), target id, valid_after, reason, by, at. The authenticator refuses a sign-in before the newest cutoff that matches the user (`SESSION_REVOKED`); read with a 60-second cache, so a sign-out takes effect within a minute. The env `SESSIONS_VALID_AFTER` stays as the break-glass for everyone (works even if the database is down) |
 | `platform_audit_log` | every platform write (actor, role, action, target, before, after, reason, request id); append-only (no update / delete grants for the app role) |
 
 Query budgets (Claude.md): list screens paginated (50 / 100), indexed on `(status, plan)`, `(customer_id, month)`,
@@ -195,7 +201,7 @@ Projection rules (A):
 | Phase | Content | Needs | Done when |
 |---|---|---|---|
 | **PM0** (now, no code) | Runbook for the interim: set `PLATFORM_ADMIN_UIDS`; how to add a trial / plan row by hand in `company_subscriptions` (columns, text days, overrides JSON) and check it with `getCompanyPlan`; usage = read the counters | - | runbook in `docs/guides/` |
-| **PM1** | Server foundation for platform routes (handler registry, `isPlatformAdmin` + roles, re-auth check, `platform_audit_log`); `/platform` layout (lazy chunk, `noindex`); **M1 Overview**, **M2 Customers** (companies), **M3 Plans & subscriptions** (lifecycle of PlanTiers §4 / §4a incl. CR6-14c overrides carried to the next period, CR6-19 valid `period_end`, CR6-20 read-only), the §6 projection; **M13**; M11 country calendars moved under Platform | Neon Phase 0, PM-D1, PM-D3, PM-D4 | a trial started on `/platform` is enforced by the live Apps Script gate; trial reminders sent once (A19); route tests: non-platform caller refused, `billing` can't change the team, stale token → `REAUTH_REQUIRED` |
+| **PM1** | Server foundation for platform routes (handler registry, `isPlatformAdmin` + roles, re-auth check, `platform_audit_log`); `/platform` layout (lazy chunk, `noindex`); **M1 Overview**, **M2 Customers** (companies), **M3 Plans & subscriptions** (lifecycle of PlanTiers §4 / §4a incl. CR6-14c overrides carried to the next period, CR6-19 valid `period_end`, CR6-20 read-only), the §6 projection; **M13**; **M14 Security notices**, **M15 Sessions**; M11 country calendars moved under Platform | Neon Phase 0, PM-D1, PM-D3, PM-D4 | a trial started on `/platform` is enforced by the live Apps Script gate; trial reminders sent once (A19); route tests: non-platform caller refused, `billing` can't change the team, stale token → `REAUTH_REQUIRED` |
 | **PM2** | **M4 Usage & statements** + the customer *Usage & charges* page, **M5 Price book** (+ public `getPlanPrices` for `/plans`, W3), **M6 Exchange rates**, **M12 Contract records**; monthly active users from login rows; backfill of months before v10.2 | PM1, PM-D2, PM-D5..D8 | a month closes into statements whose every line is visible on the customer's page; CSV export loads into the chosen accounting system |
 | **PM3** | **M7 Leads** (W2: public `submitLead`, rate limit + captcha at the proxy, convert), **M8 Template library + packs** (adopt, `type_builder` gate - needs the gate on the server or a projection like §6) | PM1 | lead → trial customer with an invite in one action; Basic adopts a template |
 | **PM4** | With ServerCore O1 / O2: customers become **organizations**, billing at the organization level (O3), **M9 Health & incidents**, **M10 Support access** (§5), the §6 projection removed | ServerCore O1 / O2 | admin rights scoped (interim rule lifted); support sessions logged and visible to customers |
@@ -236,6 +242,8 @@ support access, statements / FX / price book and contract records are new scope 
 | PM-D7 | Monthly active users definition (PlanTiers §2c O6) | Signed in at least once in the company calendar month; pending invites never billed |
 | PM-D8 | Statement cycle | Calendar month in the platform's zone (`DEFAULT_TZ`), issued on day 3 after the BSP rate is in; due in [[15]] days |
 | PM-D9 | Support access default (§5) | Off; customer grants per need, 7 days, scope chosen by the customer; break-glass `owner` only |
+| PM-D11 | Forced sign-out and the signed-in list (M15) | Server cutoffs per everyone / organization / user, `owner` only with reason + re-auth; signed-in list from `user_sessions` (no write per request); until PM1 the two scripts (everyone only). The 12-hour cap and 60-minute idle sign-out stay |
+| PM-D12 | Where notices live (M14) | Platform store, served per user by the server, from PM1; until then `src/config/notices.js` with no customer names in the texts |
 | PM-D10 | Progress scope | +3 pts (statements / FX / price book 1, support access 1, contract records + platform roles 1): roadmap 154 → 157 |
 
 ---

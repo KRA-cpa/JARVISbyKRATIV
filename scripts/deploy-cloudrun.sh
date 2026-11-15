@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# deploy-cloudrun.sh v1.2 - build the React app and deploy Daloy to Google Cloud Run (asia-southeast1, Singapore).
+# deploy-cloudrun.sh v1.3 - build the React app and deploy Daloy to Google Cloud Run (asia-southeast1, Singapore).
 # v1.1 (9 Nov 2026): servers in project krativ-daloy; sign-in (Firebase Auth) stays in jarvisbyerp until Better Auth
 #   (unified plan D12) - the two project ids are separate settings, checked against .env.production.local.
 # v1.2 (9 Nov 2026): no Git Bash path rewriting of REACT_APP_API_BASE_URL; REACT_APP_HOSTING=cloudrun (/status lists
 #   Google only); the build is checked for both before deploying.
+# v1.3 (15 Nov 2026): keeps the live forced sign-out cutoff SESSIONS_VALID_AFTER (scripts/revoke-sessions.sh) - --set-env-vars
+#   replaces every variable, so without this a deploy right after a forced sign-out would let the old sign-ins back in.
 # Guide: docs/guides/GUIDE_Deploy_CloudRun_FirebaseHosting.md
 #
 # Usage (Git Bash, from the repo root, after `gcloud auth login` and `firebase login`):
@@ -69,6 +71,17 @@ if ! grep -q 'REACT_APP_HOSTING:"cloudrun"' build/static/js/main.*.js; then
   exit 3
 fi
 
+# The forced sign-out cutoff in force now (empty when none) - carried into the new revision unless given explicitly
+if [ -z "${SESSIONS_VALID_AFTER+x}" ]; then
+  SESSIONS_VALID_AFTER="$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format=json 2>/dev/null \
+    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const e=(JSON.parse(s).spec.template.spec.containers[0].env||[]).find(v=>v.name==="SESSIONS_VALID_AFTER");process.stdout.write(e&&e.value?e.value:"")}catch(_){}})')"
+fi
+ENV_VARS="AUTH_MODE=$AUTH_MODE,FIREBASE_PROJECT_ID=$AUTH_PROJECT,MAX_SESSION_HOURS=${MAX_SESSION_HOURS:-12}"
+if [ -n "$SESSIONS_VALID_AFTER" ]; then
+  echo "    keeping the forced sign-out cutoff SESSIONS_VALID_AFTER=$SESSIONS_VALID_AFTER"
+  ENV_VARS="$ENV_VARS,SESSIONS_VALID_AFTER=$SESSIONS_VALID_AFTER"
+fi
+
 echo "2/3 Deploying $SERVICE to Cloud Run ($REGION, $MODE)..."
 DEPLOY_ARGS=(
   run deploy "$SERVICE"
@@ -77,7 +90,7 @@ DEPLOY_ARGS=(
   --region "$REGION"
   --allow-unauthenticated
   --set-secrets "PROXY_SECRET=daloy-proxy-secret:latest,APPS_SCRIPT_URL=daloy-apps-script-url:latest"
-  --set-env-vars "AUTH_MODE=$AUTH_MODE,FIREBASE_PROJECT_ID=$AUTH_PROJECT,MAX_SESSION_HOURS=${MAX_SESSION_HOURS:-12}"
+  --set-env-vars "$ENV_VARS"
   --min-instances 0
   --max-instances 3
   --cpu 1

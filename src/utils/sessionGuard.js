@@ -23,6 +23,8 @@ export const SESSION_NOTICES = {
   IDLE: 'Session closed due to inactivity. Please sign in again.',
   SESSION_MAX_AGE: 'Your session reached 12 hours. Please sign in again.',
   SESSION_EXPIRED: 'Your session expired. Please sign in again.',
+  // Forced sign-out (server env SESSIONS_VALID_AFTER, scripts/revoke-sessions.sh) - e.g. during a security incident
+  SESSION_REVOKED: 'You were signed out for a security reason. Please sign in again.',
   NOT_INVITED: "Your account isn't set up yet. Ask your administrator for an invite.",
   ACCOUNT_DISABLED: 'Your account is deactivated. Ask your administrator.'
 };

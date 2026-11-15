@@ -1,11 +1,12 @@
 <!--
 ===============================================================================
-JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
+JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_Deploy_CloudRun_FirebaseHosting.md | Author: Kenneth R. Advento | Version: 1.3.0
-Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 14 November 2026 UTC+8 (Philippine Standard Time)
+Document: GUIDE_Deploy_CloudRun_FirebaseHosting.md | Author: Kenneth R. Advento | Version: 1.4.0
+Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Move PRODUCTION from Vercel to Google Cloud Run (asia-southeast1, Singapore) behind Firebase Hosting at daloy.blueknight.xyz; Vercel keeps the previews. Backend unchanged (Apps Script) - the Postgres move follows CHECKLIST_Deploy_PostgresNeon_20261108.md | Status: Ready to run (nothing deployed yet) - the runbook for Phase H of docs/planning/PLAN_Migration_Unified_20261108.md
 REVISION HISTORY:
+- v1.4.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §H who is signed in + forced sign-out (scripts/list-signed-in.sh, scripts/revoke-sessions.sh, env SESSIONS_VALID_AFTER); deploy-cloudrun.sh v1.3 keeps the cutoff
 - v1.3.0 | 14 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §G database for `/api/rpc` (migration 0.6): `DATABASE_URL` from Secret Manager when a phase needs it; without it `/api/rpc` = Apps Script. Session 92b85189
 - v1.2.1 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §F: the Git Bash path-rewrite catch (deploy-cloudrun.sh v1.2); $10 budget example
 - v1.2.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Servers in a new project `krativ-daloy` (display name KRATIV DALOY; user: "iwant to change to KRATIV_DALOY" → "New project krativ-daloy for servers"); sign-in stays in `jarvisbyerp` until Better Auth (unified plan D12); §A creates the project; authorized domains are added in `jarvisbyerp`; deploy-cloudrun.sh v1.1
@@ -167,3 +168,29 @@ change nothing. When a phase needs Postgres on Cloud Run:
 - **Undo:** remove `DATABASE_URL` from the service (`gcloud run services update daloy --region asia-southeast1
   --remove-secrets DATABASE_URL`) - `/api/rpc` falls back to Apps Script at once.
 - Migrations: `npm run db:migrate -- --status` / `--to <version>` (`scripts/db-migrate.js`; it never prints the URL).
+
+---
+
+## H. Who is signed in, and forced sign-out (security incidents)
+
+User, 15 Nov 2026: "a check of all signed in users and force logout will still be needed". Production only, Git Bash
+from the repo root after `gcloud auth login`. The 12-hour cap (`MAX_SESSION_HOURS`) and the 60-minute idle sign-out
+stay as they are.
+
+1. **Who is signed in** - `scripts/list-signed-in.sh` (read-only): from the request logs, every user whose sign-in is
+   younger than 12 h and after any cutoff, with sign-in time, last request (`active` = in the last 60 minutes) and
+   companies. uids only; names are in Admin → Users. Counts only requests served by revisions from 15 Nov 2026 on (the
+   log field `signed_in_at`).
+2. **Sign everyone out** - `scripts/revoke-sessions.sh` shows what it would do; `scripts/revoke-sessions.sh --apply`
+   sets `SESSIONS_VALID_AFTER` to now (UTC) on the service: a new revision with one variable changed. Every sign-in
+   before that time is refused with `SESSION_REVOKED`, and the app signs the user out on their next request ("You were
+   signed out for a security reason. Please sign in again."); signing in again works at once. The script refuses to run
+   unless `AUTH_MODE=enforce`.
+3. **Check** - `scripts/list-signed-in.sh` again after a few minutes.
+4. **Deploys keep the cutoff** - `deploy-cloudrun.sh` v1.3 reads the live `SESSIONS_VALID_AFTER` and carries it into
+   the new revision (else a deploy right after a sign-out would let the old sign-ins back in). A cutoff more than 12 h
+   old does nothing and may be left. A value the server can't read, or one in the future, stops the new revision from
+   starting - Cloud Run keeps serving the old one.
+
+Limits: a tab that sends no request keeps showing what it already loaded until its next request. Per organization /
+per user and an on-screen list come with Platform manager M15 (`docs/planning/PLAN_PlatformManager_20261106.md`).

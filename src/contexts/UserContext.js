@@ -178,7 +178,7 @@ export const UserProvider = ({ children }) => {
   const endingRef = useRef(false);
 
   /**
-   * End the session because of `reason` (IDLE, SESSION_MAX_AGE, SESSION_EXPIRED, NOT_INVITED, ACCOUNT_DISABLED):
+   * End the session because of `reason` (IDLE, SESSION_MAX_AGE, SESSION_EXPIRED, SESSION_REVOKED, NOT_INVITED, ACCOUNT_DISABLED):
    * the login page shows the matching notice once. Protected routes redirect to /login once the user is gone.
    */
   const endSession = React.useCallback(async (reason, serverMessage = '') => {

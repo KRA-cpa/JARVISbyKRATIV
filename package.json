@@ -39,6 +39,7 @@
     "test:db-load-sheets": "node scripts/test-db-load-sheets.js",
     "db:explain": "node scripts/db-explain.js",
     "test:db-explain": "node scripts/test-db-explain.js",
+    "test:signed-in-users": "node scripts/test-signed-in-users.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "test:setup": "node scripts/setup-tests.js",

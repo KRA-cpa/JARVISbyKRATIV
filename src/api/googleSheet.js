@@ -130,7 +130,7 @@ const circuitBreaker = new CircuitBreaker();
 // signs out and sends the user to /login with the matching notice. NOT_SIGNED_IN is left out: it is also what a
 // request sent before Firebase restored the session gets.
 export const AUTH_EVENT = 'jarvis-auth';
-export const SIGN_OUT_CODES = ['NOT_INVITED', 'ACCOUNT_DISABLED', 'SESSION_MAX_AGE', 'SESSION_EXPIRED'];
+export const SIGN_OUT_CODES = ['NOT_INVITED', 'ACCOUNT_DISABLED', 'SESSION_MAX_AGE', 'SESSION_EXPIRED', 'SESSION_REVOKED'];
 
 /** An Error carrying the backend's code and the HTTP status (401 / 403 bodies are JSON with { code, error }). */
 function apiError(message, code = null, status = null) {

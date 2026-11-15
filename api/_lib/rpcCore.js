@@ -57,7 +57,7 @@ function createRpcHandler({ proxyHandler, db = null, handlers = defaultHandlers,
       res.setHeader('X-Response-Time', `${Date.now() - started}ms`);
       log(JSON.stringify({
         action, duration_ms: Date.now() - started, query_count: reqDb.count(), user_id: uid,
-        company_id: input.company_id || null, auth, mode, status, backend: 'pg',
+        company_id: input.company_id || null, signed_in_at: identity && identity.auth_time ? new Date(identity.auth_time * 1000).toISOString() : null, auth, mode, status, backend: 'pg',
         ...(authError ? { auth_error: authError } : {}), ...extra
       }));
       res.status(status).json(body);
