@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import { useCompanyPlans } from '../hooks/useAPI';
 import Header from '../components/shared/Header';
 import Footer from '../components/shared/Footer';
-import LoadingScreen from '../components/shared/LoadingScreen';
+import PlatformLoadingScreen, { PlatformMark } from '../components/shared/PlatformLoadingScreen';
 import { IS_PREVIEW_BUILD } from '../config/platform';
 import { PLATFORM_GROUPS, PLATFORM_MODULES, WIREFRAME_OVERVIEW } from '../config/platformConsole';
 
@@ -138,7 +138,10 @@ const PlatformConsole = () => {
 
       <main className="min-w-0 flex-1">
         <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{current.id === 'overview' ? 'Platform overview' : current.name}</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
+            <PlatformMark size={28} title="Daloy Platform" />
+            {current.id === 'overview' ? 'Platform overview' : current.name}
+          </h1>
           <span className="text-xs text-gray-500 dark:text-gray-400">KRAtiv staff only · every action checked on the server</span>
         </div>
         {current.id === 'overview' ? <Overview onOpen={setActive} /> : <ModulePlaceholder module={current} />}
@@ -153,8 +156,11 @@ const PlatformPage = () => {
   // Production: only platform admins; previews: any signed-in user, for review (the page holds sample data only)
   const { isPlatformAdmin, loading } = useCompanyPlans({ enabled: !IS_PREVIEW_BUILD });
   const allowed = IS_PREVIEW_BUILD || isPlatformAdmin;
+  // Previews: /platform?loader=1 shows the console's loader on its own, for review (it is usually on screen for a moment)
+  const { search } = useLocation();
+  if (IS_PREVIEW_BUILD && new URLSearchParams(search).has('loader')) return <PlatformLoadingScreen />;
 
-  if (!IS_PREVIEW_BUILD && loading) return <LoadingScreen />;
+  if (!IS_PREVIEW_BUILD && loading) return <PlatformLoadingScreen />;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100 dark:bg-gray-900">

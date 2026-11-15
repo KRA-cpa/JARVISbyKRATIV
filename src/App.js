@@ -40,6 +40,9 @@ import ErrorBoundary from './components/shared/ErrorBoundary';
 import ErrorBoundary130, { useError130Detection } from './components/shared/ErrorBoundary130';
 import DevPanel from './components/shared/DevPanel';
 import LoginNoticeBanner from './components/shared/LoginNoticeBanner';
+// The console's own loader - imported directly: a Suspense fallback can't be lazy (user, 15 Nov 2026: "create a
+// different loader for platform admin - use Daloy Flow loader as reference")
+import PlatformLoadingScreen from './components/shared/PlatformLoadingScreen';
 import AnnouncementBanner from './components/shared/AnnouncementBanner';
 import PrivacyNoticeGate from './components/shared/PrivacyNoticeGate';
 
@@ -214,7 +217,7 @@ const AppRoutes = () => {
           {/* The notice a sign-in banner links to (src/config/notices.js) - signed-in users of the organizations addressed */}
           <Route path="/notices/:id" element={<ProtectedRoute><NoticePage /></ProtectedRoute>} />
           {/* Platform console: signed in here; the page itself allows platform admins (any signed-in user on previews) */}
-          <Route path="/platform" element={<ProtectedRoute><Suspense fallback={<LoadingScreen />}><PlatformPage /></Suspense></ProtectedRoute>} />
+          <Route path="/platform" element={<ProtectedRoute><Suspense fallback={<PlatformLoadingScreen />}><PlatformPage /></Suspense></ProtectedRoute>} />
           {/* Its public version - open to everyone, only once the notice has public: true (previews: always, for review) */}
           <Route path="/notices/:id/public" element={<OpenRoute><NoticePage publicView /></OpenRoute>} />
           {/* Provider status (list per src/config/platform.js) - public, no API (General Terms §10.2) */}
