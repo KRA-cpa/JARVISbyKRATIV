@@ -175,7 +175,7 @@ const LoginPage = () => {
               <span>System Status: Online</span>
             </div>
             <p className="mt-1 text-xs text-gray-400">
-              Powered by Google Workspace & Firebase
+              Secure sign-in with your Google account
             </p>
           </div>
         </div>

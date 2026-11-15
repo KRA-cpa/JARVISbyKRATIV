@@ -7,14 +7,18 @@
  * provisions) - counsel to confirm the current references.
  * Versioning as the Terms: raise version + lastUpdated on every change; a major change (one that materially diminishes
  * the customer's or KRATIV's rights) needs notice and admin re-acceptance.
+ * v0.3 (15 Nov 2026, migration step 0.10 - docs/planning/PLAN_Migration_Unified_20261108.md): Annex B / C, transfers
+ * and deletion describe the platform AFTER the full migration (Neon + Cloud Run Singapore, sign-in on our own server,
+ * D11 / D13 customer-connected Drive and mail). Publish it in step 3.1, together with src/config/platform.js
+ * MIGRATION_COMPLETE; new clients get the statement in docs/planning/DISCLOSURE_DataLocation_NewClients_20261115.md.
  * Layer: config (no imports).
  */
 
 export const DATA_PROCESSING_AGREEMENT = {
   status: 'draft',
-  version: '0.2',
+  version: '0.3',
   effectiveDate: '',
-  lastUpdated: '2 November 2026',
+  lastUpdated: '15 November 2026',
   title: 'Data Processing Agreement',
   pendingChange: null,
   draftNotice: 'DRAFT for review - not in effect. This proposed agreement still has to be reviewed by counsel and our Data ' +
@@ -77,28 +81,41 @@ export const DATA_PROCESSING_AGREEMENT = {
       id: 'security',
       heading: 'Security measures (Annex B)',
       body: 'KRATIV keeps organizational, physical and technical security measures appropriate to the risk, including:\n\n' +
-        '- Sign-in through Google accounts (Firebase Authentication); every request to the backend checked for a valid sign-in ' +
-        'token at the server proxy.\n' +
+        '- Sign-in with Google accounts, verified by KRATIV\'s own server; sessions are kept in the KRATIV database and carried ' +
+        'by a secure, HTTP-only session cookie, and every request to the backend is checked for a valid session on the server.\n' +
         '- Access by role and ticket visibility (private by default), Restricted tickets and fields, and administrator-only ' +
         'functions.\n' +
         '- Audit logs of administrative and ticket actions.\n' +
-        '- Encryption in transit (HTTPS) and the encryption at rest of the hosting providers.\n' +
+        '- Encryption in transit (HTTPS / TLS, including the connection between the application server and the database) and ' +
+        'at rest (Google Cloud; Neon on Amazon Web Services).\n' +
+        '- Database and service credentials kept in a secrets manager (Google Secret Manager), never in code or messages.\n' +
         '- Session limits (inactivity sign-out and a maximum session length).\n' +
-        '- Separation of customers\' data by company / organization [[note: per-organization admin scoping is planned - ' +
-        'PLAN_ServerCore §2; until then the measures in that plan apply]].\n' +
-        '- [[Backups, incident response and access reviews - describe the current practice]].\n\n' +
+        '- Separation of customers\' data: every database query is limited to the Customer\'s company / organization ' +
+        '[[database row-level security on company and organization - planned with the move, step 3.3]] [[note: per-organization ' +
+        'admin scoping is planned - PLAN_ServerCore §2; until then the measures in that plan apply]].\n' +
+        '- Backups: the database can be restored to any point in the last [[7]] days (the database provider\'s restore window) ' +
+        '[[plus a nightly backup - retention to decide]].\n' +
+        '- [[Incident response and access reviews - describe the current practice]].\n\n' +
         'KRATIV reviews these measures as the Service changes and will not reduce the overall level of protection.'
     },
     {
       id: 'subprocessors',
       heading: 'Sub-processors (Annex C)',
       body: 'The Customer authorizes KRATIV to use these Sub-processors:\n\n' +
-        '- Google LLC - sign-in (Firebase Authentication), data storage and processing (Google Sheets, Google Apps Script), ' +
-        'email sending.\n' +
-        '- Vercel Inc. - website and application hosting, the server proxy.\n' +
-        '- [[Other providers, e.g. the database and email services of the planned cloud server]].\n\n' +
-        'If the Customer keeps its data in its own Google Sheet, that storage is in the Customer\'s own Google account under the ' +
-        'Customer\'s agreement with Google; KRATIV accesses it only through the bridge the Customer installs.\n\n' +
+        '- Google LLC - the application server and scheduled jobs (Google Cloud Run and Cloud Scheduler, region asia-southeast1, ' +
+        'Singapore); delivery of the website (Firebase Hosting, on Google\'s global network - no Customer Data is stored there); ' +
+        'secrets and service logs (Secret Manager, Cloud Logging [[set the log storage region to Singapore before publishing]]); ' +
+        'sign-in with Google accounts; and KRATIV\'s own Google Workspace mailbox, which sends invitations and account emails ' +
+        '(for example trial and invoice notices).\n' +
+        '- Neon, Inc. - the database (managed Postgres, region aws-ap-southeast-1, Singapore). Neon runs on Amazon Web Services, ' +
+        'Inc. infrastructure in the same region.\n' +
+        '- Vercel Inc. - test versions of the application (previews) used by KRATIV staff only [[decision: previews use test ' +
+        'data only - then Vercel processes no Customer Data and comes off this list]].\n\n' +
+        'Services the Customer connects itself are not KRATIV Sub-processors: its own Google Workspace Drive for attachments, its ' +
+        'own mail service for notification emails (Google Workspace, Microsoft 365 or its own mail server), and its own Google ' +
+        'Sheet if it keeps its data there (through the Daloy bridge or a dedicated Daloy copy in its Google account). They process ' +
+        'data under the Customer\'s own agreements with those providers, and KRATIV accesses them only as far as the Customer\'s ' +
+        'connection allows.\n\n' +
         'KRATIV binds each Sub-processor to data-protection obligations no less protective than this DPA and remains responsible ' +
         'to the Customer for them. KRATIV gives the Customer\'s administrators [[30]] days\' notice of a new Sub-processor; the ' +
         'Customer may object on reasonable data-protection grounds and, if no solution is found, end the affected subscription ' +
@@ -107,9 +124,15 @@ export const DATA_PROCESSING_AGREEMENT = {
     {
       id: 'transfers',
       heading: 'Transfers outside the Philippines',
-      body: 'Sub-processors may store or process Personal Data outside the Philippines [[confirm the regions]]. KRATIV remains ' +
-        'accountable for Personal Data it transfers and uses contractual and other reasonable means to give it a comparable level ' +
-        'of protection.'
+      body: 'KRATIV stores Customer Data in Singapore: the database (Neon, region aws-ap-southeast-1) and the application server ' +
+        '(Google Cloud, region asia-southeast1). No provider offers a Philippine region for these services today, and Singapore ' +
+        'is the nearest.\n\n' +
+        'Some processing takes place outside Singapore by the nature of the service: signing in with Google and the delivery of ' +
+        'the website use Google\'s global network; emails pass through the mailbox that sends them (KRATIV\'s Google Workspace ' +
+        'mailbox, or for notifications the Customer\'s own mail service); and storage the Customer connects itself stays where ' +
+        'the Customer\'s provider keeps it.\n\n' +
+        'KRATIV remains accountable for Personal Data it transfers (Data Privacy Act, Section 21) and uses contractual and other ' +
+        'reasonable means to give it a comparable level of protection.'
     },
     {
       id: 'rights',
@@ -141,7 +164,8 @@ export const DATA_PROCESSING_AGREEMENT = {
       id: 'end',
       heading: 'Return and deletion',
       body: 'When the subscription ends, the Customer can export its data during the [[30]]-day read-only period. KRATIV then ' +
-        'deletes the Customer\'s Personal Data within [[90]] days, including copies held by Sub-processors, except data it must ' +
+        'deletes the Customer\'s Personal Data within [[90]] days, including copies held by Sub-processors (the database\'s ' +
+        'restore history ends [[7]] days after the deletion; service logs expire after [[30]] days), except data it must ' +
         'keep by law (for example billing records), which it keeps protected and only as long as required. On request KRATIV ' +
         'confirms the deletion in writing.\n\n' +
         'For Customer-owned storage (its own Google Sheet), the Customer keeps the Sheet; KRATIV deletes what it holds (sign-in ' +

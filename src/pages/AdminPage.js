@@ -5,6 +5,7 @@ import { useCompanies, useRoles, useDropdownLists, useTickets, useUsers, useTick
 import Header from '../components/shared/Header';
 import Icons from '../components/shared/Icons';
 import DEV_CONFIG from '../config/development';
+import { backendInfo } from '../config/platform';
 import AdminCompanyManager from '../components/admin/AdminCompanyManager';
 import AdminRoleManager from '../components/admin/AdminRoleManager';
 import AdminDropdownManager from '../components/admin/AdminDropdownManager';
@@ -24,6 +25,9 @@ import AdminCountryCalendars from '../components/admin/AdminCountryCalendars';
 import AdminSystemBackup from '../components/admin/AdminSystemBackup';
 import APIConnectionStatus from '../components/admin/APIConnectionStatus';
 import Footer from '../components/shared/Footer';
+
+// The platform's data store for this build (src/config/platform.js); the System tab's API check shows the live answer
+const PLATFORM_BACKEND = backendInfo(null);
 
 const AdminPage = () => {
   const { user, userRoles } = useUser();
@@ -537,7 +541,7 @@ const AdminPage = () => {
                 <Icons.Error size={20} className="text-red-600 mt-0.5 flex-shrink-0" />
                 <div className="ml-3 flex-1">
                   <h3 className="text-sm font-medium text-red-800">
-                    Apps Script API Error ({apiHealth.code})
+                    {PLATFORM_BACKEND.name} API Error{apiHealth.code ? ` (${apiHealth.code})` : ''}
                   </h3>
                   <div className="mt-1 text-sm text-red-700">
                     <p><strong>{apiHealth.type}:</strong> {apiHealth.message}</p>
@@ -552,15 +556,23 @@ const AdminPage = () => {
                       <Icons.Refresh size={14} className="mr-1" />
                       Retry Connection
                     </button>
-                    <a
-                      href="https://script.google.com/home"
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    {PLATFORM_BACKEND.consoleUrl && (
+                      <a
+                        href={PLATFORM_BACKEND.consoleUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                      >
+                        <Icons.ExternalLink size={14} className="mr-1" />
+                        {PLATFORM_BACKEND.consoleName}
+                      </a>
+                    )}
+                    <Link
+                      to="/status"
                       className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                     >
-                      <Icons.ExternalLink size={14} className="mr-1" />
-                      Check Apps Script
-                    </a>
+                      Provider status
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -725,10 +737,10 @@ const AdminPage = () => {
             )}
           </div>
 
-          {/* Backend Integration Status - Collapsible.
-              FLAG (unified migration plan step 3.6, user 9 Nov 2026): the text below is fixed and says Apps Script.
-              Once the core is off Apps Script, show each organization's data store from the server (x-backend: pg =
-              Postgres; Sheets-option organizations keep "Google Sheets + Apps Script" with their bridge status). */}
+          {/* Backend Integration Status - Collapsible (unified migration plan step 3.6, user 9 Nov 2026).
+              The data store follows src/config/platform.js (MIGRATION_COMPLETE); the System tab's API connection shows
+              what actually answered (the server's X-Backend). Sheets-option organizations (plan §2 / D7) stay on
+              Google Sheets + Apps Script. Per-organization status from the server comes with organizations (Phase 5). */}
           {DEV_CONFIG.STATS_DISPLAY.SHOW_BACKEND_INFO && (
             <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg">
               <button
@@ -758,25 +770,19 @@ const AdminPage = () => {
                 <div className="px-6 pb-6 border-t border-blue-200">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm pt-4">
                     <div>
-                      <p className="font-medium text-blue-700">✅ Available APIs:</p>
+                      <p className="font-medium text-blue-700">Data store</p>
                       <ul className="mt-2 space-y-1 text-blue-600">
-                        <li>• Companies CRUD</li>
-                        <li>• Roles CRUD</li>
-                        <li>• Dropdown Lists CRUD</li>
-                        <li>• User Management</li>
-                        <li>• Universal Entity Architecture</li>
-                        <li>• Ticket Creation & Workflows</li>
-                        <li>• Custom Fields System</li>
+                        <li>• {PLATFORM_BACKEND.name}: {PLATFORM_BACKEND.store}</li>
+                        <li>• Runs on: {PLATFORM_BACKEND.host}</li>
+                        <li>• Organizations that keep their data in their own Google Sheet stay on Google Sheets + Apps Script</li>
                       </ul>
                     </div>
                     <div>
-                      <p className="font-medium text-blue-700">🚧 Implementation Status:</p>
+                      <p className="font-medium text-blue-700">Where to check</p>
                       <ul className="mt-2 space-y-1 text-blue-600">
-                        <li>• Google Apps Script: Production Ready</li>
-                        <li>• Frontend Integration: Phase 10.1</li>
-                        <li>• Universal Entity Architecture: Complete</li>
-                        <li>• Admin Interface: Phase 10.1</li>
-                        <li>• Testing Infrastructure: Complete</li>
+                        <li>• System tab → API connection: what answered the last check</li>
+                        <li>• <Link to="/status" className="underline">Provider status</Link>: outages at our providers</li>
+                        <li>• <Link to="/plans" className="underline">Plans</Link>: features per plan</li>
                       </ul>
                     </div>
                   </div>

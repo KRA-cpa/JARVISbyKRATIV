@@ -1,11 +1,12 @@
 <!--
 ===============================================================================
-JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
+JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.15.0
-Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 2 November 2026 UTC+8 (Philippine Standard Time)
+Document: DRAFT_TermsOfService_20261101.md | Author: Kenneth R. Advento | Version: 0.16.0
+Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: DRAFT General Terms of Service for Daloy (B2B subscription), aligned with the plan, usage, data and privacy decisions so far | Status: DRAFT - not legal advice, not in effect; for review by counsel; [[...]] = pending decision (§0)
 REVISION HISTORY:
+- v0.16.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Migration step 0.10 (session 461f9ea9; user: "go with default"): text for AFTER the full migration (publish in plan step 3.1) - §2.2 proof-of-concept clause -> where Customer Data is stored (Singapore: Google Cloud + Neon); §5.1b provider examples; §7.4 Customer-owned storage (bridge or dedicated copy) stays where the Customer's Google account keeps it; §10 / §10.2 providers = Google Cloud, Firebase Hosting, sign-in with Google, Google Workspace, Neon + services the Customer connects itself; T6 wording. Same text in src/config/legal/terms.js v0.16
 - v0.15.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | DPO email KRATIV.dpo@blueknight.xyz (user)
 - v0.14.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.1b price changes (user: "pricing of base services will be reflected on next cycle"): from the next billing cycle after [[30]] days' notice; prepaid periods keep their price; right to leave; FX is not a price change
 - v0.13.0 | 2 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5.1a currency: USD-priced subscription billed in PHP at the previous month's BSP weighted average rate (user); T4
@@ -39,7 +40,7 @@ REVISION HISTORY:
 | T3 | Acceptance | ✅ **Decided (user):** the Terms **form part of the subscription contract** when the company / organization signs up; accepted at sign-up and recorded (§0a) |
 | T4 | Prices, currency, VAT | ✅ **Currency decided (user, 2 Nov 2026):** monthly subscription + monthly add-ons priced in **USD**, billed in **PHP** at the **BSP weighted average rate of the previous month** (§5.1a); one-time fees in PHP. Prices: `PROPOSAL_Pricing_20261102.md`; VAT treatment open (PR1) |
 | T5 | Payment terms, late payment | Due [[15]] days after the statement / invoice. ✅ **Decided (user):** a late-payment **penalty** on overdue amounts, **unless agreed otherwise or waived by credit memo or in writing** (§5.3b); rate [[1% per month]] to confirm; no penalty on good-faith disputed amounts or on withheld tax before the 2307 deadline |
-| T6 | Service levels | **None while the service is a proof of concept** (Google Sheets backend); a separate SLA later |
+| T6 | Service levels | **None for now** (no uptime promise beyond the providers' - Neon has no SLA below its Scale plan); a separate SLA later |
 | T7 | Liability cap | Fees paid in the **12 months** before the claim |
 | T8 | Data return / deletion after termination | Export available for [[30]] days of read-only access, deleted within [[90]] days (privacy retention) |
 | T9 | Governing law and venue | ✅ **Decided (user):** Philippine law; the courts of **Mandaluyong City, Metro Manila** |
@@ -106,9 +107,10 @@ versions and when, and the Customer can view it in the Service.
 
 ### 2. The Service
 2.1 We provide the Service according to the Customer's Plan. A higher Plan includes the features of the lower Plans.
-2.2 **Proof-of-concept status.** The Service currently stores data in Google Sheets through Google Apps Script. It is
-provided without a service-level commitment ([[T6]]). We will tell Customers before we move data to another storage
-system and will not reduce the protection of Customer Data when we do.
+2.2 **Where Customer Data is stored.** The Service runs on servers in Singapore (Google Cloud and Neon), unless the
+Customer keeps Customer Data in its own Google Sheet (7.4). The Service is provided without a service-level commitment
+([[T6]]); our providers' status pages are listed on the Status page. We will tell Customers before we move Customer Data
+to another storage system or region and will not reduce the protection of Customer Data when we do.
 2.3 **Templates and Packs** are starting points. Their fields, lists (such as leave types) and steps are not legal,
 tax or HR advice. The Customer decides how to use them and is responsible for its own policies.
 2.4 **Payroll and leave rules are outside the Service.** Daloy records, routes and exports requests (for example
@@ -150,7 +152,7 @@ on or off. Turning a pack off stops new requests of its types; existing requests
 5.1 Fees are as stated on the order form or Plans page [[T4]]. Plans are billed per period in advance; Usage
 Add-ons are billed in arrears (§6).
 5.1a **Currency.** The monthly subscription fee and the monthly Usage Add-ons are priced in US dollars and billed in Philippine pesos. Each statement converts them at the Bangko Sentral ng Pilipinas (BSP) weighted average peso-dollar rate for the calendar month before the statement month, and shows the rate used. One-time fees (such as setup) are stated and billed in pesos unless the Subscription details say otherwise. The rate for the coming month is shown on the Customer's Usage & charges page as soon as the BSP publishes it, so the peso amount is known before the statement. *(verify: invoice currency / peso equivalent requirements under BIR rules)*
-5.1b **Price changes.** We may change our prices, including to reflect changes in the prices of the services the Service runs on (such as Google, Vercel, database and email providers). A price change applies from the start of the next billing cycle after we give the Customer's administrators at least [[30]] days' notice in the Service or by email - never in the middle of a cycle. A prepaid period (for example an annual prepayment) keeps its price until it ends. A Customer that does not accept a price increase may end its subscription before it takes effect, without penalty. Changes in the exchange rate under the Currency clause are not price changes.
+5.1b **Price changes.** We may change our prices, including to reflect changes in the prices of the services the Service runs on (such as Google Cloud, Neon and other hosting providers). A price change applies from the start of the next billing cycle after we give the Customer's administrators at least [[30]] days' notice in the Service or by email - never in the middle of a cycle. A prepaid period (for example an annual prepayment) keeps its price until it ends. A Customer that does not accept a price increase may end its subscription before it takes effect, without penalty. Changes in the exchange rate under the Currency clause are not price changes.
 5.2 We send a **usage statement** each month. Official invoices are issued [[through our accounting / billing
 system, in compliance with BIR rules]] *(verify the EOPT Act invoicing requirements)*.
 5.3 Payment is due within [[15]] days ([[T5]]). Fees are [[exclusive]] of VAT and other taxes.
@@ -191,7 +193,9 @@ The Data Processing Agreement forms part of these Terms.
 Service, gives the notices its Users and requesters need, and marks sensitive requests (for example health or salary
 details) as **Restricted** where its Plan offers it.
 7.4 **Customer-owned storage.** If the Customer chooses to keep Customer Data in its **own Google Sheet** through a
-Daloy bridge in its Google Workspace: (a) the Customer is responsible for its Google account, its Workspace settings,
+Daloy bridge (or a dedicated Daloy copy) in its Google Workspace: (a) the data stays where the Customer's Google
+account keeps it - its location is the Customer's choice and is not covered by our storage in Singapore; the Customer is
+responsible for its Google account, its Workspace settings,
 access to the Sheet and the bridge, and Google's terms; (b) the Customer and its Users must **not edit the Sheet
 directly** - direct edits bypass the Service's permissions, audit log and locks, and we are not responsible for data
 changed or lost that way; (c) the Service still processes Customer Data while it works on it.
@@ -214,10 +218,11 @@ access other customers' data or bypass plan limits, permissions or security; res
 consent; use the Service to send spam; or put information in the Service that they have no right to share.
 
 ### 10. Third-party services
-The Service relies on providers such as Google (Workspace, Sheets, Apps Script, Firebase sign-in), Vercel (hosting)
-and [[others - privacy D6]]. Their services are subject to their own terms. We choose providers with appropriate
+The Service relies on providers such as Google (Google Cloud, Firebase Hosting, sign-in with Google, Google Workspace)
+and Neon (the database), and on the services the Customer connects itself (its Google Drive, its mail service, its own
+Google Sheet). Their services are subject to their own terms. We choose providers with appropriate
 safeguards and remain responsible to the Customer for the parts of the Service we provide.
-10.2 **Provider outages.** When Google (including Google Workspace, Google Sheets, Apps Script and Firebase) or another provider has an outage or planned maintenance, the parts of the Service that depend on it may not work. This is not a failure of the Service and is excluded from any service level, and fees for the period remain due. We show the providers' status pages on our Status page (/status), and we notify the Customer's administrators of a provider outage that stops the Service for more than [[1 hour]]. For a provider outage that makes the Service unavailable for more than [[24 hours in a month]], we may give a goodwill credit by discount or credit memo, at our discretion (Waivers and credits).
+10.2 **Provider outages.** When Google (including Google Cloud, Firebase Hosting and Google Workspace), Neon or another provider - including a service the Customer connects itself - has an outage or planned maintenance, the parts of the Service that depend on it may not work. This is not a failure of the Service and is excluded from any service level, and fees for the period remain due. We show the providers' status pages on our Status page (/status), and we notify the Customer's administrators of a provider outage that stops the Service for more than [[1 hour]]. For a provider outage that makes the Service unavailable for more than [[24 hours in a month]], we may give a goodwill credit by discount or credit memo, at our discretion (Waivers and credits).
 
 ### 11. Intellectual property
 11.1 We own the Service, the Daloy name and logo, and the templates as provided. The Customer receives a

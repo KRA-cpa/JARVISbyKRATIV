@@ -194,7 +194,7 @@ const AppRoutes = () => {
               </OpenRoute>
             }
           />
-          {/* Provider status (Google, Firebase, Vercel) - public, no API (General Terms §10.2) */}
+          {/* Provider status (list per src/config/platform.js) - public, no API (General Terms §10.2) */}
           <Route path="/status" element={<OpenRoute><StatusPage /></OpenRoute>} />
           {/* Data Processing Agreement - company / organization admins only (part of the subscription contract) */}
           <Route path="/admin/dpa" element={<ProtectedRoute requireAdmin={true}><Suspense fallback={<LoadingScreen />}><DpaPage /></Suspense></ProtectedRoute>} />

@@ -4,8 +4,9 @@
  *
  * Only features the live backend has (AppScript v10.2) are described here. Planned ones (conditional routing, the ticket
  * uploader, delegation, comments ...) are added when they ship - plan §1: the server decides, the site only describes.
- * Layer: config (no imports).
+ * Layer: config (imports the platform switch only).
  */
+import { SHOW_MIGRATED_STACK, MIGRATED_STACK_PREVIEW } from './platform';
 
 /**
  * Brand (plan decision W4a, 1 Nov 2026): "Daloy by KRAtiv" - Tagalog for "flow"; "TicketFlow" was taken. KRA = the
@@ -65,12 +66,41 @@ export const HOW_IT_WORKS = {
  */
 const ON_CLOUD_RUN = process.env.REACT_APP_HOSTING === 'cloudrun';
 
+/*
+ * After the full migration (src/config/platform.js MIGRATION_COMPLETE; previews show it already): data in Neon Postgres
+ * Singapore, the app server + jobs on Cloud Run / Cloud Scheduler Singapore, the website on Firebase Hosting, sign-in
+ * with Google through our own server (Firebase Authentication retired - plan 3.4), no Vercel in production. Emails and
+ * attachments go through the organization's own Google / mail accounts (D11, D13), so Google Workspace stays listed.
+ * Neon's status page lists aws-ap-southeast-1 (checked 15 Nov 2026).
+ */
+const STATUS_PROVIDERS_MIGRATED = [
+  { name: 'Google Cloud Status', url: 'https://status.cloud.google.com/',
+    affects: `The ${BRAND_NAME} app server and its scheduled jobs such as SLA reminders (Google Cloud Run and Cloud ` +
+      'Scheduler, Singapore)' },
+  { name: 'Neon Status', url: 'https://neonstatus.com/',
+    affects: `The ${BRAND_NAME} database where your organization's data is stored (Neon Postgres, Singapore - ` +
+      'listed there as AWS ap-southeast-1)' },
+  { name: 'Firebase Status', url: 'https://status.firebase.google.com/',
+    affects: `The ${BRAND_NAME} website (Firebase Hosting)` },
+  { name: 'Google Workspace Status Dashboard', url: 'https://www.google.com/appsstatus/dashboard/',
+    affects: `Your Google sign-in, invitation emails from ${BRAND_NAME}, and - if your organization connected them - ` +
+      'its Google Drive attachments and Gmail notifications' }
+];
+
 export const STATUS = {
   title: 'Service status',
-  intro: `${BRAND_NAME} runs on ${ON_CLOUD_RUN ? 'Google' : 'Google and Vercel'}. If ${BRAND_NAME} is slow or can't ` +
-    'save, check the provider status pages below - an outage there affects us too. Your administrator is notified of ' +
-    'longer outages.',
-  providers: [
+  intro: SHOW_MIGRATED_STACK
+    ? `${BRAND_NAME} runs on Google Cloud and Neon, in Singapore. If ${BRAND_NAME} is slow or can't save, check the ` +
+      'provider status pages below - an outage there affects us too. Your administrator is notified of longer outages.'
+    : `${BRAND_NAME} runs on ${ON_CLOUD_RUN ? 'Google' : 'Google and Vercel'}. If ${BRAND_NAME} is slow or can't ` +
+      'save, check the provider status pages below - an outage there affects us too. Your administrator is notified of ' +
+      'longer outages.',
+  // Shown on previews only, while production still lists the current providers
+  previewNote: MIGRATED_STACK_PREVIEW
+    ? 'Preview: this is the page after the move to the new server. The live site lists the current providers until ' +
+      'the move is complete.'
+    : null,
+  providers: SHOW_MIGRATED_STACK ? STATUS_PROVIDERS_MIGRATED : [
     { name: 'Google Workspace Status Dashboard', url: 'https://www.google.com/appsstatus/dashboard/',
       affects: 'Google Sheets and Apps Script (where data is stored), Gmail (email notifications), your Google sign-in' },
     { name: 'Google Cloud Status', url: 'https://status.cloud.google.com/',

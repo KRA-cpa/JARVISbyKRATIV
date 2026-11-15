@@ -8,14 +8,17 @@
  *   - status 'draft'     -> the draft text on Vercel previews and local development, and on /terms/draft; production
  *                           /terms shows the placeholder with a link to the draft
  *   - status 'published' -> the text everywhere, with version + effective date (set them, and remove every [[...]])
+ * v0.16 (15 Nov 2026, migration step 0.10): the storage clause, providers and outages describe the platform AFTER the
+ * full migration (docs/planning/PLAN_Migration_Unified_20261108.md); publish in step 3.1 with src/config/platform.js
+ * MIGRATION_COMPLETE. 0.5-0.16 were shown on previews only - no archive entry needed (termsArchive.js rule).
  * Layer: config (no imports).
  */
 
 export const TERMS_OF_SERVICE = {
   status: 'draft', // 'draft' | 'published'
-  version: '0.15', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
+  version: '0.16', // = the DRAFT_TermsOfService version; archive the old object before changing published text (termsArchive.js)
   effectiveDate: '',
-  lastUpdated: '2 November 2026',
+  lastUpdated: '15 November 2026',
   title: 'General Terms of Service',
   draftPath: '/terms/draft',
   historyPath: '/terms/versions',
@@ -58,9 +61,11 @@ export const TERMS_OF_SERVICE = {
       id: 'service',
       heading: 'The Service',
       body: 'We provide the Service according to the Customer\'s Plan. A higher Plan includes the features of the lower Plans.\n\n' +
-        'Proof-of-concept status. The Service currently stores data in Google Sheets through Google Apps Script. It is provided ' +
-        'without a service-level commitment [[T6: no SLA for now]]. We will tell Customers before we move data to another storage ' +
-        'system and will not reduce the protection of Customer Data when we do.\n\n' +
+        'Where Customer Data is stored. The Service runs on servers in Singapore (Google Cloud and Neon), unless the Customer ' +
+        'keeps Customer Data in its own Google Sheet (Customer-owned storage, under Customer Data). The Service is provided ' +
+        'without a service-level commitment [[T6: no SLA for now]]; our providers\' status pages are listed on the Status page. ' +
+        'We will tell Customers before we move Customer Data to another storage system or region and will not reduce the ' +
+        'protection of Customer Data when we do.\n\n' +
         'Templates and Packs are starting points. Their fields, lists (such as leave types) and steps are not legal, tax or HR ' +
         'advice. The Customer decides how to use them and is responsible for its own policies.\n\n' +
         'Payroll and leave rules are outside the Service. Daloy records, routes and exports requests (for example leave, overtime, ' +
@@ -109,7 +114,7 @@ export const TERMS_OF_SERVICE = {
       body: 'Fees are as stated in the Subscription details [[T4: prices, VAT treatment]]. Plans are billed per period in advance; ' +
         'Usage Add-ons are billed in arrears.\n\n' +
         'Currency. The monthly subscription fee and the monthly Usage Add-ons are priced in US dollars and billed in Philippine pesos. Each statement converts them at the Bangko Sentral ng Pilipinas (BSP) weighted average peso-dollar rate for the calendar month before the statement month, and shows the rate used. One-time fees (such as setup) are stated and billed in pesos unless the Subscription details say otherwise. The rate for the coming month is shown on the Customer\'s Usage & charges page as soon as the BSP publishes it, so the peso amount is known before the statement.\n\n' +
-        'Price changes. We may change our prices, including to reflect changes in the prices of the services the Service runs on (such as Google, Vercel, database and email providers). A price change applies from the start of the next billing cycle after we give the Customer\'s administrators at least [[30]] days\' notice in the Service or by email - never in the middle of a cycle. A prepaid period (for example an annual prepayment) keeps its price until it ends. A Customer that does not accept a price increase may end its subscription before it takes effect, without penalty. Changes in the exchange rate under the Currency clause are not price changes.\n\n' +
+        'Price changes. We may change our prices, including to reflect changes in the prices of the services the Service runs on (such as Google Cloud, Neon and other hosting providers). A price change applies from the start of the next billing cycle after we give the Customer\'s administrators at least [[30]] days\' notice in the Service or by email - never in the middle of a cycle. A prepaid period (for example an annual prepayment) keeps its price until it ends. A Customer that does not accept a price increase may end its subscription before it takes effect, without penalty. Changes in the exchange rate under the Currency clause are not price changes.\n\n' +
         'We send a usage statement each month. Official invoices are issued [[through our accounting / billing system, in ' +
         'compliance with BIR rules]].\n\n' +
         'Payment is due within [[15]] days. Fees are [[exclusive]] of VAT and other taxes.\n\n' +
@@ -149,8 +154,9 @@ export const TERMS_OF_SERVICE = {
         'Customer responsibilities. The Customer has a lawful basis for the personal information it puts into the Service, gives ' +
         'the notices its Users and requesters need, and marks sensitive requests (for example health or salary details) as ' +
         'Restricted where its Plan offers it.\n\n' +
-        'Customer-owned storage. If the Customer keeps Customer Data in its own Google Sheet through a Daloy bridge in its Google ' +
-        'Workspace: the Customer is responsible for its Google account, its Workspace settings, access to the Sheet and the ' +
+        'Customer-owned storage. If the Customer keeps Customer Data in its own Google Sheet through a Daloy bridge (or a ' +
+        'dedicated Daloy copy) in its Google Workspace: the data stays where the Customer\'s Google account keeps it - its ' +
+        'location is the Customer\'s choice and is not covered by our storage in Singapore; the Customer is responsible for its Google account, its Workspace settings, access to the Sheet and the ' +
         'bridge, and Google\'s terms; the Customer and its Users must not edit the Sheet directly - direct edits bypass the ' +
         'Service\'s permissions, audit log and locks, and we are not responsible for data changed or lost that way; and the ' +
         'Service still processes Customer Data while it works on it.\n\n' +
@@ -179,10 +185,11 @@ export const TERMS_OF_SERVICE = {
     {
       id: 'third-parties',
       heading: 'Third-party services',
-      body: 'The Service relies on providers such as Google (Workspace, Sheets, Apps Script, Firebase sign-in), Vercel (hosting) ' +
-        'and [[others]]. Their services are subject to their own terms. We choose providers with appropriate safeguards and remain ' +
+      body: 'The Service relies on providers such as Google (Google Cloud, Firebase Hosting, sign-in with Google, Google ' +
+        'Workspace) and Neon (the database), and on the services the Customer connects itself (its Google Drive, its mail service, ' +
+        'its own Google Sheet). Their services are subject to their own terms. We choose providers with appropriate safeguards and remain ' +
         'responsible to the Customer for the parts of the Service we provide.\n\n' +
-        'Provider outages. When Google (including Google Workspace, Google Sheets, Apps Script and Firebase) or another provider has an outage or planned maintenance, the parts of the Service that depend on it may not work. This is not a failure of the Service and is excluded from any service level, and fees for the period remain due. We show the providers\' status pages on our Status page (/status), and we notify the Customer\'s administrators of a provider outage that stops the Service for more than [[1 hour]]. For a provider outage that makes the Service unavailable for more than [[24 hours in a month]], we may give a goodwill credit by discount or credit memo, at our discretion (Waivers and credits).'
+        'Provider outages. When Google (including Google Cloud, Firebase Hosting and Google Workspace), Neon or another provider - including a service the Customer connects itself - has an outage or planned maintenance, the parts of the Service that depend on it may not work. This is not a failure of the Service and is excluded from any service level, and fees for the period remain due. We show the providers\' status pages on our Status page (/status), and we notify the Customer\'s administrators of a provider outage that stops the Service for more than [[1 hour]]. For a provider outage that makes the Service unavailable for more than [[24 hours in a month]], we may give a goodwill credit by discount or credit memo, at our discretion (Waivers and credits).'
     },
     {
       id: 'ip',

@@ -4,6 +4,7 @@ import { useToast } from '../shared/Toast';
 import { useInfiniteLoopMonitor } from '../../utils/infiniteLoopPrevention';
 import Icons from '../shared/Icons';
 import { formatDateTime, formatTimeOnly } from '../../utils/dateTime';
+import { backendInfo } from '../../config/platform';
 
 const APIConnectionStatus = () => {
   const { success, error: showError } = useToast();
@@ -72,12 +73,14 @@ const APIConnectionStatus = () => {
 
   const StatusIcon = getStatusIcon();
   const statusColor = getStatusColor();
+  // Which backend answered the last check (X-Backend); before an answer, the platform default (src/config/platform.js)
+  const backend = backendInfo(connectionStatus.details && connectionStatus.details.backend);
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-6" key="api-connection-status">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-medium text-gray-900">
-          Google Sheets API Connection
+          API Connection - {backend.name}
         </h3>
         <div className="flex items-center space-x-2">
           <button
@@ -193,6 +196,14 @@ const APIConnectionStatus = () => {
             <div>
               <h4 className="text-sm font-medium text-gray-900 mb-2">Connection Details</h4>
               <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                {connectionStatus.status === 'healthy' && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Answered by:</span>
+                    <span className="font-mono text-gray-900">
+                      {backend.name} - {backend.store}{connectionStatus.details.backend ? '' : ' (assumed)'}
+                    </span>
+                  </div>
+                )}
                 {connectionStatus.details.responseTime && (
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-600">Response Time:</span>
@@ -420,9 +431,18 @@ const APIConnectionStatus = () => {
             <div>
               <h5 className="text-sm font-medium text-yellow-900">Troubleshooting</h5>
               <ul className="text-sm text-yellow-700 mt-1 space-y-1">
-                <li>• Verify the Google Apps Script deployment URL is correct</li>
-                <li>• Check that the script is deployed as a web app with proper permissions</li>
-                <li>• Ensure CORS is configured in the Apps Script project</li>
+                {backend.code === 'pg' ? (
+                  <>
+                    <li>• Check the Cloud Run revision logs for errors (the daloy service, Singapore)</li>
+                    <li>• Check the Neon status page and that the database secret is set on the service</li>
+                  </>
+                ) : (
+                  <>
+                    <li>• Verify the Google Apps Script deployment URL is correct</li>
+                    <li>• Check that the script is deployed as a web app with proper permissions</li>
+                    <li>• Ensure CORS is configured in the Apps Script project</li>
+                  </>
+                )}
                 <li>• Verify environment variables are set correctly</li>
                 <li>• Check network connectivity and firewall settings</li>
               </ul>
@@ -439,7 +459,7 @@ const APIConnectionStatus = () => {
             <div>
               <h5 className="text-sm font-medium text-yellow-900">Mock Mode Active</h5>
               <p className="text-sm text-yellow-700 mt-1">
-                The application is currently using mock data instead of the live Google Sheets API.
+                The application is currently using mock data instead of the live API.
                 Disable mock mode in the API configuration to use real data.
               </p>
             </div>

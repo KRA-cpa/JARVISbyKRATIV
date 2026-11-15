@@ -36,11 +36,11 @@ const AdminUserList = () => {
 
   // Handle user actions (disabled for Firebase features)
   const handleResetPassword = () => {
-    warning('Password reset requires Firebase authentication setup. Please contact your system administrator.');
+    warning('Passwords are managed in each user\'s own Google account - there is nothing to reset here.');
   };
 
   const handleDeleteUser = () => {
-    warning('User deletion requires Firebase authentication setup. Please contact your system administrator.');
+    warning('To remove someone, end their roles or deactivate their profile. Their Google account is not affected.');
   };
 
   const userId = (user) => user.user_id || user.id;

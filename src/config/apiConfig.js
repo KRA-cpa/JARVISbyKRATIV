@@ -1,7 +1,8 @@
 /**
- * API Configuration for Google Sheets Integration
+ * API Configuration (Apps Script proxy today; /api/rpc + Postgres after the migration - src/config/platform.js)
  * Handles connection settings, endpoints, and environment-specific configurations
  */
+import { backendInfo } from './platform';
 
 // Environment-based API configuration
 const API_CONFIG = {
@@ -110,7 +111,10 @@ export const checkAPIConnection = async () => {
       status: 'healthy',
       responseTime: data.responseTime || 0,
       serverTime: data.serverTime,
-      version: data.version || 'unknown'
+      version: data.version || 'unknown',
+      // Which backend answered: X-Backend (pg | gas) from api/_lib/rpcCore.js / proxyCore.js; readable cross-origin
+      // because the API exposes it (Access-Control-Expose-Headers). null = not sent (an old deployment)
+      backend: response.headers.get('x-backend')
     };
 
   } catch (error) {
@@ -175,17 +179,20 @@ export const getAPIBehavior = () => {
  */
 export const getAPIHealthStatus = async () => {
   const connection = await checkAPIConnection();
+  const backend = backendInfo(connection.backend);
 
   return {
     status: connection.connected ? 'healthy' : 'unhealthy',
     message: connection.connected
-      ? `Connected to Google Sheets API (${connection.responseTime}ms)`
+      ? `Connected: ${backend.name} (${backend.store} - ${connection.responseTime}ms)`
       : `API Connection Failed: ${connection.error}`,
     details: {
       deploymentId: extractDeploymentId(apiConfig.baseURL),
       environment: process.env.NODE_ENV,
       mockMode: apiConfig.mockMode,
-      ...connection
+      ...connection,
+      backendName: backend.name,
+      backendStore: backend.store
     }
   };
 };

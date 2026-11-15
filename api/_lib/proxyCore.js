@@ -156,6 +156,8 @@ function answerCors(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  // Admin → API connection reads which backend answered (src/config/apiConfig.js) - also from local dev (cross-origin)
+  res.setHeader('Access-Control-Expose-Headers', 'X-Backend, X-Response-Time');
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return true;

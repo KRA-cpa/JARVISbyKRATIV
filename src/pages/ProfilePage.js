@@ -175,7 +175,7 @@ const ProfilePage = () => {
                   <div className="mb-6">
                     <h3 className="text-lg font-medium text-gray-900">Profile Information</h3>
                     <p className="mt-1 text-sm text-gray-500">
-                      Your profile information is managed through Firebase Authentication.
+                      Your name and email come from your Google sign-in; your organization manages the rest.
                     </p>
                   </div>
 
@@ -213,7 +213,7 @@ const ProfilePage = () => {
                           </h3>
                           <div className="mt-2 text-sm text-yellow-700">
                             <p>
-                              Profile information is managed through Firebase Authentication.
+                              Your name and email come from your Google sign-in.
                               Contact your administrator to update your display name or email address.
                             </p>
                           </div>
@@ -378,8 +378,8 @@ const ProfilePage = () => {
                         </h3>
                         <div className="mt-2 text-sm text-blue-700">
                           <p>
-                            Security settings including password changes and two-factor authentication
-                            are managed through Firebase Authentication. Contact your administrator for assistance.
+                            Your password and two-step verification are managed in your Google account.
+                            Contact your administrator for assistance.
                           </p>
                         </div>
                       </div>

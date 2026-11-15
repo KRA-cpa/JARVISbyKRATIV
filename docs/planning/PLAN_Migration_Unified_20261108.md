@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.7.2
-Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 14 November 2026 UTC+8 (Philippine Standard Time)
+Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.8.0
+Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: THE migration plan + step-by-step, top to bottom: Apps Script / Google Sheets → Google Cloud Run + Neon Postgres (all servers in Asia), previews on Vercel, Google Sheets kept as a customer option; then the remaining v10.2 features and organizations on the new server | Status: Active - current roadmap (Phase F done, H.3 production deployed - custom domain pending, 0.7 schema generated)
 REVISION HISTORY:
+- v1.8.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Order changed (user: "0.9 is required?" → "go with default"): **0.10 first**, 0.9 moved to just before 2.4. 0.10 drafted: DPA v0.3, Privacy (15 Nov), Terms v0.16 + DRAFT doc v0.16.0 describe the platform after the move. **No Sub-processor notice** (user: "no notice needed. no payng clients for now. or word it for new clients") → `DISCLOSURE_DataLocation_NewClients_20261115.md`; the 30-day wait before Phase 2 is dropped. User: "update status pages as well. ready all components when full migrate is complete" → `src/config/platform.js` `MIGRATION_COMPLETE` (flip in 3.1): /status before / after lists (previews show after), admin diagnostics label the backend from `X-Backend` (exposed by the proxy), 3.6 panel rewritten, sign-in wording neutral. Session 461f9ea9
 - v1.7.2 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 0.8 done (user: "ok"): 303 clean rows loaded on Neon `dev`, 28 skipped, gate met; `0002` applied. 0.7 done: `db:explain` → `docs/perf/EXPLAIN_HotPaths_20261115.md` (17 / 17 indexed at scale). Rules v1.2 (`email_enabled` text). Session 92b85189
 - v1.7.1 | 14 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 0.8 built (user: "next"; "get unbroken data only"; "seed data is ok"): editor-only export file + `db:load-sheets` loader (clean rows only, skip report, lock repair on the copy); waiting for the export run. Session 92b85189
 - v1.7.0 | 14 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | D15 data residency in Singapore approved (0.3 clearance part; user: "record ok as confirmed by Kenneth Advento, owner of krativ. wala man tayong choice since no PH locaton available"). 0.6 done (user: "go 0.6"): `pg` driver, `/api/rpc` + Apps Script fallback, `db:migrate`; 0.7 part 2 started - `0001` applied on Neon `dev`. Session 92b85189
@@ -269,10 +270,22 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       **Loaded 303 rows, skipped 28** (15 rows of spaces / no id, 2 shifted rows, 11 whose parent is gone - the report
       next to the export). **Gate met:** row counts match, 10 tickets end to end match; `0002` applied after.
 - [ ] **0.9 Claude** - **reverse export** (Postgres → Sheets) written **and tested** - the rollback for Phase 2, and the
-      first half of the bridge / export work (Phase 5).
-- [ ] **0.10 Claude drafts, You send** - new DPA Annex C + transfers, Privacy providers / transfers / cookies, Terms
+      first half of the bridge / export work (Phase 5). **Moved (15 Nov 2026): build it during Phase 1, done before 2.4**
+      - before 2.4 the rollback is "unfreeze Apps Script" (Phase 2 Rollback line), so nothing needs it earlier.
+- [x] **0.10 Claude drafts** *(was: You send)* - new DPA Annex C + transfers, Privacy providers / transfers / cookies, Terms
       providers + the Sheets-option wording (D7), shown on previews; the **new Sub-processor notice** to every customer
-      admin. **Gate:** notice date recorded; Phase 2 is ≥ **[[30]] days** later. *CHECK §7.*
+      admin. ~~Gate: notice date recorded; Phase 2 is ≥ 30 days later~~ (dropped 15 Nov 2026 - no paying clients). *CHECK §7.*
+      **Drafted 15 Nov 2026 (Claude):** `src/config/legal/dpa.js` v0.3 (Annex B security, Annex C = Google LLC (Cloud Run /
+      Scheduler Singapore, Firebase Hosting, Secret Manager / Logging, sign-in, KRAtiv mailbox) + **Neon, Inc.** (AWS
+      Singapore) + Vercel previews [[decision: test data only → off the list]]; customer-connected Drive / mail / Sheet are
+      not Sub-processors; transfers = Singapore + Google's global network; deletion incl. the [[7]]-day restore window and
+      [[30]]-day logs), `privacy.js` (providers, Singapore, retention, security, session cookie), `terms.js` v0.16 +
+      `DRAFT_TermsOfService_20261101.md` v0.16.0 (§2.2 storage clause, §5.1b, §7.4, §10). SES (CHECK §7) is gone - D13.
+      **Notice dropped (user, 15 Nov 2026: "no notice needed. no payng clients for now. or word it for new clients"):**
+      no paying client exists, so nobody is notified and **Phase 2 no longer waits [[30]] days**. New clients get the
+      statement in `docs/planning/DISCLOSURE_DataLocation_NewClients_20261115.md` (A before the move, B after) and accept
+      the DPA with Annex C at sign-up; the DPA's [[30]]-day rule covers later changes. **Left:** your review of the drafts
+      (with the lawyer, 0.3); Claude before 3.1: set the Cloud Logging bucket region to Singapore.
 
 ### Phase 1 — Sync, reads, sign-in
 - [ ] **1.1 Claude** - sync → `/api/cron/sync` (watermark on `updated_at` / `created_at`, upsert into Neon `main`)
@@ -293,7 +306,7 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       linking, the v9.6 allow-list + invites. **Gate:** an existing user signs in with Better Auth and sees the same
       tickets. *PLAN_Migration §3.*
 
-### Phase 2 — Write cutover (≥ [[30]] days after 0.10)
+### Phase 2 — Write cutover (no 30-day wait while there is no paying client - 0.10)
 - [ ] **2.1 You** - announce the maintenance window.
 - [ ] **2.2 You** - freeze writes: Script Property `READ_ONLY=true` (the app shows a maintenance banner).
 - [ ] **2.3 Claude** - final sync; row counts; spot checks.
@@ -311,6 +324,9 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       proof-of-concept clause, the Sheets option) - archive the old Terms version first (`termsArchive.js` rule);
       `src/config/site.js` `STATUS` (add Neon + AWS SES; since 9 Nov 2026 the Cloud Run build already drops Vercel -
       `REACT_APP_HOSTING=cloudrun`; the Google Workspace row stays for sign-in / Gmail and the Sheets-option customers).
+      **Ready 15 Nov 2026:** one switch - `src/config/platform.js` `MIGRATION_COMPLETE = true` in the same commit as the
+      `status: 'published'` texts. It flips /status to the after list (Google Cloud, Neon, Firebase Hosting, Google
+      Workspace; previews show it already with a note) and the admin labels' default backend. SES is not added (D13).
 - [ ] **3.2 You** - **Neon Launch before the first paying customer** (Free suspends compute at its limit); decide
       scale-to-zero for production.
 - [ ] **3.3 Claude** - remove the Apps Script fallback and `READ_ONLY` handling for the platform store; Row-Level Security
@@ -328,6 +344,9 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       server** (the `x-backend` answer: `pg` = Postgres on Cloud Run Singapore; **Sheets-option organizations** - bridge or
       dedicated instance, §2 / D7 - keep "Google Sheets + Apps Script" with their bridge status) instead of fixed text;
       drop the static API / phase lists (the plan page and `/status` cover them).
+      **Done in part 15 Nov 2026:** the panel shows the data store from `platform.js` (+ the Sheets-option line), the static
+      lists are gone, the error banner names the backend; Admin → System → API connection shows what answered the ping
+      (`X-Backend`, now in `Access-Control-Expose-Headers`). Left: per-organization status from the server (Phase 5).
 
 ### Phase 4 — New features on the server (after Phase 2; D6)
 Order (each = design section → `/api/rpc` handlers + tests → screens → contract check → preview → production):

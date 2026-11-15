@@ -8,6 +8,9 @@
  *   - status 'draft'     -> the draft text on Vercel previews (REACT_APP_VERCEL_ENV = preview) and local development only;
  *                           everywhere else (production) the placeholder - an unapproved policy is never public
  *   - status 'published' -> the text everywhere, with version + effective date (set them, and remove every [[...]])
+ * 15 Nov 2026 (migration step 0.10): providers, storage location, retention, security and cookies describe the platform
+ * AFTER the full migration (docs/planning/PLAN_Migration_Unified_20261108.md). Publish in step 3.1 with
+ * src/config/platform.js MIGRATION_COMPLETE.
  * Layer: config (no imports).
  */
 
@@ -15,7 +18,7 @@ export const PRIVACY_POLICY = {
   status: 'draft', // 'draft' | 'published'
   version: '',
   effectiveDate: '',
-  lastUpdated: '2 November 2026', // change on every text change (user, 1 Nov 2026: "add last updated")
+  lastUpdated: '15 November 2026', // change on every text change (user, 1 Nov 2026: "add last updated")
   title: 'Privacy Policy',
   draftPath: '/privacy/draft',
   // Notice of a MAJOR change before it takes effect (user, 1 Nov 2026). null = none. When set, /privacy shows an
@@ -84,17 +87,26 @@ export const PRIVACY_POLICY = {
       heading: 'Who receives it, including service providers',
       body: '- Your organization and its users, according to the visibility rules your organization sets for each type of ticket.\n' +
         '- Our service providers, who process data for us under agreements that require them to protect it: Google (Google ' +
-        'Workspace / Sheets, Apps Script, Firebase Authentication and email sending) and Vercel (website and application hosting) ' +
-        '[[confirm the provider list and their data processing terms]].\n' +
+        'Cloud in Singapore for our application server and scheduled jobs, Firebase Hosting for the website, sign-in with Google, ' +
+        'and our own Google Workspace mailbox for invitations and account emails) and Neon (our database, in Singapore, on Amazon ' +
+        'Web Services) [[confirm each provider\'s data processing terms are in place]] [[Vercel: only if staff test versions ' +
+        'use real data - see the DPA decision]].\n' +
+        '- Services your organization connects itself - its own Google Drive for attachments, its own mail service for ' +
+        'notifications, or its own Google Sheet if it keeps its data there. They act under your organization\'s own agreements ' +
+        'with those providers.\n' +
         '- Government authorities, when the law requires it.\n\n' +
         'We do not sell personal information.'
     },
     {
       id: 'transfers',
       heading: 'Where it is stored and processed',
-      body: 'Your personal information is stored and processed on the servers of our service providers, which may be located outside ' +
-        'the Philippines [[confirm the storage regions]]. We remain responsible for personal information we transfer to them, as ' +
-        'required by Section 21 of the Data Privacy Act, and we rely on their contractual and security commitments.'
+      body: 'Your personal information is stored in Singapore: our database (Neon) and our application server (Google Cloud) are ' +
+        'both there. No provider offers a Philippine region for these services today, and Singapore is the nearest.\n\n' +
+        'Signing in with Google and the delivery of our website use Google\'s global network, and emails pass through the mailbox ' +
+        'that sends them. If your organization keeps its data in its own Google Sheet or connects its own Drive or mail service, ' +
+        'that data stays where your organization\'s provider keeps it.\n\n' +
+        'We remain responsible for personal information we transfer to our service providers, as required by Section 21 of the ' +
+        'Data Privacy Act, and we rely on their contractual and security commitments.'
     },
     {
       id: 'retention',
@@ -105,6 +117,8 @@ export const PRIVACY_POLICY = {
         'return or delete the organization\'s data within [[90]] days.\n' +
         '- Security and sign-in logs: [[1 year]].\n' +
         '- Email delivery records: [[90 days]] after sending.\n' +
+        '- Backups of our database: deleted data can still be restored for [[7 days]], then it is gone.\n' +
+        '- Technical service logs: [[30 days]].\n' +
         '- Billing records: for the period required by tax law [[confirm the period]].\n\n' +
         'Where records must be kept for accountability (for example, who approved a request), we remove or replace the personal ' +
         'details instead of deleting the record.'
@@ -113,7 +127,7 @@ export const PRIVACY_POLICY = {
       id: 'security',
       heading: 'How we protect it',
       body: 'We use organizational, physical and technical measures to protect personal information, including: sign-in through ' +
-        'Google verified on our servers; access by invitation only; permissions by role, with administrator functions limited to ' +
+        'Google verified on our servers; data stored encrypted in Singapore; access by invitation only; permissions by role, with administrator functions limited to ' +
         'administrators; tickets and fields marked Restricted shown only to the people in their approval chain; audit logs of ' +
         'administrator actions; encrypted connections (HTTPS); and sessions that end after [[12]] hours. No system is completely ' +
         'secure, and we review these measures regularly.'
@@ -138,8 +152,10 @@ export const PRIVACY_POLICY = {
     {
       id: 'cookies',
       heading: 'Cookies and browser storage',
-      body: 'We do not use advertising or analytics cookies. The application stores, in your browser, what it needs to keep you ' +
-        'signed in (through Google Firebase) and your display preferences.'
+      body: 'We do not use advertising or analytics cookies. When you sign in, our server sets one session cookie that keeps you ' +
+        'signed in; it is secure (sent only over HTTPS), cannot be read by scripts on the page, and ends when you sign out or ' +
+        'after [[12]] hours. The application also stores your display preferences (such as dark mode and time zone) in your ' +
+        'browser.'
     },
     {
       id: 'children',
