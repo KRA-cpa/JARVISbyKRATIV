@@ -478,6 +478,7 @@ Rows further down that list `SLAWidgets` / `SLANotificationSystem` as users of `
 | `src/api/googleSheet.js` | API | exports **`AUTH_EVENT`**, **`SIGN_OUT_CODES`**; 401 / 403 keep `{ code }` (no retry); new **`API.Invites`**, **`API.CompanyEmail`**, **`API.Attachments`**; v9.6 reads in `readActions` | hooks, `UserContext` |
 | `src/hooks/useAPI.js` | Hooks | new **`useUserInvites`**, **`useCompanyEmailSettings`**, **`useTicketAttachments`** (shared `useWriteRunner`) | components below |
 | `src/utils/sessionGuard.js` | Util (new) | - (idle limit, shared last-activity in localStorage, one-time notice in sessionStorage) | `UserContext`, `LoginPage` |
+| `src/utils/returnPath.js` | Util (new 15 Nov 2026, leaf) | - (`returnPathFrom`: in-app paths only, never `//host` / `/login`; `returnStateFor`) | `App.js` `ProtectedRoute` (sends `{ from }` to `/login`) + `PublicRoute`, `LoginPage` (back to the page first opened - e.g. a notice link - else `/dashboard`); test `src/utils/returnPath.test.js` |
 | `src/contexts/UserContext.js` | Context | **`AUTH_EVENT` / `SIGN_OUT_CODES`**, **`sessionGuard`**; idle sign-out; no mock Admin outside `DISABLE_AUTH` | everything |
 | `src/pages/LoginPage.js` | Page | **`takeSessionNotice`** | `App.js` |
 | `src/components/admin/AdminUserInvites.js` | Component (new, mounted) | `useCompanies`, `useRoles`, **`useUserInvites`** | `AdminUserList` (Invite) |

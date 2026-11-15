@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
 // Configuration
@@ -32,6 +32,7 @@ import TermsPage, { TermsVersionsPage, TermsArchivedPage } from './pages/TermsPa
 import StatusPage from './pages/StatusPage';
 import DataLocationPage from './pages/DataLocationPage';
 import NoticePage from './pages/NoticePage';
+import { returnPathFrom, returnStateFor } from './utils/returnPath';
 import { IS_PREVIEW_BUILD } from './config/platform';
 
 // Shared Components
@@ -71,6 +72,7 @@ const WithNotices = ({ children }) => <><LoginNoticeBanner />{children}</>;
 // Protected Route Component with Development Toggle
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
   const { isAuthenticated, isAdmin, loading } = useUser();
+  const location = useLocation();
 
   // Skip authentication in development mode or when direct access is allowed
   if (DEV_CONFIG.DISABLE_AUTH || DEV_CONFIG.ALLOW_DIRECT_ACCESS) {
@@ -82,8 +84,9 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
     return <LoadingScreen />;
   }
 
+  // Sign-in comes back to this page (e.g. a notice link from an email), not the dashboard - src/utils/returnPath.js
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={returnStateFor(location)} />;
   }
 
   if (requireAdmin && !isAdmin) {
@@ -99,6 +102,7 @@ const OpenRoute = ({ children }) => children;
 // Public Route Component with Development Toggle
 const PublicRoute = ({ children }) => {
   const { isAuthenticated, loading } = useUser();
+  const location = useLocation();
 
   // Skip authentication in development mode
   if (DEV_CONFIG.DISABLE_AUTH) {
@@ -110,8 +114,9 @@ const PublicRoute = ({ children }) => {
     return <LoadingScreen />;
   }
 
+  // Signed in on /login: back to the page first opened (App.js ProtectedRoute), else the dashboard
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={returnPathFrom(location.state)} replace />;
   }
 
   return children;

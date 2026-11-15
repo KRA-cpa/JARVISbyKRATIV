@@ -199,8 +199,14 @@ export const PREVIEW_SAMPLE_NOTICES = [
 /** Every notice this build knows: the real ones, plus the samples on previews. */
 export const allNotices = () => (IS_PREVIEW_BUILD ? [...LOGIN_NOTICES, ...PREVIEW_SAMPLE_NOTICES] : LOGIN_NOTICES);
 
+/** The notice with this reference in a list, ignoring case and spaces around it (a typed or emailed link: /notices/sample-a). */
+export const findNotice = (list, id) => {
+  const key = typeof id === 'string' ? id.trim().toUpperCase() : '';
+  return (key && (list || []).find(n => String(n.id).toUpperCase() === key)) || null;
+};
+
 /** The notice for an id (the /notices/:id page), or null. */
-export const noticeById = id => allNotices().find(n => n.id === id) || null;
+export const noticeById = id => findNotice(allNotices(), id);
 
 /** Is the notice meant for a user of these companies? [] on the notice = everyone. */
 export const noticeForCompanies = (notice, companyIds = []) => {

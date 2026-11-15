@@ -1,4 +1,4 @@
-import { isNoticeInWindow, noticeForCompanies, NOTICE_DAYS, hasPublicVersion, isPublicVisible, statusNotices, isResolved, noticeTimeline } from './notices';
+import { isNoticeInWindow, noticeForCompanies, NOTICE_DAYS, hasPublicVersion, isPublicVisible, statusNotices, isResolved, noticeTimeline, findNotice, PREVIEW_SAMPLE_NOTICES } from './notices';
 
 // src/config/notices.js: the sign-in banner shows for 7 days from postedAt, only to the organizations addressed
 const notice = { id: 'INC-TEST', template: 'A', postedAt: '2026-11-20T09:00:00+08:00', companyIds: [] };
@@ -49,4 +49,15 @@ test('timeline: oldest first, internal entries only in the signed-in notice, bad
   expect(noticeTimeline({ id: 'x' })).toEqual([]);
   expect(isResolved(n)).toBe(false);
   expect(isResolved({ ...n, resolvedAt: '2026-11-21T09:00:00+08:00' })).toBe(true);
+});
+
+test('findNotice ignores case (a typed link: /notices/Sample-a)', () => {
+  const list = PREVIEW_SAMPLE_NOTICES;
+  expect(findNotice(list, 'SAMPLE-A').id).toBe('SAMPLE-A');
+  expect(findNotice(list, 'Sample-a').id).toBe('SAMPLE-A');
+  expect(findNotice(list, ' sample-b ').id).toBe('SAMPLE-B');
+  expect(findNotice(list, 'nope')).toBeNull();
+  expect(findNotice(list, '')).toBeNull();
+  expect(findNotice(list, undefined)).toBeNull();
+  expect(findNotice(undefined, 'SAMPLE-A')).toBeNull();
 });

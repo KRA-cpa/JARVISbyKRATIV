@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import { clearSessionNotice, takeSessionNotice } from '../utils/sessionGuard';
+import { returnPathFrom } from '../utils/returnPath';
 import Icons from '../components/shared/Icons';
 import BrandMark from '../components/shared/BrandMark';
 import LoadingScreen from '../components/shared/LoadingScreen';
@@ -9,6 +10,9 @@ import { BRAND_NAME, BRAND_PARENT_LINE, BRAND_DESCRIPTOR, BRAND_TAGLINE } from '
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  // The page the visitor first opened (App.js ProtectedRoute), else the dashboard
+  const returnTo = returnPathFrom(location.state);
   const { signInWithGoogle, loading, error, clearError, isAuthenticated, user } = useUser();
   const [isSigningIn, setIsSigningIn] = useState(false);
   // v9.6: why the app signed the user out (idle, 12-hour cap, not invited, deactivated) - shown once
@@ -20,12 +24,12 @@ const LoginPage = () => {
     if (pending) setNotice(pending);
   }, [isAuthenticated, loading]);
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated - back to the page first opened
   useEffect(() => {
     if (isAuthenticated && user) {
-      navigate('/dashboard', { replace: true });
+      navigate(returnTo, { replace: true });
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, user, navigate, returnTo]);
 
   const handleGoogleSignIn = async () => {
     try {
