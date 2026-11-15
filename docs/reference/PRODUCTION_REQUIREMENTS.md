@@ -1,7 +1,7 @@
 # JarvisByERP Production Requirements
 
-**Date**: September 17, 2025 (production host move noted 8 November 2026; `pg` added 14 November 2026; local Node 22.23.5 recorded 15 November 2026)
-**Version**: 1.3
+**Date**: September 17, 2025 (production host move noted 8 November 2026; `pg` added 14 November 2026; local Node 22.23.5 recorded 15 November 2026; analytics packages removed 15 November 2026)
+**Version**: 1.4
 **Status**: Current Production Stack Documentation
 
 ## Runtime Environment Requirements
@@ -40,11 +40,15 @@
 ```json
 {
   "firebase": "^11.9.0",
-  "@firebase/analytics": "^0.10.16",
   "jose": "^5.9.6",
   "pg": "^8.23.1"
 }
 ```
+- **Removed 15 Nov 2026 (privacy check, session 461f9ea9):** `@vercel/speed-insights` (Vercel performance analytics,
+  mounted in `App.js`) and `@firebase/analytics` (declared, never imported). Daloy uses **no analytics** (Privacy Policy
+  "Cookies and browser storage"), and **Vercel is not a Daloy platform** (user: "exclude Vercel in any platforms we
+  use"): it only hosts internal preview builds on test data (`docs/guides/GUIDE_Previews_TestData.md`). Don't add an
+  analytics SDK without a privacy check (`docs/planning/CHECK_PrivacyCompliance_20261115.md`).
 - **`jose`** *(added 30 Oct 2026, AppScript v9.4)*: used only by the Vercel function `api/appscript-proxy.js` (never bundled into the React app) to verify the Firebase ID token against Google's securetoken JWKS before forwarding to Apps Script (compliance F6). v5 runs on Node 18+ (Vercel's Node runtime) in both ESM and CJS.
 - **`express` + `jose` in the Cloud Run image** *(8 Nov 2026, no new packages)*: `server/app.js` (Express 5) serves the same `api/_lib/proxyCore.js` handler and the React build on Cloud Run. The image installs only these two from `server/package.json` (exact versions **5.1.0 / 5.9.6**, kept equal to the root `package.json` - change both together). Test: `node scripts/test-cloudrun-server.js` (13).
 - **`pg` (node-postgres) 8.23.1** *(added 14 Nov 2026, migration step 0.6, session 92b85189)*: the Postgres driver for Neon (`aws-ap-southeast-1`). Server-only - used by `api/_lib/db.js` (`/api/rpc` handlers on Cloud Run) and `scripts/db-migrate.js` (`npm run db:migrate`); never imported from `src/`. A normal TCP `Pool` over Neon's **direct** connection string (`sslmode=require`), because Cloud Run is a long-running container; pool size small (default 5) for Neon Free. Pure JavaScript (no native `pg-native`), Node ≥ 16. Pinned exactly in `server/package.json` (Cloud Run image), `^` in the root - change both together.

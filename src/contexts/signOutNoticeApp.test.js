@@ -14,7 +14,6 @@ jest.mock('../config/development', () => ({
     STATS_DISPLAY: {} },
   MOCK_USER: {}
 }));
-jest.mock('@vercel/speed-insights/react', () => ({ SpeedInsights: () => null }), { virtual: true });
 jest.mock('firebase/auth', () => {
   const { auth } = require('../config/firebase');
   return {

@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: DISCLOSURE_DataLocation_NewClients_20261115.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: DISCLOSURE_DataLocation_NewClients_20261115.md | Author: Kenneth R. Advento | Version: 1.0.1
 Created: 15 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Migration step 0.10 - where data is stored and who processes it, worded for NEW clients (sign-up, welcome email, sales answers); replaces the Sub-processor notice | Status: DRAFT - for review by the owner (and counsel with the DPA / Privacy / Terms changes)
 REVISION HISTORY:
+- v1.0.1 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Vercel off the provider list (user: "exclude Vercel in any platforms we use" - previews on test data only); DPA v0.4
 - v1.0.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 461f9ea9). User: "no notice needed. no payng clients for now. or word it for new clients" - no existing customer to notify, so no 30-day notice and no Phase 2 wait; the DPA's [[30]]-day rule applies to later changes once clients exist
 ===============================================================================
 -->
@@ -49,12 +50,11 @@ Use **A** for a client who signs up before the move (plan Phase 2), **B** after 
 > The full list of our service providers is in the Data Processing Agreement (Annex C), which your administrator accepts
 > at sign-up. Questions: our Data Protection Officer at KRATIV.dpo@blueknight.xyz.
 
-## §2 Providers (the same list as DPA Annex C v0.3)
+## §2 Providers (the same list as DPA Annex C v0.4)
 | Provider | What for | Where |
 |---|---|---|
 | Google LLC | application server + scheduled jobs (Cloud Run, Cloud Scheduler), website (Firebase Hosting), secrets + service logs, sign-in with Google, KRAtiv's mailbox for invitations / account emails | Singapore (`asia-southeast1`); website and sign-in on Google's global network; logs [[Singapore once the log bucket region is set]] |
 | Neon, Inc. (on Amazon Web Services) | the database | Singapore (`aws-ap-southeast-1`) |
-| Vercel Inc. | staff test versions (previews) only | [[decision: test data only → off the list]] |
 | *Before the move only:* Google Sheets / Apps Script, Firebase Authentication | today's data store and sign-in check | Google, no fixed region / US |
 
 Not KRAtiv providers: the client's own Google Drive, mail service and Google Sheet (connected by the client, under its
@@ -65,5 +65,5 @@ If a client signs up **before** Phase 2, it gets statement **A** at sign-up. Bec
 the move is not a new Sub-processor for that client. Still send a short heads-up with the maintenance window date. Only
 a provider that A / Annex C does not name would need the [[30]]-day notice.
 
-**Related:** DPA v0.3, Privacy Policy (15 Nov 2026), General Terms v0.16 (all drafts, published in plan step 3.1 with
+**Related:** DPA v0.4, Privacy Policy (15 Nov 2026), General Terms v0.16 (all drafts, published in plan step 3.1 with
 `src/config/platform.js` `MIGRATION_COMPLETE = true`).

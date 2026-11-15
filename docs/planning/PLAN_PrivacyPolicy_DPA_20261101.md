@@ -1,13 +1,14 @@
 <!--
 ===============================================================================
-JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
+JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_PrivacyPolicy_DPA_20261101.md | Author: Kenneth R. Advento | Version: 1.2.0
-Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 9 November 2026 UTC+8 (Philippine Standard Time)
+Document: PLAN_PrivacyPolicy_DPA_20261101.md | Author: Kenneth R. Advento | Version: 1.3.0
+Created: 1 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Plan for a Privacy Policy (privacy notice) and the supporting compliance work under the Philippine Data Privacy Act of 2012 (RA 10173), its IRR and NPC issuances, for TicketFlow / JARVIS | Status: Draft (session 41700a8e), decisions D1-D10 open, nothing built
 REVISION HISTORY:
 - v1.0.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created on request ("create plan for Privacy Policy that is PH DPA compliant"); follows docs/planning/PLAN_PlatformWebsite_20261101.md W7 (legal text from the business / counsel)
 - v1.1.0 | 1 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | D2: DPO email `jarvis.dpo@blueknight.xyz`; the proposed draft (L2 starting text) is in `src/config/legal/privacy.js`, shown on previews and on the public `/privacy/draft` (marked DRAFT, noindex), production `/privacy` = placeholder + link to it
+- v1.3.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Privacy check (session 461f9ea9, `CHECK_PrivacyCompliance_20261115.md`): §4 inventory on the new platform (Neon / Cloud Run / Cloud Logging); **Vercel is not a Daloy platform** (user: "exclude Vercel in any platforms we use") - off every provider list, previews on test data; no analytics (Speed Insights, `@firebase/analytics` removed); acknowledgement at first sign-in instead of a consent checkbox; §10 L3 status; drafts PIA, Privacy Manual, breach and rights guides
 - v1.2.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Data table: uploaded attachments in the customer's own Google Workspace Drive (planned, unified step 4.7) + the Google API Limited Use / drive.file disclosure - PLAN_Attachments_ClientDrive_20261109.md §14
 ===============================================================================
 -->
@@ -65,7 +66,7 @@ Each item maps to the data subject's **right to be informed** (DPA Sec. 16(a)-(b
    - **Personal information:** DPA Sec. 12. The bases are contract (providing the service), legal obligation (tax / invoices), legitimate interests (security logs, abuse prevention) and consent (any optional marketing).
    - **Sensitive personal information:** DPA Sec. 13. This is only as instructed by the customer PIC (D7).
 5. **Who receives it:**
-   - service providers and sub-processors (§4: Google, Vercel);
+   - service providers and sub-processors (§4: Google, Neon);
    - the customer company and its users, per the ticket's visibility rules;
    - authorities when legally required.
    - **No selling of personal data.**
@@ -90,14 +91,17 @@ Each item maps to the data subject's **right to be informed** (DPA Sec. 16(a)-(b
 | Attachment links | `ticket_attachments` | file name, Google Drive / Docs link, uploader (files themselves stay in the customer's Drive) | the service | PIP |
 | Uploaded attachments *(planned, unified step 4.7)* | `ticket_attachments`, `drive_connections` | file names, size, type, Drive file id, uploader; the connected role-account email; an encrypted Drive token (option 1). **The files are stored in the customer's own Google Workspace Shared Drive** - Daloy streams them on download and stores none. Needs the Google API **"Limited Use"** statement and a description of the `drive.file` permission in the Privacy Policy (`docs/planning/PLAN_Attachments_ClientDrive_20261109.md` §14) | the service | PIP |
 | Notifications and email | `notifications`, `email_outbox`; Gmail via Apps Script `MailApp` | recipient, email address, subject, body (ticket number / title) | workflow notices | PIP |
-| Audit and security logs | `admin_action_logs` (logins with **email + IP address** when sent), `ticket_action_logs`; Vercel function logs (uid, company id, action, timing) | who did what, when | security, accountability, troubleshooting | PIC (security) / PIP (ticket audit) |
+| Audit and security logs | `admin_action_logs` (logins with **email + IP address** when sent), `ticket_action_logs`; Cloud Run request logs in Cloud Logging, 30 days (uid, company id, action, timing, sign-in time - no content) | who did what, when | security, accountability, troubleshooting | PIC (security) / PIP (ticket audit) |
+| Privacy records *(15 Nov 2026, migration 0003)* | `user_profiles.privacy_notice_version` / `privacy_notice_ack_at`, `contract_acceptances`, `privacy_requests` | notice acknowledged, Terms / DPA accepted for an organization, rights requests | accountability | PIC |
 | Plans and billing | `company_subscriptions`, (P2) `subscription_invoices` | company, billing reference, invoice lines, the contact | contract, tax records | PIC |
 | Website leads (website plan W2, later) | `website_leads` | name, work email, company, country, team size, message, consent time | answering enquiries, trials | PIC |
 
-**Service providers to list:**
-- Google: Workspace / Sheets, Apps Script, Firebase Authentication, Gmail sending;
-- Vercel: hosting, the API proxy, logs;
-- the migration target, if it happens (Neon Postgres - `PLAN_Migration_NeonVercel_20261030.md`).
+**Service providers to list** *(15 Nov 2026 - after the migration; DPA Annex C v0.4)*:
+- Google: Cloud Run + Cloud Scheduler (Singapore), Firebase Hosting (website, no customer data stored), sign-in with
+  Google, Secret Manager, Cloud Logging, KRAtiv's Workspace mailbox; before the move also Sheets / Apps Script;
+- Neon (Postgres on AWS, Singapore).
+- **Not a provider: Vercel** (user, 15 Nov 2026: "exclude Vercel in any platforms we use") - internal preview builds
+  on test data only (`docs/guides/GUIDE_Previews_TestData.md`). No analytics services.
 
 Before the policy is published, the business confirms each one's region and its data processing terms.
 
@@ -195,6 +199,13 @@ Gaps to close before claiming more:
 - `check:api-contract`, `check:code-rules`, `build:ci`;
 - `/code-review` on the diff, logged in `docs/planning/TODO_CodeReview_<date>.md`;
 - the public page makes no API call.
+
+**L3 status (15 Nov 2026, `CHECK_PrivacyCompliance_20261115.md`):** (a) ✅ pages; (b) sign-in link ✅, acknowledgement
+at first sign-in built on the server (`PrivacyNoticeGate`, migration 0003 - no consent checkbox: acknowledgement;
+organization admins accept Terms + DPA), invitation-email link with the server's invites; (c) Download my data built
+(server); (d) anonymization + off-boarding tools built (server); (e) retention job built (`scripts/db-retention.js`);
+(f) runbook drafted (`docs/guides/GUIDE_Privacy_BreachResponse.md`). The server parts run when `/api/rpc` has the
+database in production (migration Phase 4). Your items: `CHECKLIST_Privacy_UserReview_20261115.md`.
 
 **Progress:** not in the roadmap total yet. If approved, `docs/planning/PROGRESS_FeatureCompletion.md` §5 gets a scope row (proposed **+4 pts**: privacy page + notices 1, data export 1, anonymization + off-boarding 1, retention jobs 1).
 

@@ -92,7 +92,7 @@ export const STATUS = {
   intro: SHOW_MIGRATED_STACK
     ? `${BRAND_NAME} runs on Google Cloud and Neon, in Singapore. If ${BRAND_NAME} is slow or can't save, check the ` +
       'provider status pages below - an outage there affects us too. Your administrator is notified of longer outages.'
-    : `${BRAND_NAME} runs on ${ON_CLOUD_RUN ? 'Google' : 'Google and Vercel'}. If ${BRAND_NAME} is slow or can't ` +
+    : `${BRAND_NAME} runs on Google. If ${BRAND_NAME} is slow or can't ` +
       'save, check the provider status pages below - an outage there affects us too. Your administrator is notified of ' +
       'longer outages.',
   // Shown on previews only, while production still lists the current providers
@@ -111,11 +111,9 @@ export const STATUS = {
     { name: 'Firebase Status', url: 'https://status.firebase.google.com/',
       affects: ON_CLOUD_RUN
         ? `Signing in to ${BRAND_NAME} (Firebase Authentication) and the ${BRAND_NAME} website (Firebase Hosting)`
-        : 'Signing in to ' + BRAND_NAME + ' (Firebase Authentication)' },
-    ...(ON_CLOUD_RUN ? [] : [
-      { name: 'Vercel Status', url: 'https://www.vercel-status.com/',
-        affects: `The ${BRAND_NAME} website and app hosting, and the server that connects the app to its data` }
-    ])
+        : 'Signing in to ' + BRAND_NAME + ' (Firebase Authentication)' }
+    // No Vercel entry (user, 15 Nov 2026: "exclude Vercel in any platforms we use") - Vercel only hosts internal
+    // preview builds on test data, never the service
   ],
   ownStore: 'If your organization keeps its data in its own Google Sheet, its administrator can also check that the Daloy ' +
     'bridge in your Google Workspace is still deployed and shared.',

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import { clearSessionNotice, takeSessionNotice } from '../utils/sessionGuard';
 import { returnPathFrom } from '../utils/returnPath';
@@ -151,8 +151,13 @@ const LoginPage = () => {
             </button>
 
             <div className="mt-4 text-center">
+              {/* Notice at collection (privacy check #9): both documents linked; the acknowledgement itself is recorded at
+                  first sign-in (PrivacyNoticeGate) - no consent checkbox: the user's organization decides the use */}
               <p className="text-xs text-gray-500">
-                By signing in, you agree to our terms of service
+                By signing in, you agree to our{' '}
+                <Link to="/terms" className="font-medium text-blue-600 hover:underline">Terms of Service</Link>
+                {' '}and acknowledge our{' '}
+                <Link to="/privacy" className="font-medium text-blue-600 hover:underline">Privacy Policy</Link>.
               </p>
             </div>
           </div>

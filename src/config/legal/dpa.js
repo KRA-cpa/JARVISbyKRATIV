@@ -11,12 +11,14 @@
  * and deletion describe the platform AFTER the full migration (Neon + Cloud Run Singapore, sign-in on our own server,
  * D11 / D13 customer-connected Drive and mail). Publish it in step 3.1, together with src/config/platform.js
  * MIGRATION_COMPLETE; new clients get the statement in docs/planning/DISCLOSURE_DataLocation_NewClients_20261115.md.
+ * v0.4 (15 Nov 2026, privacy check): Vercel off Annex C (user: "exclude Vercel in any platforms we use" - previews
+ * run on test data only, so Vercel processes no Customer Data).
  * Layer: config (no imports).
  */
 
 export const DATA_PROCESSING_AGREEMENT = {
   status: 'draft',
-  version: '0.3',
+  version: '0.4',
   effectiveDate: '',
   lastUpdated: '15 November 2026',
   title: 'Data Processing Agreement',
@@ -108,9 +110,7 @@ export const DATA_PROCESSING_AGREEMENT = {
         'sign-in with Google accounts; and KRATIV\'s own Google Workspace mailbox, which sends invitations and account emails ' +
         '(for example trial and invoice notices).\n' +
         '- Neon, Inc. - the database (managed Postgres, region aws-ap-southeast-1, Singapore). Neon runs on Amazon Web Services, ' +
-        'Inc. infrastructure in the same region.\n' +
-        '- Vercel Inc. - test versions of the application (previews) used by KRATIV staff only [[decision: previews use test ' +
-        'data only - then Vercel processes no Customer Data and comes off this list]].\n\n' +
+        'Inc. infrastructure in the same region.\n\n' +
         'Services the Customer connects itself are not KRATIV Sub-processors: its own Google Workspace Drive for attachments, its ' +
         'own mail service for notification emails (Google Workspace, Microsoft 365 or its own mail server), and its own Google ' +
         'Sheet if it keeps its data there (through the Daloy bridge or a dedicated Daloy copy in its Google account). They process ' +

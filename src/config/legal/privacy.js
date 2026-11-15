@@ -11,6 +11,7 @@
  * 15 Nov 2026 (migration step 0.10): providers, storage location, retention, security and cookies describe the platform
  * AFTER the full migration (docs/planning/PLAN_Migration_Unified_20261108.md). Publish in step 3.1 with
  * src/config/platform.js MIGRATION_COMPLETE.
+ * 15 Nov 2026 (privacy check): Vercel off the provider list (user: "exclude Vercel in any platforms we use").
  * Layer: config (no imports).
  */
 
@@ -89,8 +90,7 @@ export const PRIVACY_POLICY = {
         '- Our service providers, who process data for us under agreements that require them to protect it: Google (Google ' +
         'Cloud in Singapore for our application server and scheduled jobs, Firebase Hosting for the website, sign-in with Google, ' +
         'and our own Google Workspace mailbox for invitations and account emails) and Neon (our database, in Singapore, on Amazon ' +
-        'Web Services) [[confirm each provider\'s data processing terms are in place]] [[Vercel: only if staff test versions ' +
-        'use real data - see the DPA decision]].\n' +
+        'Web Services) [[confirm each provider\'s data processing terms are in place]].\n' +
         '- Services your organization connects itself - its own Google Drive for attachments, its own mail service for ' +
         'notifications, or its own Google Sheet if it keeps its data there. They act under your organization\'s own agreements ' +
         'with those providers.\n' +
