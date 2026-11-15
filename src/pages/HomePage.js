@@ -7,6 +7,8 @@ import Icons from '../components/shared/Icons';
 import { PLAN_ORDER, PLAN_NAMES } from '../config/plans';
 import { PROPOSED_PLANS_LIVE, PROPOSED_PLAN_ORDER, PROPOSED_PLAN_NAMES } from '../config/plansProposed';
 import { BRAND_NAME, BRAND_PARENT_LINE, BRAND_TAGLINE, BRAND_MEANING } from '../config/site';
+import { PLATFORM_PATH } from '../config/platformConsole';
+import { PlatformMark } from '../components/shared/PlatformLoadingScreen';
 // Hero animation (docs/design/daloy-hero/ - request creation + approval flow; the ticket-only version is archived in
 // docs/archive/2026-11/ticketflow-hero/): CSS-only SVG, no script; it stops on its final frame
 // when the viewer asks for reduced motion. The app's dark mode is a class (tailwind darkMode: 'class'), so the fixed light
@@ -65,6 +67,13 @@ const HomePage = () => (
           </Link>
         </div>
         <p className="mt-10 text-xs text-gray-400 dark:text-gray-500">Our full website is on its way.</p>
+        {/* KRAtiv staff: the Platform console (user, 15 Nov 2026: "have platform login in homepage"). The sign-in page
+            goes on to /platform (router state, src/utils/returnPath.js); the server decides who may use it. */}
+        <Link to="/login" state={{ from: PLATFORM_PATH }}
+          className="mt-3 inline-flex items-center gap-2 text-xs font-medium text-gray-500 hover:text-gray-800 hover:underline dark:text-gray-400 dark:hover:text-gray-200">
+          <PlatformMark size={16} />
+          <span>KRAtiv staff: Platform sign-in</span>
+        </Link>
       </div>
       <div>
         <img src={heroLight} alt={HERO_ALT} width="560" height="280" className="mx-auto block h-auto w-full max-w-[560px] dark:hidden" />
