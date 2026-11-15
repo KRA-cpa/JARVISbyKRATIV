@@ -200,7 +200,7 @@ const APIConnectionStatus = () => {
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-600">Answered by:</span>
                     <span className="font-mono text-gray-900">
-                      {backend.name} - {backend.store}{connectionStatus.details.backend ? '' : ' (assumed)'}
+                      {backend.label}{connectionStatus.details.backend ? '' : ' (assumed)'}
                     </span>
                   </div>
                 )}

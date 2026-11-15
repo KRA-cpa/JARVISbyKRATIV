@@ -346,7 +346,7 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       drop the static API / phase lists (the plan page and `/status` cover them).
       **Done in part 15 Nov 2026:** the panel shows the data store from `platform.js` (+ the Sheets-option line), the static
       lists are gone, the error banner names the backend; Admin → System → API connection shows what answered the ping
-      (`X-Backend`, now in `Access-Control-Expose-Headers`). Left: per-organization status from the server (Phase 5).
+      (`X-Backend`, now in `Access-Control-Expose-Headers`). The panel header shows the **live** backend from one ping (user: "status page in client admin should note postgress or google sheets/appscript as backend"): **Postgres - Neon, Singapore** or **Google Sheets / Apps Script**. Left: `ping` must be answered by `/api/rpc` with the backend of the caller's organization (today an unported `ping` always answers `gas`) - with 1.2, per organization in Phase 5.
 
 ### Phase 4 — New features on the server (after Phase 2; D6)
 Order (each = design section → `/api/rpc` handlers + tests → screens → contract check → preview → production):

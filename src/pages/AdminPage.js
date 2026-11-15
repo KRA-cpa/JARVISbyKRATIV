@@ -6,6 +6,7 @@ import Header from '../components/shared/Header';
 import Icons from '../components/shared/Icons';
 import DEV_CONFIG from '../config/development';
 import { backendInfo } from '../config/platform';
+import { checkAPIConnection } from '../config/apiConfig';
 import AdminCompanyManager from '../components/admin/AdminCompanyManager';
 import AdminRoleManager from '../components/admin/AdminRoleManager';
 import AdminDropdownManager from '../components/admin/AdminDropdownManager';
@@ -26,14 +27,25 @@ import AdminSystemBackup from '../components/admin/AdminSystemBackup';
 import APIConnectionStatus from '../components/admin/APIConnectionStatus';
 import Footer from '../components/shared/Footer';
 
-// The platform's data store for this build (src/config/platform.js); the System tab's API check shows the live answer
-const PLATFORM_BACKEND = backendInfo(null);
-
 const AdminPage = () => {
   const { user, userRoles } = useUser();
   const [activeTab, setActiveTab] = useState('overview');
   const [activeSubTab, setActiveSubTab] = useState(null);
   const [showBackendInfo, setShowBackendInfo] = useState(false);
+  // Which backend serves this client (user, 15 Nov 2026: "status page in client admin should note postgress or google
+  // sheets/appscript as backend"): one ping on open, read from the server's X-Backend answer (pg | gas). Until it answers,
+  // or if it can't, the build's default from src/config/platform.js, marked as such.
+  const [liveBackend, setLiveBackend] = useState({ code: null, checked: false });
+  useEffect(() => {
+    if (!DEV_CONFIG.STATS_DISPLAY.SHOW_BACKEND_INFO) return undefined;
+    let active = true;
+    checkAPIConnection().then(result => {
+      if (active) setLiveBackend({ code: result.connected ? result.backend : null, checked: true });
+    });
+    return () => { active = false; };
+  }, []);
+  const backendNow = backendInfo(liveBackend.code);
+  const backendNote = !liveBackend.checked ? ' (checking...)' : liveBackend.code ? '' : ' (assumed - the server did not say)';
   const [searchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab');
 
@@ -541,7 +553,7 @@ const AdminPage = () => {
                 <Icons.Error size={20} className="text-red-600 mt-0.5 flex-shrink-0" />
                 <div className="ml-3 flex-1">
                   <h3 className="text-sm font-medium text-red-800">
-                    {PLATFORM_BACKEND.name} API Error{apiHealth.code ? ` (${apiHealth.code})` : ''}
+                    {backendNow.name} API Error{apiHealth.code ? ` (${apiHealth.code})` : ''}
                   </h3>
                   <div className="mt-1 text-sm text-red-700">
                     <p><strong>{apiHealth.type}:</strong> {apiHealth.message}</p>
@@ -556,15 +568,15 @@ const AdminPage = () => {
                       <Icons.Refresh size={14} className="mr-1" />
                       Retry Connection
                     </button>
-                    {PLATFORM_BACKEND.consoleUrl && (
+                    {backendNow.consoleUrl && (
                       <a
-                        href={PLATFORM_BACKEND.consoleUrl}
+                        href={backendNow.consoleUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                       >
                         <Icons.ExternalLink size={14} className="mr-1" />
-                        {PLATFORM_BACKEND.consoleName}
+                        {backendNow.consoleName}
                       </a>
                     )}
                     <Link
@@ -738,9 +750,10 @@ const AdminPage = () => {
           </div>
 
           {/* Backend Integration Status - Collapsible (unified migration plan step 3.6, user 9 Nov 2026).
-              The data store follows src/config/platform.js (MIGRATION_COMPLETE); the System tab's API connection shows
-              what actually answered (the server's X-Backend). Sheets-option organizations (plan §2 / D7) stay on
-              Google Sheets + Apps Script. Per-organization status from the server comes with organizations (Phase 5). */}
+              The data store is the server's live answer (X-Backend of one ping: pg = Postgres, gas = Google Sheets /
+              Apps Script), shown in the header; the build default (src/config/platform.js) only until it answers.
+              Sheets-option organizations (plan §2 / D7) answer gas. For the answer to follow the caller's organization,
+              ping must be served by /api/rpc per organization (plan 3.6 / Phase 5). */}
           {DEV_CONFIG.STATS_DISPLAY.SHOW_BACKEND_INFO && (
             <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg">
               <button
@@ -753,6 +766,9 @@ const AdminPage = () => {
                     <h3 className="text-lg font-medium text-blue-800">
                       Backend Integration Status
                     </h3>
+                    <p className="text-sm text-blue-700">
+                      Data store: <span className="font-medium">{backendNow.label}</span>{backendNote}
+                    </p>
                     <p className="text-sm text-blue-600">
                       {showBackendInfo ? 'Click to collapse' : 'Click to expand backend details'}
                     </p>
@@ -772,9 +788,9 @@ const AdminPage = () => {
                     <div>
                       <p className="font-medium text-blue-700">Data store</p>
                       <ul className="mt-2 space-y-1 text-blue-600">
-                        <li>• {PLATFORM_BACKEND.name}: {PLATFORM_BACKEND.store}</li>
-                        <li>• Runs on: {PLATFORM_BACKEND.host}</li>
-                        <li>• Organizations that keep their data in their own Google Sheet stay on Google Sheets + Apps Script</li>
+                        <li>• Backend: {backendNow.label}{backendNote}</li>
+                        <li>• Served by: {backendNow.name} ({backendNow.host})</li>
+                        <li>• Organizations that keep their data in their own Google Sheet stay on Google Sheets / Apps Script</li>
                       </ul>
                     </div>
                     <div>

@@ -18,6 +18,8 @@ As of 15 Nov 2026 there are **no paying clients** (user), so nobody needs to be 
 first paying client on, every later provider change follows the DPA's notice rule.
 
 ## §1 Short statement (sign-up page, welcome email, proposals)
+The same text is the draft page **/data-location** (`src/config/legal/dataLocation.js` v0.1 - change both together; previews and /data-location/draft show it, production shows a placeholder until published).
+
 Use **A** for a client who signs up before the move (plan Phase 2), **B** after it.
 
 **A - before the move**

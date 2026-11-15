@@ -18,7 +18,8 @@
 
 export const MIGRATION_COMPLETE = false;
 
-const IS_PREVIEW_BUILD = process.env.NODE_ENV === 'development' || process.env.REACT_APP_VERCEL_ENV === 'preview';
+/** Vercel preview builds and local development (Create React App inlines both at build time). */
+export const IS_PREVIEW_BUILD = process.env.NODE_ENV === 'development' || process.env.REACT_APP_VERCEL_ENV === 'preview';
 
 /** Public wording (Status page): the after-migration stack in production once complete, and always on previews. */
 export const SHOW_MIGRATED_STACK = MIGRATION_COMPLETE || IS_PREVIEW_BUILD;
@@ -34,6 +35,7 @@ export const MIGRATED_STACK_PREVIEW = SHOW_MIGRATED_STACK && !MIGRATION_COMPLETE
 export const BACKENDS = {
   pg: {
     code: 'pg',
+    label: 'Postgres - Neon, Singapore',
     name: 'Daloy server',
     store: 'Postgres on Neon, Singapore',
     host: 'Google Cloud Run, Singapore',
@@ -42,6 +44,7 @@ export const BACKENDS = {
   },
   gas: {
     code: 'gas',
+    label: 'Google Sheets / Apps Script',
     name: 'Google Apps Script',
     store: 'Google Sheets',
     host: 'Google Apps Script',

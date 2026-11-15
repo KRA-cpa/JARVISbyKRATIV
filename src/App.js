@@ -30,6 +30,8 @@ import ContactPage from './pages/ContactPage';
 import RequesterDemoPage from './pages/RequesterDemoPage';
 import TermsPage, { TermsVersionsPage, TermsArchivedPage } from './pages/TermsPage';
 import StatusPage from './pages/StatusPage';
+import DataLocationPage from './pages/DataLocationPage';
+import { IS_PREVIEW_BUILD } from './config/platform';
 
 // Shared Components
 import LoadingScreen from './components/shared/LoadingScreen';
@@ -198,6 +200,14 @@ const AppRoutes = () => {
           <Route path="/status" element={<OpenRoute><StatusPage /></OpenRoute>} />
           {/* Data Processing Agreement - company / organization admins only (part of the subscription contract) */}
           <Route path="/admin/dpa" element={<ProtectedRoute requireAdmin={true}><Suspense fallback={<LoadingScreen />}><DpaPage /></Suspense></ProtectedRoute>} />
+          {/* Previews / local dev only (user, 15 Nov 2026): the DPA draft without sign-in, for review. Production builds
+              don't register this route - there the DPA stays admin-only (user, 1 Nov 2026) */}
+          {IS_PREVIEW_BUILD && (
+            <Route path="/dpa/draft" element={<OpenRoute><Suspense fallback={<LoadingScreen />}><DpaPage publicSite /></Suspense></OpenRoute>} />
+          )}
+          {/* Where your data is stored - the statement for new clients (migration 0.10), public, no API */}
+          <Route path="/data-location" element={<OpenRoute><DataLocationPage /></OpenRoute>} />
+          <Route path="/data-location/draft" element={<OpenRoute><DataLocationPage draft /></OpenRoute>} />
           {/* General Terms of Service (DRAFT_TermsOfService): current, draft, version history, archived versions - public, no API */}
           <Route path="/terms" element={<OpenRoute><TermsPage /></OpenRoute>} />
           <Route path="/terms/draft" element={<OpenRoute><TermsPage draft /></OpenRoute>} />
