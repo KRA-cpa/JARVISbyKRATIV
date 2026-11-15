@@ -66,7 +66,7 @@ const SmartRedirect = () => {
   return <HomePage />;
 };
 
-// Every signed-in page starts with the sign-in notices (src/config/notices.js: 7 days, the user can hide them)
+// Every signed-in page starts with the sign-in notices (src/config/notices.js: 3 days for A, 7 for B / B2; the user can hide them)
 const WithNotices = ({ children }) => <><LoginNoticeBanner />{children}</>;
 
 // Protected Route Component with Development Toggle

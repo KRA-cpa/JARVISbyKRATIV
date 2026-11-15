@@ -5,7 +5,7 @@ import { activeNotices, isResolved } from '../../config/notices';
 
 /**
  * LoginNoticeBanner - the sign-in notices from src/config/notices.js on every signed-in page (App.js ProtectedRoute):
- * shown for 7 days from postedAt, a link to the full notice (/notices/<id>) and a Hide button. User, 15 Nov 2026:
+ * shown from postedAt for 3 days (A) or 7 days (B / B2) - notices.js noticeDays, a link to the full notice (/notices/<id>) and a Hide button. User, 15 Nov 2026:
  * "banner upon login, effective for 7 days, user can hide" + "banner will provide link to breach notif".
  * Hidden notices are remembered per user in this browser (localStorage, wrapped: if storage is blocked the notice hides
  * for this visit only). Static: no API call. Layer: shared component (context + config).

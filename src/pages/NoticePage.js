@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
+import { useCompanyPlans } from '../hooks/useAPI';
 import Header from '../components/shared/Header';
 import PublicHeader from '../components/shared/PublicHeader';
 import Footer from '../components/shared/Footer';
@@ -11,7 +12,9 @@ import { formatDateTime } from '../utils/dateTime';
 /**
  * NoticePage - the full notice from src/config/notices.js (wording docs/planning/TEMPLATE_BreachNotice_ProviderIncident_20261115.md).
  *   - /notices/:id (App.js ProtectedRoute): the notice the sign-in banner links to - signed-in users of the organizations
- *     addressed; readable after the banner's 7 days too (the email may link here). Others: answers like a missing one.
+ *     addressed; readable after the banner's days too (the email may link here; Admin → Security notices lists them).
+ *     Platform admins (the server's is_platform_admin, AppScript v10.2 getCompanyPlan) may open every notice - asked only
+ *     when the notice isn't addressed to the user. Others: answers like a missing one.
  *   - /notices/:id/public (publicView, open to everyone): the PUBLIC version (template P), only when the notice has
  *     public: true - on previews also before that, marked "not published", for review. User, 15 Nov 2026: no public
  *     breach page by default, but "public notice must be readily available for publishing".
@@ -53,15 +56,19 @@ const Timeline = ({ entries }) => (
 
 const NoticePage = ({ publicView = false }) => {
   const { id } = useParams();
-  const { user, userRoles, userCompanies, isAuthenticated, loading } = useUser();
+  const { user, userRoles, userCompanies, isAuthenticated, isAdmin, loading } = useUser();
   const found = noticeById(id);
+  const signedIn = isAuthenticated && !loading;
+  const addressed = Boolean(found && noticeForCompanies(found, (userCompanies || []).map(c => c.id)));
+  const askPlatform = Boolean(found && !publicView && !addressed && signedIn);
+  const { isPlatformAdmin, loading: platformLoading } = useCompanyPlans({ enabled: askPlatform });
+  const checking = askPlatform && platformLoading;
   const notice = !found ? null
     : publicView ? (isPublicVisible(found) ? found : null)
-      : (noticeForCompanies(found, (userCompanies || []).map(c => c.id)) ? found : null);
+      : (addressed || (askPlatform && isPlatformAdmin) ? found : null);
   const badge = notice ? BADGES[notice.template] || BADGES.A : null;
   const title = notice ? (publicView ? notice.publicTitle : notice.title) : '';
   const sections = notice ? (publicView ? notice.publicSections : notice.sections) : [];
-  const signedIn = isAuthenticated && !loading;
   const timeline = notice ? noticeTimeline(notice, publicView) : [];
   const resolved = notice && isResolved(notice);
 
@@ -70,7 +77,9 @@ const NoticePage = ({ publicView = false }) => {
       {signedIn ? <Header user={user} userRole={userRoles?.[0]?.name} /> : <PublicHeader />}
       <main className="flex-1">
         <article className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          {!notice ? (
+          {checking ? (
+            <p className="text-gray-600 dark:text-gray-300">Checking access...</p>
+          ) : !notice ? (
             <>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Notice not found</h1>
               <p className="mt-3 text-gray-700 dark:text-gray-200">
@@ -115,6 +124,9 @@ const NoticePage = ({ publicView = false }) => {
             {publicView
               ? <Link to="/status" className="font-medium text-blue-600 hover:underline dark:text-blue-400">Service status</Link>
               : <Link to="/dashboard" className="font-medium text-blue-600 hover:underline dark:text-blue-400">Back to the dashboard</Link>}
+            {!publicView && isAdmin && (
+              <> · <Link to="/admin?tab=security-notices" className="font-medium text-blue-600 hover:underline dark:text-blue-400">All security notices</Link></>
+            )}
           </p>
         </article>
       </main>

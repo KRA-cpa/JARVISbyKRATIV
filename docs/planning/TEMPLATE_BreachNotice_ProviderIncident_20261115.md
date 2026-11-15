@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: TEMPLATE_BreachNotice_ProviderIncident_20261115.md | Author: Kenneth R. Advento | Version: 1.3.0
+Document: TEMPLATE_BreachNotice_ProviderIncident_20261115.md | Author: Kenneth R. Advento | Version: 1.4.0
 Created: 15 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Notice templates for a security incident / breach at one of Daloy's service providers ("X service"): A = no company data affected, B = company data may have been affected (+ B2 follow-up), P = public version (ready, not published by default), PE = email to the organizations before P is published; incident timeline (§6) | Status: DRAFT - for review by the owner and counsel (with DPA v0.3 / Privacy Policy)
 REVISION HISTORY:
+- v1.4.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Banner days by template (user: "no effect incident notice - 3 days only"): A 3 days, B / B2 7; history in Admin → Security notices (user: "security notices should be available historically in platform admin and for all admin users"); stage 5 forced sign-out + who is signed in (user: "a check of all signed in users and force logout will still be needed") - scripts/list-signed-in.sh, scripts/revoke-sessions.sh
 - v1.3.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Incident timeline in every notice, from the first sign to the resolution (user: "add incident timeline details in notices, from initial to resolution") - §6 stages, a Timeline block in A / B / B2 / P, `timeline` + `resolvedAt` in §5; template PE (user: "tell the org first - create an email template ready to send")
 - v1.2.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §0 decision D1 recorded (user: "dafault, record decision, public notice must be readily availble for publisjing"); template P (public version); /status notice line + /notices/<id>/public in §5
 - v1.1.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5 sign-in banner (user: "banner upon login, effective for 7 days, user can hide" + "banner will provide link to breach notif"): `src/config/notices.js`, banner on every signed-in page, full notice at /notices/<id>
@@ -24,8 +25,8 @@ move also Google Sheets / Apps Script and Firebase Authentication.
 
 User: "dafault, record decision, public notice must be readily availble for publisjing" - the default below, as proposed:
 1. **No separate public breach page by default.** The full notice goes by email (A / B / B2) and in the app: the
-   sign-in banner for 7 days, then `/notices/<id>`, signed-in, only to the organizations addressed (§5).
-2. **The public `/status` page shows one neutral line** per notice during its 7 days (§3): provider and date; under B
+   sign-in banner (A 3 days, B / B2 7 days), then `/notices/<id>`, signed-in, only to the organizations addressed (§5).
+2. **The public `/status` page shows one neutral line** per notice during its banner days (§3): provider and date; under B
    "affected organizations have been contacted directly". Never customer names or data.
 3. **A full public notice (template P) only when** the NPC asks for one, or the people concerned can't be reached one
    by one (KRAtiv has no contact for them, or individual notices would take disproportionate effort), or the owner and
@@ -64,7 +65,7 @@ public notice (reaching people we can't email, an NPC request) are covered by ke
   controller and decides; KRAtiv (processor) gives it the facts. Only for KRAtiv's **own** data (KRAtiv's own
   account and billing records - Privacy Policy) does KRAtiv itself notify the NPC and the individuals within 72 hours
   when the rules require it. [[counsel: confirm the current NPC breach rules - NPC Circular 16-03 or its successor]]
-- Same channels for both: email from the KRAtiv mailbox + the sign-in banner for 7 days (§5) + a short line on `/status` (§3).
+- Same channels for both: email from the KRAtiv mailbox + the sign-in banner (A 3 days, B / B2 7 days - §5) + a short line on `/status` (§3).
 
 ---
 
@@ -299,14 +300,21 @@ not this repo]]
 
 ## §5 Sign-in banner (in the app)
 
-Every signed-in page shows the notice as a banner for **7 days**; each user can **Hide** it; the banner links to the
-full notice at **`/notices/<id>`** (signed-in, only the organizations addressed; still readable after the 7 days, so
-the email can link to it too: `https://daloy.blueknight.xyz/notices/<id>`).
+Every signed-in page shows the notice as a banner - **3 days for A** (no effect on the organization's data; user: "no
+effect incident notice - 3 days only"), **7 days for B / B2**; each user can **Hide** it; the banner links to the
+full notice at **`/notices/<id>`** (signed-in, only the organizations addressed; still readable after the banner ends,
+so the email can link to it too: `https://daloy.blueknight.xyz/notices/<id>`).
+
+**History:** every notice stays listed in **Admin → Security Notices** (`/admin?tab=security-notices`) for the
+organization's admins, newest first, with status, posted date, banner end and links to the notice and its public
+version; platform admins switch to *All organizations* (who each went to). Because the notices ship in the app
+bundle, their texts never name a customer ("your organization"); they move to the server in Platform manager PM1
+(M14).
 
 To post: add an entry to `LOGIN_NOTICES` in `src/config/notices.js` and deploy (one push + the Cloud Run deploy).
 - `id` = the incident reference; `template` = `A` (blue) | `B` (red) | `B2` (amber); `postedAt` = start, e.g.
-  `'2026-11-20T09:00:00+08:00'`; `days` (default 7); `companyIds` = `[]` for everyone (A), the organizations in scope (B).
-- `banner` = the signed-in line; `statusLine` = the §3 line (shown on `/status` for the same 7 days);
+  `'2026-11-20T09:00:00+08:00'`; `days` (default A 3, B / B2 7); `companyIds` = `[]` for everyone (A), the organizations in scope (B).
+- `banner` = the signed-in line; `statusLine` = the §3 line (shown on `/status` for the same days);
   `title` + `sections` = template A / B / B2, filled in.
 - `publicTitle` + `publicSections` = template P, filled in **when the notice is posted** (§0 D1: always ready);
   `public: false`. To publish: send PE first, then `public: true` + deploy → `/notices/<id>/public` for everyone,
@@ -330,12 +338,23 @@ known only roughly is written as such ("about 03:00").
 | 2 | Detected by the provider | the provider | yes |
 | 3 | KRAtiv became aware (provider's notice, its status page, our own alert) - **starts the [[24]] h clock** | us | yes |
 | 4 | Assessed: our services / regions in scope or not (§1 checks) | us | yes (result only) |
-| 5 | Contained: provider closed the access; our keys changed, sessions ended | provider + us | yes |
+| 5 | Contained: provider closed the access; our keys changed; **who is signed in checked, sessions ended** (below) | provider + us | yes |
 | 6 | Organizations notified (A / B, by email + banner) | us | no (`internal`) |
 | 7 | Updates (B2): new facts, data confirmed involved / not involved | us | yes |
 | 8 | PE sent, then the public notice published (only if §0 applies) | us | the publication only |
 | 9 | Resolved: provider closed its incident, no further access since {date}, our review done | provider + us | yes |
 | 10 | Closed: incident record complete, lessons noted | us | no |
+
+**Stage 5 - who is signed in, and forced sign-out** (production, Git Bash, after `gcloud auth login`; record each
+time in the incident record):
+1. `scripts/list-signed-in.sh` - read-only: users whose sign-in is younger than 12 h (the cap) and after any earlier
+   cutoff, with their last request (`active` = in the last 60 min) and companies; uids only.
+2. `scripts/revoke-sessions.sh` (dry run), then `scripts/revoke-sessions.sh --apply` - sets `SESSIONS_VALID_AFTER` to
+   now on Cloud Run: every sign-in before it is refused (`SESSION_REVOKED`) and the app signs the user out on the next
+   request with "You were signed out for a security reason". Signing in again works at once. Needs `AUTH_MODE=enforce`.
+3. `scripts/list-signed-in.sh` again after a few minutes: only sign-ins made after the cutoff remain.
+Under A, signing everyone out is usually not needed; under B, do it when the provider's incident touched sign-in or
+keys. Per organization / per user and an on-screen list: Platform manager M15 (not built).
 
 **Resolved** = stage 9 (set `resolvedAt`). A B incident is not resolved while the data involved is still unknown.
 

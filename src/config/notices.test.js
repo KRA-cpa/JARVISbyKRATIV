@@ -1,7 +1,8 @@
-import { isNoticeInWindow, noticeForCompanies, NOTICE_DAYS, hasPublicVersion, isPublicVisible, statusNotices, isResolved, noticeTimeline, findNotice, PREVIEW_SAMPLE_NOTICES } from './notices';
+import { isNoticeInWindow, noticeForCompanies, NOTICE_DAYS, hasPublicVersion, isPublicVisible, statusNotices, isResolved, noticeTimeline, findNotice, PREVIEW_SAMPLE_NOTICES, noticeHistory, bannerEndsAt, plainText, noticeDays } from './notices';
 
-// src/config/notices.js: the sign-in banner shows for 7 days from postedAt, only to the organizations addressed
-const notice = { id: 'INC-TEST', template: 'A', postedAt: '2026-11-20T09:00:00+08:00', companyIds: [] };
+// src/config/notices.js: the sign-in banner shows for 7 days (template B; A = 3 days, tested below) from postedAt,
+// only to the organizations addressed
+const notice = { id: 'INC-TEST', template: 'B', postedAt: '2026-11-20T09:00:00+08:00', companyIds: [] };
 const start = Date.parse(notice.postedAt);
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -60,4 +61,37 @@ test('findNotice ignores case (a typed link: /notices/Sample-a)', () => {
   expect(findNotice(list, '')).toBeNull();
   expect(findNotice(list, undefined)).toBeNull();
   expect(findNotice(undefined, 'SAMPLE-A')).toBeNull();
+});
+
+test('noticeHistory keeps every notice addressed to the companies, newest first, after the banner window', () => {
+  const list = [
+    { id: 'OLD', postedAt: '2026-01-05T09:00:00+08:00', companyIds: [] },
+    { id: 'NEW', postedAt: '2026-11-01T09:00:00+08:00', companyIds: [] },
+    { id: 'OTHER', postedAt: '2026-10-01T09:00:00+08:00', companyIds: ['c9'] },
+    { id: 'MINE', postedAt: '2026-06-01T09:00:00+08:00', companyIds: [7] },
+    { id: 'SAMPLE', sample: true, companyIds: [] }
+  ];
+  expect(noticeHistory(['7'], { list }).map(n => n.id)).toEqual(['NEW', 'MINE', 'OLD', 'SAMPLE']);
+  expect(noticeHistory([], { list, all: true }).map(n => n.id)).toEqual(['NEW', 'OTHER', 'MINE', 'OLD', 'SAMPLE']);
+  expect(noticeHistory(['x'], { list: [] })).toEqual([]);
+});
+
+test('bannerEndsAt and plainText', () => {
+  expect(bannerEndsAt({ template: 'B', postedAt: '2026-11-20T09:00:00+08:00' })).toBe(Date.parse('2026-11-27T09:00:00+08:00'));
+  expect(bannerEndsAt({ template: 'A', postedAt: '2026-11-20T09:00:00+08:00' })).toBe(Date.parse('2026-11-23T09:00:00+08:00'));
+  expect(bannerEndsAt({ postedAt: '2026-11-20T09:00:00+08:00', days: 3 })).toBe(Date.parse('2026-11-23T09:00:00+08:00'));
+  expect(bannerEndsAt({ sample: true, postedAt: '2026-11-20T09:00:00+08:00' })).toBeNull();
+  expect(bannerEndsAt({ postedAt: 'nope' })).toBeNull();
+  expect(plainText('[[Provider]] incident on [[date]]')).toBe('Provider incident on date');
+});
+
+test('banner days by template: A (no effect) 3, B / B2 7, an explicit days wins', () => {
+  expect(noticeDays({ template: 'A' })).toBe(3);
+  expect(noticeDays({ template: 'B' })).toBe(7);
+  expect(noticeDays({ template: 'B2' })).toBe(7);
+  expect(noticeDays({ template: 'A', days: 5 })).toBe(5);
+  expect(noticeDays({})).toBe(NOTICE_DAYS);
+  const a = { template: 'A', postedAt: '2026-11-20T09:00:00+08:00' };
+  expect(isNoticeInWindow(a, Date.parse('2026-11-23T08:59:00+08:00'))).toBe(true);
+  expect(isNoticeInWindow(a, Date.parse('2026-11-23T09:00:00+08:00'))).toBe(false);
 });

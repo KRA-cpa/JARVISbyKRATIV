@@ -11,7 +11,7 @@ import { formatDateOnly } from '../utils/dateTime';
  * StatusPage - /status, PUBLIC, no API call (General Terms §10.2; ServerCore plan §6b). Links the providers' own status
  * dashboards with what each one affects in Daloy - the list follows src/config/platform.js (before / after the full
  * migration; previews show the after list with a note). A live "Google reports an incident" banner from the providers'
- * feeds is a later step (plan §6b). Above the list: the one-line notices of src/config/notices.js in their 7 days
+ * feeds is a later step (plan §6b). Above the list: the one-line notices of src/config/notices.js in their banner days (A 3, B 7)
  * (statusLine; no customer names), with a link to the public version only when it is published (public: true) or on
  * previews (user, 15 Nov 2026: default - no separate public breach page; public notice ready to publish).
  * Layer: page (imports shared components + config only).

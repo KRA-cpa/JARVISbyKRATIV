@@ -20,6 +20,8 @@ import AdminWorkflowBuilder from '../components/admin/AdminWorkflowBuilder';
 import CrossCompanyTicketLinker from '../components/admin/CrossCompanyTicketLinker';
 import AdminReportConfigManager from '../components/admin/AdminReportConfigManager';
 import AdminAuditLogViewer from '../components/admin/AdminAuditLogViewer';
+import AdminSecurityNotices from '../components/admin/AdminSecurityNotices';
+import { noticeHistory } from '../config/notices';
 import CompanySLAManager from '../components/admin/CompanySLAManager';
 import AdminSLAEscalationManager from '../components/admin/AdminSLAEscalationManager';
 import AdminCountryCalendars from '../components/admin/AdminCountryCalendars';
@@ -28,7 +30,7 @@ import APIConnectionStatus from '../components/admin/APIConnectionStatus';
 import Footer from '../components/shared/Footer';
 
 const AdminPage = () => {
-  const { user, userRoles } = useUser();
+  const { user, userRoles, userCompanies } = useUser();
   const [activeTab, setActiveTab] = useState('overview');
   const [activeSubTab, setActiveSubTab] = useState(null);
   const [showBackendInfo, setShowBackendInfo] = useState(false);
@@ -218,6 +220,13 @@ const AdminPage = () => {
       component: AdminAuditLogViewer
     },
     {
+      id: 'security-notices',
+      name: 'Security Notices',
+      icon: Icons.Shield,
+      description: 'Every security notice sent to your organization, kept here after the sign-in banner ends',
+      component: AdminSecurityNotices
+    },
+    {
       id: 'sla-rules',
       name: 'SLA Rules',
       icon: Icons.Clock,
@@ -345,6 +354,10 @@ const AdminPage = () => {
         return 'Columns per type';
       case 'audit-log':
         return 'Who changed what';
+      case 'security-notices': {
+        const count = noticeHistory((userCompanies || []).map(c => c.id)).length;
+        return count === 1 ? '1 notice' : `${count} notices`;
+      }
       case 'sla-rules':
         return 'Per company';
       case 'sla-escalations':

@@ -1,5 +1,6 @@
 /**
- * Sign-in notices: a banner on every signed-in page for 7 days, which each user can hide, linking to the full notice at
+ * Sign-in notices: a banner on every signed-in page - 3 days for template A (no effect on the organization's data; user,
+ * 15 Nov 2026: "no effect incident notice - 3 days only"), 7 days for B / B2 - which each user can hide, linking to the full notice at
  * /notices/<id>. User, 15 Nov 2026: "banner upon login, effective for 7 days, user can hide" + "banner will provide link
  * to breach notif". The wording comes from docs/planning/TEMPLATE_BreachNotice_ProviderIncident_20261115.md
  * (A = no company data affected, B = company data may have been affected, B2 = follow-up).
@@ -8,7 +9,8 @@
  *   - id          the incident reference, e.g. 'INC-2026-001' (B2 follow-ups: 'INC-2026-001-U1'); also the page path
  *   - template    'A' | 'B' | 'B2' - the banner colour and badge
  *   - postedAt    when the banner starts, ISO with offset, e.g. '2026-11-20T09:00:00+08:00'
- *   - days        how long the banner shows (default NOTICE_DAYS = 7); the notice page stays readable after that
+ *   - days        how long the banner shows (default by template: A 3, B / B2 7 - NOTICE_DAYS_BY_TEMPLATE); the notice
+ *                 page stays readable after that, and Admin → Security notices keeps listing it
  *   - companyIds  [] = every organization; else only these company ids (template B goes only to the ones in scope)
  *   - banner      the one line in the signed-in banner
  *   - statusLine  the one line on the public /status page while the banner runs (template §3: provider + date, never
@@ -24,6 +26,12 @@
  *                 entry at every step (template §6 stages). internal: true = only in the signed-in notice, not in the
  *                 public version (e.g. which organizations were told when). Shown oldest first.
  *   - resolvedAt  null while ongoing; ISO when resolved - the notice, banner and /status line then say "Resolved"
+ * History: every notice stays listed in Admin → Security notices (src/components/admin/AdminSecurityNotices.js) after its
+ * banner ends - for the organization's admins; platform admins see every organization's (user, 15 Nov 2026: "security
+ * notices should be available historically in platform admin and for all admin users").
+ * CONFIDENTIALITY: this file ships in the app bundle that anyone can download, so a notice's texts must never name a
+ * customer or carry customer data (write "your organization", not its name; companyIds are opaque ids). The notices
+ * move to the server (platform store) in Platform manager PM1 - docs/planning/PLAN_PlatformManager_20261106.md M14.
  * Hiding is remembered per user in this browser (a convenience only: in a private window it shows again). The notice
  * itself goes out by email too (template §2) - the banner is not the legal notice.
  *
@@ -35,6 +43,12 @@
 import { IS_PREVIEW_BUILD } from './platform';
 
 export const NOTICE_DAYS = 7;
+/** Banner days by template when a notice sets no `days`: A = no effect on the organization's data → 3 days. */
+export const NOTICE_DAYS_BY_TEMPLATE = { A: 3, B: 7, B2: 7 };
+
+/** How many days the notice's banner (and /status line) shows. */
+export const noticeDays = notice =>
+  (notice && notice.days) || (notice && NOTICE_DAYS_BY_TEMPLATE[notice.template]) || NOTICE_DAYS;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const LOGIN_NOTICES = [];
@@ -220,7 +234,7 @@ export const isNoticeInWindow = (notice, now = Date.now()) => {
   if (notice.sample) return true;
   const start = Date.parse(notice.postedAt);
   if (Number.isNaN(start)) return false;
-  return now >= start && now < start + (notice.days || NOTICE_DAYS) * DAY_MS;
+  return now >= start && now < start + noticeDays(notice) * DAY_MS;
 };
 
 /** The public version exists (publicTitle + publicSections filled in). */
@@ -241,6 +255,28 @@ export const noticeTimeline = (notice, publicView = false) => (notice && Array.i
   .filter(e => e && e.text && !Number.isNaN(Date.parse(e.at)) && !(publicView && e.internal))
   .slice()
   .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+
+/** When the sign-in banner ends (postedAt + days) as ms, or null (samples, no valid postedAt). */
+export const bannerEndsAt = notice => {
+  if (!notice || notice.sample) return null;
+  const start = Date.parse(notice.postedAt);
+  return Number.isNaN(start) ? null : start + noticeDays(notice) * DAY_MS;
+};
+
+const postedMs = n => { const t = Date.parse(n.postedAt); return Number.isNaN(t) ? -Infinity : t; };
+
+/**
+ * The notice history (Admin → Security notices): every notice addressed to these companies at any time - not only in
+ * the banner window - newest first, notices without a posted time (samples) last. all = true: every notice
+ * (platform admins).
+ */
+export const noticeHistory = (companyIds = [], { all = false, list = allNotices() } = {}) => list
+  .filter(n => all || noticeForCompanies(n, companyIds))
+  .slice()
+  .sort((a, b) => postedMs(b) - postedMs(a));
+
+/** Text without the [[blank]] markers (lists, counts). */
+export const plainText = text => String(text || '').replace(/\[\[([^\]]+)\]\]/g, '$1');
 
 /** The banners to show now for a user of these companies (hiding is applied by the banner). */
 export const activeNotices = (companyIds = [], now = Date.now()) =>
