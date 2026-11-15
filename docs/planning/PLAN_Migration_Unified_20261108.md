@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.8.2
+Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.8.3
 Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: THE migration plan + step-by-step, top to bottom: Apps Script / Google Sheets → Google Cloud Run + Neon Postgres (all servers in Asia), previews on Vercel, Google Sheets kept as a customer option; then the remaining v10.2 features and organizations on the new server | Status: Active - current roadmap (Phase F done, H.3 production deployed - custom domain pending, 0.7 schema generated)
 REVISION HISTORY:
+- v1.8.3 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 0.2 done: Cloud Run Tier 2 Singapore + data-transfer prices verified (CHECK_HostingPricing v1.2.0); Cloud Billing API enabled in krativ-daloy (user: "enable")
 - v1.8.2 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Platform manager final (PLAN_PlatformManager v2.0.0): PM1 after Phase 1, PM2-PM5 beside 4.1 / 4.2-4.3 / 4.4-4.5 / Phase 5; no projection into the Sheet
 - v1.8.1 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 2.1 / 2.2: the announcement is an entry in `public/announcements.json` (PLAN_Announcements_20261115.md, built) - banner + modal to open tabs, `/status`, the sign-in page
 - v1.8.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Order changed (user: "0.9 is required?" → "go with default"): **0.10 first**, 0.9 moved to just before 2.4. 0.10 drafted: DPA v0.3, Privacy (15 Nov), Terms v0.16 + DRAFT doc v0.16.0 describe the platform after the move. **No Sub-processor notice** (user: "no notice needed. no payng clients for now. or word it for new clients") → `DISCLOSURE_DataLocation_NewClients_20261115.md`; the 30-day wait before Phase 2 is dropped. User: "update status pages as well. ready all components when full migrate is complete" → `src/config/platform.js` `MIGRATION_COMPLETE` (flip in 3.1): /status before / after lists (previews show after), admin diagnostics label the backend from `X-Backend` (exposed by the proxy), 3.6 panel rewritten, sign-in wording neutral. Session 461f9ea9
@@ -184,8 +185,13 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       the new server writes in-app notifications + `email_outbox` rows only. The provider must be decided **before the
       write cutover (Phase 2)**, when tickets stop flowing through Apps Script. Neon (1), Better Auth (2), Cloud Scheduler
       (4), attachments in the client's Drive (5): confirmed the same day (D14).
-- [ ] **0.2 You + Claude** - verify the UNVERIFIED prices (Cloud Run Tier 2 Singapore, egress) in the Google calculator;
-      watch the budget alerts since Phase H. *CHECK §4.*
+- [x] **0.2 You + Claude** - verify the UNVERIFIED prices (Cloud Run Tier 2 Singapore, egress) in the Google calculator;
+      watch the budget alerts since Phase H. *CHECK §4.* **Done 15 Nov 2026:** from Google's price list (Cloud Billing
+      Catalog API - enabled in `krativ-daloy` for this, user: "enable") + the pricing page set to Singapore: request-based
+      CPU $0.0000336 / vCPU-s, memory $0.0000035 / GiB-s (Tier 2 = 1.4 × Tier 1), requests $0.40 / M after 2 M, egress
+      Asia → Asia $0.12 / GB, Firebase Hosting $0.15 / GB after 360 MB / day. Cost: Cloud Run ≈ $0 at A / B, ≈ $0.12 at C;
+      transfer ≈ $0.08 / $0.26 / $3.7 - the stack choice stands (CHECK_HostingPricing v1.2.0 §4-§6). Budget alerts: keep
+      watching.
 - [ ] **0.3 You** - Data Privacy Act / IT clearance to move company data to Singapore; the IP / invention-assignment
       clause; a lawyer reviews the DPA / Privacy / Terms changes. *CHECK §7; PLAN_Migration §10.*
       **Clearance done 14 Nov 2026 → D15** (approved by Kenneth R. Advento, owner of KRAtiv Solutions: no Philippine
