@@ -69,7 +69,7 @@ Example entry (the maintenance window of migration step 2.2):
 - Admin → Announcements; `useAnnouncements` merges the server list with the file (same 5-minute read, one cheap query).
 - Apps Script stays frozen: nothing here goes to Apps Script.
 
-## §4 A3 - Platform manager (PM1, M9 "banner control")
+## §4 A3 - Platform manager (PM1, M9 "Health, incidents & announcements" - `PLAN_PlatformManager_20261106.md` v2.0.0)
 KRAtiv edits its announcements on `/platform` (stored in the platform store, reason + audit row); the server writes
 `announcements.json` or serves the same list; the file stays the break-glass while the server is down.
 

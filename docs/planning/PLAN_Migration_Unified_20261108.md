@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.8.1
+Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.8.2
 Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: THE migration plan + step-by-step, top to bottom: Apps Script / Google Sheets → Google Cloud Run + Neon Postgres (all servers in Asia), previews on Vercel, Google Sheets kept as a customer option; then the remaining v10.2 features and organizations on the new server | Status: Active - current roadmap (Phase F done, H.3 production deployed - custom domain pending, 0.7 schema generated)
 REVISION HISTORY:
+- v1.8.2 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Platform manager final (PLAN_PlatformManager v2.0.0): PM1 after Phase 1, PM2-PM5 beside 4.1 / 4.2-4.3 / 4.4-4.5 / Phase 5; no projection into the Sheet
 - v1.8.1 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 2.1 / 2.2: the announcement is an entry in `public/announcements.json` (PLAN_Announcements_20261115.md, built) - banner + modal to open tabs, `/status`, the sign-in page
 - v1.8.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Order changed (user: "0.9 is required?" → "go with default"): **0.10 first**, 0.9 moved to just before 2.4. 0.10 drafted: DPA v0.3, Privacy (15 Nov), Terms v0.16 + DRAFT doc v0.16.0 describe the platform after the move. **No Sub-processor notice** (user: "no notice needed. no payng clients for now. or word it for new clients") → `DISCLOSURE_DataLocation_NewClients_20261115.md`; the 30-day wait before Phase 2 is dropped. User: "update status pages as well. ready all components when full migrate is complete" → `src/config/platform.js` `MIGRATION_COMPLETE` (flip in 3.1): /status before / after lists (previews show after), admin diagnostics label the backend from `X-Backend` (exposed by the proxy), 3.6 panel rewritten, sign-in wording neutral. Session 461f9ea9
 - v1.7.2 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 0.8 done (user: "ok"): 303 clean rows loaded on Neon `dev`, 28 skipped, gate met; `0002` applied. 0.7 done: `db:explain` → `docs/perf/EXPLAIN_HotPaths_20261115.md` (17 / 17 indexed at scale). Rules v1.2 (`email_enabled` text). Session 92b85189
@@ -355,6 +356,9 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       (`X-Backend`, now in `Access-Control-Expose-Headers`). The panel header shows the **live** backend from one ping (user: "status page in client admin should note postgress or google sheets/appscript as backend"): **Postgres - Neon, Singapore** or **Google Sheets / Apps Script**. Left: `ping` must be answered by `/api/rpc` with the backend of the caller's organization (today an unported `ping` always answers `gas`) - with 1.2, per organization in Phase 5.
 
 ### Phase 4 — New features on the server (after Phase 2; D6)
+**Platform manager** (`PLAN_PlatformManager_20261106.md` v2.0.0, final): **PM1** (team, sessions, security notices,
+announcements, privacy desk) as soon as Phase 1 puts `/api/rpc` + Neon in production; **PM2** with 4.1, **PM3** with
+4.2-4.3, **PM4** with 4.4-4.5, **PM5** with Phase 5. Open items with defaults: `OPEN_PlatformManager_20261115.md`.
 Order (each = design section → `/api/rpc` handlers + tests → screens → contract check → preview → production):
 - [ ] **4.1** v10.2 **P2**: trial (`startTrial`, `setTrialEnd`, conversion), grace → read-only (`COMPANY_READ_ONLY`,
       `READ_ONLY_ALLOWED`), upgrade / scheduled downgrade / renew, `subscription_events` + reminders,

@@ -17,6 +17,8 @@ wording of the Privacy Policy, the DPA and the Terms (reviewed separately by cou
 `docs/planning/PLAN_PrivacyPolicy_DPA_20261101.md`. Legal references marked *(verify)* need counsel to confirm the
 current issuance. **Your items:** `docs/planning/CHECKLIST_Privacy_UserReview_20261115.md`.
 **Next check:** before the first paying customer, and at migration step 3.1 (publishing the legal texts).
+**Console home** (from Platform manager PM1): rights requests, deletion cases and retention runs in **M16 Privacy
+desk**; sessions in **M15**; notices in **M14** (`PLAN_PlatformManager_20261106.md` v2.0.0).
 
 ## §1 Status
 

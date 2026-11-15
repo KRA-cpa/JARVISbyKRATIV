@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_PlanTiers_Subscriptions_20261031.md | Author: Kenneth R. Advento | Version: 1.9.0
+Document: PLAN_PlanTiers_Subscriptions_20261031.md | Author: Kenneth R. Advento | Version: 1.9.1
 Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: AppScript v10.2 - Basic / Advanced / Enterprise plans per company: feature + limit catalogue, server gate, subscription lifecycle (trial end, grace, read-only), invoices without payment, owner template library for Basic, ticket uploader | Status: Approved (session ff4c803f), not built
 REVISION HISTORY:
+- v1.9.1 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §4 note: plan changes come from the Platform manager M3 on Postgres with migration 4.1 (PLAN_PlatformManager v2.0.0 PM-D1) - no projection into the Apps Script Sheet; statements only (PM-D2)
 - v1.9.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2 catalogue: **announcements** (`announcements` Advanced, `announcements_targeting` Enterprise) - an organization's own announcements to its users (user: "company needs to announce downtime", "for enterprise only?" → default Advanced + Enterprise); KRAtiv's maintenance announcements are every plan. Design: PLAN_Announcements_20261115.md
 - v1.8.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Snooze: ends no later than the step deadline, and no snooze once the step has exceeded its SLA (user); **Pause SLA** (`sla_pause`, per step, not on head-level approvals) proposed for Advanced + Enterprise - design `docs/design/DESIGN_SnoozePauseSLA_20261110.md`
 - v1.7.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2 catalogue: **Snooze** (`snooze`) - Enterprise only (user, session 5f83b40e: "Snooze function, but only in enterprise"); built on the cloud server with the v10.3 approver features
@@ -298,6 +299,9 @@ level, at every new block, and when the projection crosses the cap; a **weekly d
 ---
 
 ## §4 Effective state (computed from dates per request; every date is **end of day in the company time zone** via `companyClock`)
+> 15 Nov 2026: the lifecycle actions below are run from the Platform manager **M3** on Postgres with migration 4.1
+> (`PLAN_PlatformManager_20261106.md` v2.0.0, PM-D1 - no projection into the Apps Script Sheet); Daloy issues
+> **statements**, not invoices (PM-D2).
 `trial|active` → `period_end` → **grace** (full plan, banner + reminders) → **read_only** → a renewal makes it `active` again.
 
 - **Upgrade:** immediate. It closes the current row and opens a new period.
