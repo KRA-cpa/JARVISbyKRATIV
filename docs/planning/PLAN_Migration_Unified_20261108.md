@@ -315,9 +315,10 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
         (no keys, no project roles); Cloud Run's identity may borrow it (Token Creator on that account only), scope
         `spreadsheets.readonly`. Read half: `scripts/lib/sheetsExport.js` turns the Sheets API answer into the same
         export v1 the 0.8 loader takes (`buildLoadPlan`: clean rows only); test `npm run test:sheets-export` (5).
-      - **You:** share the platform Sheet with that address as **Viewer**; give Claude the Sheet id (the part of its
-        address between `/d/` and `/edit`) and the `TS_UTC_SINCE` Script Property value (both go into Cloud Run settings,
-        neither is a secret).
+      - **Shared 15 Nov 2026 (user):** the Sheet is shared with that address as Viewer. Settings for the sync (not
+        secrets; set on Cloud Run with the sync's deploy): `SYNC_SHEET_ID=1EjFpr_yktSU6QAeBSAvcr6iWVtmaOCV1t5unvImmot4`,
+        `TS_UTC_SINCE=2026-10-31T08:13:50.821Z`. First real read: pending - the developer account can't borrow the
+        reader yet (needs Token Creator on it, or the read runs from Cloud Run).
       - Left (Claude): the write half - upsert instead of the 0.8 one-time load (rows keyed by their Sheet ids; tables
         without an id need a stable key, not a new random one per run), deletions, `/api/cron/sync` + the 2 Cloud Scheduler
         jobs, the lag gate. Whole-Sheet read per run instead of a watermark at today's size (303 rows) - simpler and it
