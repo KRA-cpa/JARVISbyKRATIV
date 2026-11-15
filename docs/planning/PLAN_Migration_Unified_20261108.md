@@ -272,6 +272,9 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
 - [ ] **0.9 Claude** - **reverse export** (Postgres → Sheets) written **and tested** - the rollback for Phase 2, and the
       first half of the bridge / export work (Phase 5). **Moved (15 Nov 2026): build it during Phase 1, done before 2.4**
       - before 2.4 the rollback is "unfreeze Apps Script" (Phase 2 Rollback line), so nothing needs it earlier.
+      Also gives the **per-company full export** (T1) and, next to it, the **per-company delete** with dry run (T2,
+      `scripts/db-delete-company.js`) of `docs/guides/GUIDE_DataReturnDeletion_20261115.md` §8 (DPA return and deletion;
+      user, 15 Nov 2026: "document a process for this so wont be done on the fly").
 - [x] **0.10 Claude drafts** *(was: You send)* - new DPA Annex C + transfers, Privacy providers / transfers / cookies, Terms
       providers + the Sheets-option wording (D7), shown on previews; the **new Sub-processor notice** to every customer
       admin. ~~Gate: notice date recorded; Phase 2 is ≥ 30 days later~~ (dropped 15 Nov 2026 - no paying clients). *CHECK §7.*

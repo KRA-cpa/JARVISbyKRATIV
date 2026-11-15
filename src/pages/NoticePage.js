@@ -5,7 +5,7 @@ import Header from '../components/shared/Header';
 import PublicHeader from '../components/shared/PublicHeader';
 import Footer from '../components/shared/Footer';
 import { Body, WithBlanks } from './LegalPage';
-import { noticeById, noticeForCompanies, isPublicVisible } from '../config/notices';
+import { noticeById, noticeForCompanies, isPublicVisible, isResolved, noticeTimeline } from '../config/notices';
 import { formatDateTime } from '../utils/dateTime';
 
 /**
@@ -15,6 +15,8 @@ import { formatDateTime } from '../utils/dateTime';
  *   - /notices/:id/public (publicView, open to everyone): the PUBLIC version (template P), only when the notice has
  *     public: true - on previews also before that, marked "not published", for review. User, 15 Nov 2026: no public
  *     breach page by default, but "public notice must be readily available for publishing".
+ * Both show the status (Ongoing / Resolved) and the incident timeline from the first sign to the resolution, after the
+ * first section (the public version leaves out internal entries).
  * Static: no API call. Layer: page (shared components, config, utils).
  * @param {boolean} publicView - true on /notices/:id/public
  */
@@ -32,6 +34,23 @@ const Note = ({ title, children }) => (
   </div>
 );
 
+/** The incident timeline, oldest first. */
+const Timeline = ({ entries }) => (
+  <section id="timeline" className="mt-8">
+    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Timeline</h2>
+    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">From the first sign of the incident to its resolution.</p>
+    <ol className="mt-4 border-l-2 border-gray-300 pl-5 space-y-4 dark:border-gray-600">
+      {entries.map((e, i) => (
+        <li key={`${e.at}-${i}`} className="relative">
+          <span className="absolute -left-[1.6rem] top-1.5 h-2.5 w-2.5 rounded-full bg-gray-500 dark:bg-gray-400" aria-hidden="true" />
+          <p className="text-sm font-semibold text-gray-900 dark:text-white">{formatDateTime(e.at)}</p>
+          <p className="text-gray-700 dark:text-gray-200"><WithBlanks text={e.text} /></p>
+        </li>
+      ))}
+    </ol>
+  </section>
+);
+
 const NoticePage = ({ publicView = false }) => {
   const { id } = useParams();
   const { user, userRoles, userCompanies, isAuthenticated, loading } = useUser();
@@ -43,6 +62,8 @@ const NoticePage = ({ publicView = false }) => {
   const title = notice ? (publicView ? notice.publicTitle : notice.title) : '';
   const sections = notice ? (publicView ? notice.publicSections : notice.sections) : [];
   const signedIn = isAuthenticated && !loading;
+  const timeline = notice ? noticeTimeline(notice, publicView) : [];
+  const resolved = notice && isResolved(notice);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
@@ -64,6 +85,9 @@ const NoticePage = ({ publicView = false }) => {
               </span>
               <h1 className="mt-3 text-3xl font-bold text-gray-900 dark:text-white"><WithBlanks text={title} /></h1>
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                <span className={`mr-2 rounded px-1.5 py-0.5 text-xs font-semibold ${resolved ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200'}`}>
+                  {resolved ? `Resolved ${formatDateTime(notice.resolvedAt)}` : 'Ongoing'}
+                </span>
                 Reference {notice.id}
                 {notice.postedAt && <> · Posted {formatDateTime(notice.postedAt)}</>}
               </p>
@@ -76,11 +100,14 @@ const NoticePage = ({ publicView = false }) => {
                   previews show this page.
                 </Note>
               )}
-              {sections.map(s => (
-                <section key={s.id} id={s.id} className="mt-8">
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{s.heading}</h2>
-                  <div className="text-gray-700 dark:text-gray-200 leading-relaxed"><Body text={s.body} /></div>
-                </section>
+              {sections.map((s, index) => (
+                <React.Fragment key={s.id}>
+                  <section id={s.id} className="mt-8">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{s.heading}</h2>
+                    <div className="text-gray-700 dark:text-gray-200 leading-relaxed"><Body text={s.body} /></div>
+                  </section>
+                  {index === 0 && timeline.length > 0 && <Timeline entries={timeline} />}
+                </React.Fragment>
               ))}
             </>
           )}

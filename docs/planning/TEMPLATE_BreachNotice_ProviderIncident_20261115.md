@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: TEMPLATE_BreachNotice_ProviderIncident_20261115.md | Author: Kenneth R. Advento | Version: 1.2.0
+Document: TEMPLATE_BreachNotice_ProviderIncident_20261115.md | Author: Kenneth R. Advento | Version: 1.3.0
 Created: 15 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
-Purpose: Notice templates for a security incident / breach at one of Daloy's service providers ("X service"): A = no company data affected, B = company data may have been affected (+ B2 follow-up), P = public version (ready, not published by default) | Status: DRAFT - for review by the owner and counsel (with DPA v0.3 / Privacy Policy)
+Purpose: Notice templates for a security incident / breach at one of Daloy's service providers ("X service"): A = no company data affected, B = company data may have been affected (+ B2 follow-up), P = public version (ready, not published by default), PE = email to the organizations before P is published; incident timeline (§6) | Status: DRAFT - for review by the owner and counsel (with DPA v0.3 / Privacy Policy)
 REVISION HISTORY:
+- v1.3.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Incident timeline in every notice, from the first sign to the resolution (user: "add incident timeline details in notices, from initial to resolution") - §6 stages, a Timeline block in A / B / B2 / P, `timeline` + `resolvedAt` in §5; template PE (user: "tell the org first - create an email template ready to send")
 - v1.2.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §0 decision D1 recorded (user: "dafault, record decision, public notice must be readily availble for publisjing"); template P (public version); /status notice line + /notices/<id>/public in §5
 - v1.1.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5 sign-in banner (user: "banner upon login, effective for 7 days, user can hide" + "banner will provide link to breach notif"): `src/config/notices.js`, banner on every signed-in page, full notice at /notices/<id>
 - v1.0.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 461f9ea9). User: "draft a notice of breach of x service where template a) no company data is affected, template b) company data may have been affected"
@@ -85,6 +86,14 @@ public notice (reaching people we can't email, an NPC request) are covered by ke
 > **You don't need to do anything.** Daloy is working normally {or: "was briefly unavailable from {time} to {time}
 > while {Provider} fixed the problem; no data was lost"}.
 >
+> **Timeline** (UTC+8; §6):
+> - {date time} - Incident began at {Provider} (time given by the provider)
+> - {date time} - {Provider} published its statement; we became aware of it
+> - {date time} - We confirmed that the services and regions Daloy uses were not involved; access records reviewed
+> - {date time} - {Precaution: access keys changed}
+> - {date time} - Resolved: {Provider} closed the incident {or: "{Provider} is still working on it; we will update you
+>   when it closes"}
+>
 > We tell you about incidents at our providers even when your data is not involved, so you hear it from us first.
 > If anything changes, we will write to you again.
 >
@@ -123,6 +132,14 @@ public notice (reaching people we can't email, an NPC request) are covered by ke
 >
 > **Possible consequences.** {e.g. "Someone outside your organization may have read ticket content. We have no sign
 > that it has been misused." / "Users may receive phishing emails that mention Daloy."}
+>
+> **Timeline so far** (UTC+8; §6):
+> - {date time} - {Unauthorized access / the incident} began at {Provider} (time given by the provider)
+> - {date time} - {Provider} detected it {and closed the access}
+> - {date time} - {Provider} informed us; we became aware of the incident
+> - {date time} - Contained on our side: {keys changed, users signed out, records under review}
+> - {date time} - This notice to your administrators
+> - Next: {what we expect next, e.g. the provider's findings by {date}}
 >
 > **What we have done.**
 > - {Worked with {Provider}, which {stopped / closed} the access on {date}}
@@ -167,7 +184,12 @@ public notice (reaching people we can't email, an NPC request) are covered by ke
 > - {Your organization's data **was not** involved after all: {how this was confirmed}. You don't need to do
 >   anything further.}
 >
-> **Status.** {Ongoing - next update by {date} / Closed on {date}.}
+> **Timeline since our last notice** (UTC+8; the full timeline is in the notice in Daloy, `/notices/{reference}`):
+> - {date time} - {event}
+> - {date time} - {Resolved: what closed it - e.g. "{Provider} completed its investigation; no further access
+>   since {date}"}
+>
+> **Status.** {Ongoing - next update by {date} / Resolved on {date}.}
 >
 > Contact: KRATIV.dpo@blueknight.xyz, reference {incident reference}.
 >
@@ -208,7 +230,54 @@ no per-organization detail. Shown at `/notices/<id>/public`.
 > **Contact.** Our Data Protection Officer: KRATIV.dpo@blueknight.xyz. You may also contact the National Privacy
 > Commission (privacy.gov.ph). Next update on this page: {date / time}.
 
-Before publishing P under B: tell the organizations concerned first (same day), so they don't learn it from the page.
+**Timeline (both):** the same as the notice's, without internal entries (which organization was told when) - the page
+shows it from `timeline` (§5); entries marked `internal: true` stay out.
+
+**Before publishing P: tell the organizations first** - send PE to the administrators of every organization concerned
+(under A: all organizations) at least [[4]] hours before setting `public: true`, the same day. Don't publish before PE
+has gone out.
+
+---
+
+## TEMPLATE PE — to the organizations, before the public notice (ready to send)
+
+**To:** the administrators of each organization concerned (one email per organization, or Bcc - never a visible list
+of customers). **Cc:** KRATIV.dpo@blueknight.xyz. **When:** at least [[4]] hours before `public: true`.
+
+**Subject:** Before we publish: public notice on the {Provider} security incident - {incident reference}
+
+> Dear {Organization} administrator,
+>
+> This is about the {Provider} security incident we told you about on {date of notice A / B} (reference
+> {incident reference}).
+>
+> **We will publish a public notice** about this incident on our website on {date}, at {time} (UTC+8), because
+> {choose: "the National Privacy Commission has asked us to" / "some of the people whose data may be involved can't
+> be reached individually" / "{other reason}"}. We are telling you first so that you are not surprised and can prepare
+> anything you want to say to your own people.
+>
+> **What the public notice says.** It describes the incident at {Provider}, the kind of information that may be
+> involved, what we have done, what people can do, and the timeline. It **does not name your organization** or any
+> other customer, and it does not include any of your records. The text is below.
+>
+> {paste the public title, text and timeline (template P) exactly as they will be published}
+>
+> **Where it will be:** https://daloy.blueknight.xyz/notices/{incident reference}/public (it opens at the time above),
+> linked from our service status page https://daloy.blueknight.xyz/status.
+>
+> **What you may want to do.**
+> - If you have not yet told your own people, you may want to do so before {time}.
+> - If anything in the text is wrong for your organization, reply before {time} and we will look at it before
+>   publishing.
+> - People who ask you about it can be pointed to the public notice. Questions about your organization's own records
+>   stay with you, and we will help you answer them.
+>
+> Contact: our Data Protection Officer, KRATIV.dpo@blueknight.xyz, reference {incident reference}.
+>
+> KRAtiv Solutions - Daloy
+> {date}
+
+Record in the incident record (§4): when PE went to which organization, any replies, the publication time.
 
 ---
 
@@ -224,7 +293,7 @@ Don't name customers or data on the status page; details go only to the organiza
 
 The DPA requires KRAtiv to keep a record of every breach. Minimum fields: reference; provider; when KRAtiv became
 aware (UTC+8); provider statement (link / copy); checks in §1 with results; organizations in scope; data and number of
-individuals; actions taken (with times); notices sent (template, to whom, when); the organization's decision on the
+individuals; the incident timeline (§6, every stage with its time); actions taken (with times); notices sent (template, to whom, when - incl. PE before any public notice); the organization's decision on the
 NPC report (if told); closed date. [[decide where the record lives - e.g. a restricted folder in the KRAtiv Drive,
 not this repo]]
 
@@ -240,10 +309,35 @@ To post: add an entry to `LOGIN_NOTICES` in `src/config/notices.js` and deploy (
 - `banner` = the signed-in line; `statusLine` = the §3 line (shown on `/status` for the same 7 days);
   `title` + `sections` = template A / B / B2, filled in.
 - `publicTitle` + `publicSections` = template P, filled in **when the notice is posted** (§0 D1: always ready);
-  `public: false`. To publish: `public: true` + deploy → `/notices/<id>/public` for everyone, linked from `/status`.
+  `public: false`. To publish: send PE first, then `public: true` + deploy → `/notices/<id>/public` for everyone,
+  linked from `/status`.
+- `timeline` = `[{ at, text, internal? }]` - add an entry at every §6 stage and redeploy; `internal: true` keeps an
+  entry out of the public version. `resolvedAt` = `null` while ongoing; set it with the last entry - the notice,
+  banner and `/status` line then say "Resolved".
 - Hidden notices are remembered per user in that browser only; the email stays the formal notice.
 - Previews show two samples (`SAMPLE-A`, `SAMPLE-B`) with the open items highlighted, their `/status` lines and their
   public versions (marked "not published"); production leaves them out.
+
+## §6 Incident timeline - stages, from the first sign to the resolution
+
+Every notice (A, B, B2, P and the in-app notice) carries a timeline; times in UTC+8, oldest first. Record each stage
+in the incident record (§4) as it happens, then copy it to the notice. A stage that doesn't apply is left out; a time
+known only roughly is written as such ("about 03:00").
+
+| # | Stage | Source | In the public version |
+|---|---|---|---|
+| 1 | Incident began (first unauthorized access / failure) | the provider | yes |
+| 2 | Detected by the provider | the provider | yes |
+| 3 | KRAtiv became aware (provider's notice, its status page, our own alert) - **starts the [[24]] h clock** | us | yes |
+| 4 | Assessed: our services / regions in scope or not (§1 checks) | us | yes (result only) |
+| 5 | Contained: provider closed the access; our keys changed, sessions ended | provider + us | yes |
+| 6 | Organizations notified (A / B, by email + banner) | us | no (`internal`) |
+| 7 | Updates (B2): new facts, data confirmed involved / not involved | us | yes |
+| 8 | PE sent, then the public notice published (only if §0 applies) | us | the publication only |
+| 9 | Resolved: provider closed its incident, no further access since {date}, our review done | provider + us | yes |
+| 10 | Closed: incident record complete, lessons noted | us | no |
+
+**Resolved** = stage 9 (set `resolvedAt`). A B incident is not resolved while the data involved is still unknown.
 
 **Related:** DPA v0.3 "Personal Data Breaches" ([[24]] h to the customer) and Annex C (providers), Privacy Policy
 "What we do if a personal data breach happens" (72 h for KRAtiv's own data),

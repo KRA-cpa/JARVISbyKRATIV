@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../../contexts/UserContext';
-import { activeNotices } from '../../config/notices';
+import { activeNotices, isResolved } from '../../config/notices';
 
 /**
  * LoginNoticeBanner - the sign-in notices from src/config/notices.js on every signed-in page (App.js ProtectedRoute):
@@ -63,7 +63,7 @@ const LoginNoticeBanner = () => {
           <div key={n.id} className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border px-4 py-3 text-sm ${s.box}`}
             role={n.template === 'B' ? 'alert' : 'status'}>
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-white ${s.badge}`}>
-              {s.label}{n.sample ? ' (sample)' : ''}
+              {s.label}{isResolved(n) ? ' - resolved' : ''}{n.sample ? ' (sample)' : ''}
             </span>
             <span className="flex-1 min-w-[12rem] font-medium">{plain(n.banner)}</span>
             <Link to={`/notices/${encodeURIComponent(n.id)}`} className="font-semibold underline underline-offset-2 hover:no-underline">

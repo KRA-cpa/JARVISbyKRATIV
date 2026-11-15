@@ -4,7 +4,7 @@ import PublicHeader from '../components/shared/PublicHeader';
 import Footer from '../components/shared/Footer';
 import Icons from '../components/shared/Icons';
 import { STATUS } from '../config/site';
-import { statusNotices, isPublicVisible } from '../config/notices';
+import { statusNotices, isPublicVisible, isResolved } from '../config/notices';
 import { formatDateOnly } from '../utils/dateTime';
 
 /**
@@ -37,6 +37,7 @@ const StatusPage = () => {
                 <p>
                   {n.postedAt && <span className="font-semibold">{formatDateOnly(n.postedAt)}: </span>}
                   {n.statusLine.replace(/\[\[([^\]]+)\]\]/g, '$1')}
+                  {isResolved(n) && <span className="font-semibold text-green-700 dark:text-green-300"> Resolved {formatDateOnly(n.resolvedAt)}.</span>}
                   {n.sample && <span className="text-gray-500 dark:text-gray-400"> (sample - previews only)</span>}
                 </p>
                 {isPublicVisible(n) && (

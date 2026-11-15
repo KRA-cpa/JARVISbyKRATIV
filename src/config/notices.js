@@ -19,6 +19,11 @@
  *                 (template §0). User: "public notice must be readily available for publishing" - so every notice
  *                 carries its public text ready, and publishing is this one flag + a deploy:
  *   - publicTitle, publicSections - the public version (template P): no customer names, no per-organization detail
+ *   - timeline    [{ at, text, internal? }] - the incident from the first sign to the resolution (user, 15 Nov 2026: "add
+ *                 incident timeline details in notices, from initial to resolution"); `at` ISO with offset; add an
+ *                 entry at every step (template §6 stages). internal: true = only in the signed-in notice, not in the
+ *                 public version (e.g. which organizations were told when). Shown oldest first.
+ *   - resolvedAt  null while ongoing; ISO when resolved - the notice, banner and /status line then say "Resolved"
  * Hiding is remembered per user in this browser (a convenience only: in a private window it shows again). The notice
  * itself goes out by email too (template §2) - the banner is not the legal notice.
  *
@@ -42,6 +47,15 @@ export const PREVIEW_SAMPLE_NOTICES = [
     sample: true,
     template: 'A',
     companyIds: [],
+    resolvedAt: '2026-11-14T16:00:00+08:00',
+    timeline: [
+      { at: '2026-11-13T22:10:00+08:00', text: 'Incident began at [[Provider]] (time given by the provider).' },
+      { at: '2026-11-14T08:30:00+08:00', text: '[[Provider]] published its statement; we became aware of it.' },
+      { at: '2026-11-14T10:00:00+08:00', text: 'We confirmed with [[Provider]] that the services and regions Daloy uses were not involved, and reviewed our access records: no unusual access.' },
+      { at: '2026-11-14T11:00:00+08:00', text: 'As a precaution, we changed the access keys Daloy uses with [[Provider]].' },
+      { at: '2026-11-14T12:00:00+08:00', text: 'Administrators of all organizations notified by email (template A).', internal: true },
+      { at: '2026-11-14T16:00:00+08:00', text: 'Resolved: [[Provider]] closed the incident. No action needed by customers.' }
+    ],
     banner: '[[Provider]] reported a security incident. Your organization\'s Daloy data was not affected.',
     statusLine: '[[Provider]] reported a security incident. Daloy data was not affected. Service is working normally.',
     public: false,
@@ -86,6 +100,15 @@ export const PREVIEW_SAMPLE_NOTICES = [
     sample: true,
     template: 'B',
     companyIds: [],
+    resolvedAt: null,
+    timeline: [
+      { at: '2026-11-12T03:00:00+08:00', text: 'Unauthorized access at [[Provider]] began (time given by the provider).' },
+      { at: '2026-11-13T19:40:00+08:00', text: '[[Provider]] detected the access and closed it.' },
+      { at: '2026-11-14T09:15:00+08:00', text: '[[Provider]] informed us; we became aware of the incident.' },
+      { at: '2026-11-14T10:30:00+08:00', text: 'Contained on our side: access keys changed, all users signed out, access records under review.' },
+      { at: '2026-11-14T14:00:00+08:00', text: 'Administrators of the organizations concerned notified (within 24 hours of becoming aware).', internal: true },
+      { at: '2026-11-15T12:00:00+08:00', text: 'Update: [[what was confirmed - data involved, number of records]].' }
+    ],
     banner: '[[Provider]] reported a security incident that may involve your organization\'s Daloy data. Please read the notice.',
     statusLine: '[[Provider]] reported a security incident that may involve Daloy data. Affected organizations have been ' +
       'contacted directly. Next update: [[date / time]].',
@@ -203,6 +226,15 @@ export const isPublicVisible = notice => hasPublicVersion(notice) && (notice.pub
 
 /** The /status lines now: every notice in its window with a statusLine (no company filter - the line names no one). */
 export const statusNotices = (now = Date.now()) => allNotices().filter(n => n.statusLine && isNoticeInWindow(n, now));
+
+/** Resolved: resolvedAt is a valid time. */
+export const isResolved = notice => Boolean(notice && notice.resolvedAt && !Number.isNaN(Date.parse(notice.resolvedAt)));
+
+/** The timeline oldest first; the public version leaves out internal entries and entries without a valid time. */
+export const noticeTimeline = (notice, publicView = false) => (notice && Array.isArray(notice.timeline) ? notice.timeline : [])
+  .filter(e => e && e.text && !Number.isNaN(Date.parse(e.at)) && !(publicView && e.internal))
+  .slice()
+  .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 
 /** The banners to show now for a user of these companies (hiding is applied by the banner). */
 export const activeNotices = (companyIds = [], now = Date.now()) =>
