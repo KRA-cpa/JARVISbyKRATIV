@@ -193,10 +193,14 @@ export const UserProvider = ({ children }) => {
       console.error('Error signing out:', error);
     }
     dispatch({ type: USER_ACTION_TYPES.LOGOUT });
-    // A fresh /login page shows the notice, whatever was mounted or in flight (browser check 4, 31 Oct 2026)
-    if (typeof window !== 'undefined' && window.location && window.location.pathname !== '/login') {
-      window.location.replace('/login');
-      return;
+    // A fresh sign-in page shows the notice, whatever was mounted or in flight (browser check 4, 31 Oct 2026). From the
+    // Platform console (/platform...) that is the staff sign-in, /platform/login - not the customers' /login
+    if (typeof window !== 'undefined' && window.location) {
+      const signInPage = /^\/platform(\/|$)/.test(window.location.pathname) ? '/platform/login' : '/login';
+      if (window.location.pathname !== signInPage) {
+        window.location.replace(signInPage);
+        return;
+      }
     }
     endingRef.current = false;
   }, []);

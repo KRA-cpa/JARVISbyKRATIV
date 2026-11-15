@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useUser } from '../contexts/UserContext';
 import { useCompanyPlans } from '../hooks/useAPI';
-import Header from '../components/shared/Header';
-import Footer from '../components/shared/Footer';
+import PlatformHeader from '../components/shared/PlatformHeader';
 import PlatformLoadingScreen, { PlatformMark } from '../components/shared/PlatformLoadingScreen';
 import { IS_PREVIEW_BUILD } from '../config/platform';
 import { PLATFORM_GROUPS, PLATFORM_MODULES, WIREFRAME_OVERVIEW } from '../config/platformConsole';
@@ -17,7 +15,9 @@ import { PLATFORM_GROUPS, PLATFORM_MODULES, WIREFRAME_OVERVIEW } from '../config
  * Access: signed in (App.js ProtectedRoute), then - on previews any signed-in user (for review); in production only a
  * platform admin (the server's is_platform_admin, AppScript v10.2 getCompanyPlan; PM1 moves it to platform_admins).
  * Kept out of search engines (noindex) and lazy-loaded (App.js).
- * Layer: page (shared components, context, hooks, config).
+ * Header: PlatformHeader (console logo → /platform; the customer app only through a labelled link). No customer
+ * banners here (App.js WithNotices console). Loader: PlatformLoadingScreen (also the first-load splash on /platform).
+ * Layer: page (shared components, hooks, config).
  */
 
 const TONES = {
@@ -26,13 +26,16 @@ const TONES = {
   gray: 'border-gray-300 bg-gray-50 text-gray-800 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100'
 };
 
+/** Out of search engines; the tab says "Daloy Platform" (restored when leaving the console). */
 function useNoIndex() {
   useEffect(() => {
     const meta = document.createElement('meta');
     meta.name = 'robots';
     meta.content = 'noindex, nofollow';
     document.head.appendChild(meta);
-    return () => { meta.remove(); };
+    const title = document.title;
+    document.title = 'Daloy Platform - KRAtiv staff console';
+    return () => { meta.remove(); document.title = title; };
   }, []);
 }
 
@@ -152,7 +155,6 @@ const PlatformConsole = () => {
 
 const PlatformPage = () => {
   useNoIndex();
-  const { user, userRoles } = useUser();
   // Production: only platform admins; previews: any signed-in user, for review (the page holds sample data only)
   const { isPlatformAdmin, loading } = useCompanyPlans({ enabled: !IS_PREVIEW_BUILD });
   const allowed = IS_PREVIEW_BUILD || isPlatformAdmin;
@@ -164,7 +166,7 @@ const PlatformPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
-      <Header user={user} userRole={userRoles?.[0]?.name} />
+      <PlatformHeader />
       <div className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-100">
         Wireframe - sample data only, nothing here is live. Design: Platform manager plan v2.0.0.
       </div>
@@ -173,11 +175,13 @@ const PlatformPage = () => {
           <div className="mx-auto max-w-xl px-4 py-16 text-center">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Platform console</h1>
             <p className="mt-3 text-gray-700 dark:text-gray-200">This area is for KRAtiv staff. Your account isn't a platform admin.</p>
-            <Link to="/dashboard" className="mt-6 inline-block font-medium text-blue-600 hover:underline dark:text-blue-400">Back to the dashboard</Link>
+            <Link to="/dashboard" className="mt-6 inline-block font-medium text-blue-600 hover:underline dark:text-blue-400">Open the Daloy app</Link>
           </div>
         )}
       </div>
-      <Footer />
+      <footer className="border-t border-gray-200 px-4 py-3 text-center text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
+        Daloy Platform · KRAtiv staff console · every action is checked on the server and recorded
+      </footer>
     </div>
   );
 };

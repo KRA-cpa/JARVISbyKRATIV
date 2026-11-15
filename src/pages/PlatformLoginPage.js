@@ -24,7 +24,9 @@ const PlatformLoginPage = () => {
     meta.name = 'robots';
     meta.content = 'noindex, nofollow';
     document.head.appendChild(meta);
-    return () => { meta.remove(); };
+    const title = document.title;
+    document.title = 'Staff sign-in - Daloy Platform';
+    return () => { meta.remove(); document.title = title; };
   }, []);
 
   if (loading && !error) return <PlatformLoadingScreen />;

@@ -78,16 +78,20 @@ const SmartRedirect = () => {
 // Every signed-in page starts with the sign-in notices (src/config/notices.js: 3 days for A, 7 for B / B2; the user can hide them)
 // and the announcements (maintenance / outage / info from /announcements.json - src/config/announcements.js), and the
 // privacy notice at first sign-in / when the policy version changes (acknowledgement, not consent - PrivacyNoticeGate)
-const WithNotices = ({ children }) => <><PrivacyNoticeGate /><AnnouncementBanner /><LoginNoticeBanner />{children}</>;
+// The Platform console (console) keeps only the privacy notice: staff manage announcements and security notices there
+// (M9 / M14), and the customer banners would link into the customer app
+const WithNotices = ({ children, console: inConsole = false }) => (inConsole
+  ? <><PrivacyNoticeGate />{children}</>
+  : <><PrivacyNoticeGate /><AnnouncementBanner /><LoginNoticeBanner />{children}</>);
 
 // Protected Route Component with Development Toggle
-const ProtectedRoute = ({ children, requireAdmin = false, loginPath = '/login', loader = null }) => {
+const ProtectedRoute = ({ children, requireAdmin = false, loginPath = '/login', loader = null, console: inConsole = false }) => {
   const { isAuthenticated, isAdmin, loading } = useUser();
   const location = useLocation();
 
   // Skip authentication in development mode or when direct access is allowed
   if (DEV_CONFIG.DISABLE_AUTH || DEV_CONFIG.ALLOW_DIRECT_ACCESS) {
-    return <WithNotices>{children}</WithNotices>;
+    return <WithNotices console={inConsole}>{children}</WithNotices>;
   }
 
   // Original authentication logic for production - the route's own loader (the Platform console has its own)
@@ -104,7 +108,7 @@ const ProtectedRoute = ({ children, requireAdmin = false, loginPath = '/login', 
     return <Navigate to="/unauthorized" replace />;
   }
 
-  return <WithNotices>{children}</WithNotices>;
+  return <WithNotices console={inConsole}>{children}</WithNotices>;
 };
 
 // v10.2: a page open to everyone, signed in or not (no redirect either way) - the public /plans page
@@ -223,7 +227,7 @@ const AppRoutes = () => {
           {/* The notice a sign-in banner links to (src/config/notices.js) - signed-in users of the organizations addressed */}
           <Route path="/notices/:id" element={<ProtectedRoute><NoticePage /></ProtectedRoute>} />
           {/* Platform console: signed in here; the page itself allows platform admins (any signed-in user on previews) */}
-          <Route path="/platform" element={<ProtectedRoute loginPath="/platform/login" loader={<PlatformLoadingScreen />}><Suspense fallback={<PlatformLoadingScreen />}><PlatformPage /></Suspense></ProtectedRoute>} />
+          <Route path="/platform" element={<ProtectedRoute loginPath="/platform/login" loader={<PlatformLoadingScreen />} console><Suspense fallback={<PlatformLoadingScreen />}><PlatformPage /></Suspense></ProtectedRoute>} />
           {/* The staff sign-in for the console (user, 15 Nov 2026: "platform login still goes to /login. why?") - its own
               page; signed in already → /platform */}
           <Route path="/platform/login" element={<OpenRoute><Suspense fallback={<PlatformLoadingScreen />}><PlatformLoginPage /></Suspense></OpenRoute>} />
