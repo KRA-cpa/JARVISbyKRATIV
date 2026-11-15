@@ -23,14 +23,14 @@ import Footer from '../components/shared/Footer';
 const IS_PREVIEW_BUILD = process.env.NODE_ENV === 'development' || process.env.REACT_APP_VERCEL_ENV === 'preview';
 
 /** Text with [[open decision]] markers highlighted. */
-const WithBlanks = ({ text }) => text.split(/(\[\[[^\]]+\]\])/g).map((part, i) => (
+export const WithBlanks = ({ text }) => text.split(/(\[\[[^\]]+\]\])/g).map((part, i) => (
   /^\[\[.*\]\]$/.test(part)
     ? <mark key={i} className="rounded bg-amber-200 px-1 text-amber-900 dark:bg-amber-700/60 dark:text-amber-50">{part.slice(2, -2)}</mark>
     : <React.Fragment key={i}>{part}</React.Fragment>
 ));
 
-/** A section body: paragraphs split by a blank line; lines starting with "- " become a bullet list. */
-const Body = ({ text }) => text.split(/\n\n+/).map((block, i) => {
+/** A section body: paragraphs split by a blank line; lines starting with "- " become a bullet list. Also used by NoticePage. */
+export const Body = ({ text }) => text.split(/\n\n+/).map((block, i) => {
   const lines = block.split('\n');
   if (lines.every(line => line.startsWith('- '))) {
     return (

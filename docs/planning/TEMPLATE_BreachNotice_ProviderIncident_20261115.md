@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: TEMPLATE_BreachNotice_ProviderIncident_20261115.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: TEMPLATE_BreachNotice_ProviderIncident_20261115.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 15 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Notice templates for a security incident / breach at one of Daloy's service providers ("X service"): A = no company data affected, B = company data may have been affected (+ B2 follow-up) | Status: DRAFT - for review by the owner and counsel (with DPA v0.3 / Privacy Policy)
 REVISION HISTORY:
+- v1.1.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5 sign-in banner (user: "banner upon login, effective for 7 days, user can hide" + "banner will provide link to breach notif"): `src/config/notices.js`, banner on every signed-in page, full notice at /notices/<id>
 - v1.0.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 461f9ea9). User: "draft a notice of breach of x service where template a) no company data is affected, template b) company data may have been affected"
 ===============================================================================
 -->
@@ -42,7 +43,7 @@ move also Google Sheets / Apps Script and Firebase Authentication.
   controller and decides; KRAtiv (processor) gives it the facts. Only for KRAtiv's **own** data (KRAtiv's own
   account and billing records - Privacy Policy) does KRAtiv itself notify the NPC and the individuals within 72 hours
   when the rules require it. [[counsel: confirm the current NPC breach rules - NPC Circular 16-03 or its successor]]
-- Same channels for both: email from the KRAtiv mailbox + a short line on `/status` (§3, last block).
+- Same channels for both: email from the KRAtiv mailbox + the sign-in banner for 7 days (§5) + a short line on `/status` (§3).
 
 ---
 
@@ -170,6 +171,19 @@ aware (UTC+8); provider statement (link / copy); checks in §1 with results; org
 individuals; actions taken (with times); notices sent (template, to whom, when); the organization's decision on the
 NPC report (if told); closed date. [[decide where the record lives - e.g. a restricted folder in the KRAtiv Drive,
 not this repo]]
+
+## §5 Sign-in banner (in the app)
+
+Every signed-in page shows the notice as a banner for **7 days**; each user can **Hide** it; the banner links to the
+full notice at **`/notices/<id>`** (signed-in, only the organizations addressed; still readable after the 7 days, so
+the email can link to it too: `https://daloy.blueknight.xyz/notices/<id>`).
+
+To post: add an entry to `LOGIN_NOTICES` in `src/config/notices.js` and deploy (one push + the Cloud Run deploy).
+- `id` = the incident reference; `template` = `A` (blue) | `B` (red) | `B2` (amber); `postedAt` = start, e.g.
+  `'2026-11-20T09:00:00+08:00'`; `days` (default 7); `companyIds` = `[]` for everyone (A), the organizations in scope (B).
+- `banner` = the §3 status line; `title` + `sections` = the template text above, filled in.
+- Hidden notices are remembered per user in that browser only; the email stays the formal notice.
+- Previews show two samples (`SAMPLE-A`, `SAMPLE-B`) with the open items highlighted; production leaves them out.
 
 **Related:** DPA v0.3 "Personal Data Breaches" ([[24]] h to the customer) and Annex C (providers), Privacy Policy
 "What we do if a personal data breach happens" (72 h for KRAtiv's own data),

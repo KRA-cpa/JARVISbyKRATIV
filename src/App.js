@@ -31,6 +31,7 @@ import RequesterDemoPage from './pages/RequesterDemoPage';
 import TermsPage, { TermsVersionsPage, TermsArchivedPage } from './pages/TermsPage';
 import StatusPage from './pages/StatusPage';
 import DataLocationPage from './pages/DataLocationPage';
+import NoticePage from './pages/NoticePage';
 import { IS_PREVIEW_BUILD } from './config/platform';
 
 // Shared Components
@@ -38,6 +39,7 @@ import LoadingScreen from './components/shared/LoadingScreen';
 import ErrorBoundary from './components/shared/ErrorBoundary';
 import ErrorBoundary130, { useError130Detection } from './components/shared/ErrorBoundary130';
 import DevPanel from './components/shared/DevPanel';
+import LoginNoticeBanner from './components/shared/LoginNoticeBanner';
 
 // Admin-only, code-split: visitors and non-admins never load the DPA (user, 1 Nov 2026)
 const DpaPage = lazy(() => import('./pages/DpaPage'));
@@ -63,13 +65,16 @@ const SmartRedirect = () => {
   return <HomePage />;
 };
 
+// Every signed-in page starts with the sign-in notices (src/config/notices.js: 7 days, the user can hide them)
+const WithNotices = ({ children }) => <><LoginNoticeBanner />{children}</>;
+
 // Protected Route Component with Development Toggle
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
   const { isAuthenticated, isAdmin, loading } = useUser();
 
   // Skip authentication in development mode or when direct access is allowed
   if (DEV_CONFIG.DISABLE_AUTH || DEV_CONFIG.ALLOW_DIRECT_ACCESS) {
-    return children;
+    return <WithNotices>{children}</WithNotices>;
   }
 
   // Original authentication logic for production
@@ -85,7 +90,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
     return <Navigate to="/unauthorized" replace />;
   }
 
-  return children;
+  return <WithNotices>{children}</WithNotices>;
 };
 
 // v10.2: a page open to everyone, signed in or not (no redirect either way) - the public /plans page
@@ -196,6 +201,8 @@ const AppRoutes = () => {
               </OpenRoute>
             }
           />
+          {/* The notice a sign-in banner links to (src/config/notices.js) - signed-in users of the organizations addressed */}
+          <Route path="/notices/:id" element={<ProtectedRoute><NoticePage /></ProtectedRoute>} />
           {/* Provider status (list per src/config/platform.js) - public, no API (General Terms §10.2) */}
           <Route path="/status" element={<OpenRoute><StatusPage /></OpenRoute>} />
           {/* Data Processing Agreement - company / organization admins only (part of the subscription contract) */}
