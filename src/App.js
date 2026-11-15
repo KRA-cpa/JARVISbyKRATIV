@@ -203,6 +203,8 @@ const AppRoutes = () => {
           />
           {/* The notice a sign-in banner links to (src/config/notices.js) - signed-in users of the organizations addressed */}
           <Route path="/notices/:id" element={<ProtectedRoute><NoticePage /></ProtectedRoute>} />
+          {/* Its public version - open to everyone, only once the notice has public: true (previews: always, for review) */}
+          <Route path="/notices/:id/public" element={<OpenRoute><NoticePage publicView /></OpenRoute>} />
           {/* Provider status (list per src/config/platform.js) - public, no API (General Terms §10.2) */}
           <Route path="/status" element={<OpenRoute><StatusPage /></OpenRoute>} />
           {/* Data Processing Agreement - company / organization admins only (part of the subscription contract) */}

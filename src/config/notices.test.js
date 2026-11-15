@@ -1,4 +1,4 @@
-import { isNoticeInWindow, noticeForCompanies, NOTICE_DAYS } from './notices';
+import { isNoticeInWindow, noticeForCompanies, NOTICE_DAYS, hasPublicVersion, isPublicVisible, statusNotices } from './notices';
 
 // src/config/notices.js: the sign-in banner shows for 7 days from postedAt, only to the organizations addressed
 const notice = { id: 'INC-TEST', template: 'A', postedAt: '2026-11-20T09:00:00+08:00', companyIds: [] };
@@ -26,4 +26,13 @@ test('companies: [] = everyone, else only the ones listed (ids as text or number
   expect(noticeForCompanies(scoped, ['c2', 'c1'])).toBe(true);
   expect(noticeForCompanies(scoped, [7])).toBe(true);
   expect(noticeForCompanies(scoped, ['7'])).toBe(true);
+});
+
+test('public version: only with its text, only when public: true (tests run as a production build)', () => {
+  const pub = { ...notice, publicTitle: 'T', publicSections: [{ id: 'x', heading: 'H', body: 'B' }] };
+  expect(hasPublicVersion(notice)).toBe(false);
+  expect(isPublicVisible({ ...pub, public: false })).toBe(false);
+  expect(isPublicVisible({ ...pub, public: true })).toBe(true);
+  expect(isPublicVisible({ ...notice, public: true })).toBe(false);
+  expect(statusNotices()).toEqual([]); // no real notices posted, samples are preview-only
 });

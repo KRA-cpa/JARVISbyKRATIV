@@ -4,15 +4,21 @@ import PublicHeader from '../components/shared/PublicHeader';
 import Footer from '../components/shared/Footer';
 import Icons from '../components/shared/Icons';
 import { STATUS } from '../config/site';
+import { statusNotices, isPublicVisible } from '../config/notices';
+import { formatDateOnly } from '../utils/dateTime';
 
 /**
  * StatusPage - /status, PUBLIC, no API call (General Terms §10.2; ServerCore plan §6b). Links the providers' own status
  * dashboards with what each one affects in Daloy - the list follows src/config/platform.js (before / after the full
  * migration; previews show the after list with a note). A live "Google reports an incident" banner from the providers'
- * feeds is a later step (plan §6b).
+ * feeds is a later step (plan §6b). Above the list: the one-line notices of src/config/notices.js in their 7 days
+ * (statusLine; no customer names), with a link to the public version only when it is published (public: true) or on
+ * previews (user, 15 Nov 2026: default - no separate public breach page; public notice ready to publish).
  * Layer: page (imports shared components + config only).
  */
-const StatusPage = () => (
+const StatusPage = () => {
+  const notices = statusNotices();
+  return (
   <div className="min-h-screen flex flex-col bg-gray-100 dark:bg-gray-900">
     <PublicHeader />
     <main className="flex-1">
@@ -23,6 +29,24 @@ const StatusPage = () => (
           <p className="mt-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
             {STATUS.previewNote}
           </p>
+        )}
+        {notices.length > 0 && (
+          <section className="mt-6 space-y-2" aria-label="Notices">
+            {notices.map(n => (
+              <div key={n.id} className="rounded-lg border border-red-200 bg-white p-4 text-sm text-gray-800 dark:border-red-800 dark:bg-gray-800 dark:text-gray-100">
+                <p>
+                  {n.postedAt && <span className="font-semibold">{formatDateOnly(n.postedAt)}: </span>}
+                  {n.statusLine.replace(/\[\[([^\]]+)\]\]/g, '$1')}
+                  {n.sample && <span className="text-gray-500 dark:text-gray-400"> (sample - previews only)</span>}
+                </p>
+                {isPublicVisible(n) && (
+                  <Link to={`/notices/${encodeURIComponent(n.id)}/public`} className="mt-1 inline-block font-medium text-blue-600 hover:underline dark:text-blue-400">
+                    Read the notice{n.public === true ? '' : ' (public version - not published)'}
+                  </Link>
+                )}
+              </div>
+            ))}
+          </section>
         )}
         <ul className="mt-6 space-y-3">
           {STATUS.providers.map(p => (
@@ -43,6 +67,7 @@ const StatusPage = () => (
     </main>
     <Footer publicSite />
   </div>
-);
+  );
+};
 
 export default StatusPage;

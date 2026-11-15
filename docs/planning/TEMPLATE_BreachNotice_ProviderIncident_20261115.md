@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: TEMPLATE_BreachNotice_ProviderIncident_20261115.md | Author: Kenneth R. Advento | Version: 1.1.0
+Document: TEMPLATE_BreachNotice_ProviderIncident_20261115.md | Author: Kenneth R. Advento | Version: 1.2.0
 Created: 15 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
-Purpose: Notice templates for a security incident / breach at one of Daloy's service providers ("X service"): A = no company data affected, B = company data may have been affected (+ B2 follow-up) | Status: DRAFT - for review by the owner and counsel (with DPA v0.3 / Privacy Policy)
+Purpose: Notice templates for a security incident / breach at one of Daloy's service providers ("X service"): A = no company data affected, B = company data may have been affected (+ B2 follow-up), P = public version (ready, not published by default) | Status: DRAFT - for review by the owner and counsel (with DPA v0.3 / Privacy Policy)
 REVISION HISTORY:
+- v1.2.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §0 decision D1 recorded (user: "dafault, record decision, public notice must be readily availble for publisjing"); template P (public version); /status notice line + /notices/<id>/public in §5
 - v1.1.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5 sign-in banner (user: "banner upon login, effective for 7 days, user can hide" + "banner will provide link to breach notif"): `src/config/notices.js`, banner on every signed-in page, full notice at /notices/<id>
 - v1.0.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 461f9ea9). User: "draft a notice of breach of x service where template a) no company data is affected, template b) company data may have been affected"
 ===============================================================================
@@ -17,6 +18,25 @@ REVISION HISTORY:
 **"X service"** = any provider in DPA Annex C: Google Cloud (Cloud Run, Cloud Scheduler, Secret Manager, Cloud Logging),
 Firebase Hosting, Google sign-in, Google Workspace (KRAtiv's mailbox), Neon (database), Vercel (previews). Before the
 move also Google Sheets / Apps Script and Firebase Authentication.
+
+## §0 Decision D1 - no public breach page by default; the public version is always ready (15 Nov 2026)
+
+User: "dafault, record decision, public notice must be readily availble for publisjing" - the default below, as proposed:
+1. **No separate public breach page by default.** The full notice goes by email (A / B / B2) and in the app: the
+   sign-in banner for 7 days, then `/notices/<id>`, signed-in, only to the organizations addressed (§5).
+2. **The public `/status` page shows one neutral line** per notice during its 7 days (§3): provider and date; under B
+   "affected organizations have been contacted directly". Never customer names or data.
+3. **A full public notice (template P) only when** the NPC asks for one, or the people concerned can't be reached one
+   by one (KRAtiv has no contact for them, or individual notices would take disproportionate effort), or the owner and
+   counsel decide so at the time. **It must be ready to publish:** every notice carries its template P text from the
+   start (`publicTitle` / `publicSections` in `src/config/notices.js`), and publishing is one flag (`public: true`) +
+   a deploy - it then shows at `/notices/<id>/public` (open to everyone) and `/status` links it.
+
+Why: Daloy is the processor for Customer Data - the customer organization (controller) decides on the NPC report and on
+telling its own people; a public page advertises "breach" next to the name for good (search engines), early statements
+can be quoted back, details can help attackers, and the customers lose control of their own message. The reasons for a
+public notice (reaching people we can't email, an NPC request) are covered by keeping P ready.
+[[counsel: confirm when the NPC rules expect a public announcement]]
 
 ## §1 Which template
 
@@ -156,6 +176,42 @@ move also Google Sheets / Apps Script and Firebase Authentication.
 
 ---
 
+## TEMPLATE P — public version (ready with every notice; published only per §0)
+
+Written for the people whose data is in the organizations' Daloy records, not for one customer. No customer names,
+no per-organization detail. Shown at `/notices/<id>/public`.
+
+**Title (A):** Security notice: {Provider} incident - Daloy data was not affected
+
+> On {date}, {Provider}, one of Daloy's service providers, reported a security incident: {one-sentence summary, with a
+> link to the provider's statement}. The services and regions Daloy uses were not involved, and our own review found no
+> unusual access to Daloy data. Daloy is working normally; customers don't need to do anything.
+>
+> Questions: our Data Protection Officer at KRATIV.dpo@blueknight.xyz.
+
+**Title (B):** Notice of a security incident at {Provider}, a Daloy service provider
+
+> **What happened.** On {date}, {Provider}, which provides {what it does for Daloy}, informed us of a security incident:
+> {what was accessed or exposed, the time window}. Data of some organizations that use Daloy, and of their users, may
+> have been involved. We became aware of it on {date and time, UTC+8}.
+>
+> **What information may be involved.** {Names and work email addresses; content of workflow requests (tickets) of the
+> organizations concerned.} Not involved: passwords - Daloy does not store passwords; sign-in is through Google.
+>
+> **What we have done.** We have {closed the access with the provider, changed our access keys and signed all users
+> out}. The organizations concerned have been contacted directly, and we are helping them with their own notices.
+>
+> **What you can do.** Be careful with emails or messages that mention Daloy or ask you to sign in. Daloy never asks for
+> a password by email. If you use Daloy through your employer or another organization, it can tell you whether your
+> information was involved.
+>
+> **Contact.** Our Data Protection Officer: KRATIV.dpo@blueknight.xyz. You may also contact the National Privacy
+> Commission (privacy.gov.ph). Next update on this page: {date / time}.
+
+Before publishing P under B: tell the organizations concerned first (same day), so they don't learn it from the page.
+
+---
+
 ## §3 Status page line (`/status`, both templates)
 
 - **A:** "{date}: {Provider} reported a security incident. Daloy data was not affected. Service is working normally."
@@ -181,9 +237,13 @@ the email can link to it too: `https://daloy.blueknight.xyz/notices/<id>`).
 To post: add an entry to `LOGIN_NOTICES` in `src/config/notices.js` and deploy (one push + the Cloud Run deploy).
 - `id` = the incident reference; `template` = `A` (blue) | `B` (red) | `B2` (amber); `postedAt` = start, e.g.
   `'2026-11-20T09:00:00+08:00'`; `days` (default 7); `companyIds` = `[]` for everyone (A), the organizations in scope (B).
-- `banner` = the §3 status line; `title` + `sections` = the template text above, filled in.
+- `banner` = the signed-in line; `statusLine` = the §3 line (shown on `/status` for the same 7 days);
+  `title` + `sections` = template A / B / B2, filled in.
+- `publicTitle` + `publicSections` = template P, filled in **when the notice is posted** (§0 D1: always ready);
+  `public: false`. To publish: `public: true` + deploy → `/notices/<id>/public` for everyone, linked from `/status`.
 - Hidden notices are remembered per user in that browser only; the email stays the formal notice.
-- Previews show two samples (`SAMPLE-A`, `SAMPLE-B`) with the open items highlighted; production leaves them out.
+- Previews show two samples (`SAMPLE-A`, `SAMPLE-B`) with the open items highlighted, their `/status` lines and their
+  public versions (marked "not published"); production leaves them out.
 
 **Related:** DPA v0.3 "Personal Data Breaches" ([[24]] h to the customer) and Annex C (providers), Privacy Policy
 "What we do if a personal data breach happens" (72 h for KRAtiv's own data),

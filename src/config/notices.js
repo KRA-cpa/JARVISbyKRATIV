@@ -10,13 +10,21 @@
  *   - postedAt    when the banner starts, ISO with offset, e.g. '2026-11-20T09:00:00+08:00'
  *   - days        how long the banner shows (default NOTICE_DAYS = 7); the notice page stays readable after that
  *   - companyIds  [] = every organization; else only these company ids (template B goes only to the ones in scope)
- *   - banner      the one line in the banner (the /status line of the template, §3)
+ *   - banner      the one line in the signed-in banner
+ *   - statusLine  the one line on the public /status page while the banner runs (template §3: provider + date, never
+ *                 customer names or data) - user, 15 Nov 2026: default kept, no separate public breach page
  *   - title, sections [{ id, heading, body }] - the notice; body = paragraphs split by a blank line, "- " lines = bullets
+ *   - public      false (default) | true - publish the PUBLIC version at /notices/<id>/public and link it from /status.
+ *                 Only when the NPC asks for a public notice or the people concerned can't be reached one by one
+ *                 (template §0). User: "public notice must be readily available for publishing" - so every notice
+ *                 carries its public text ready, and publishing is this one flag + a deploy:
+ *   - publicTitle, publicSections - the public version (template P): no customer names, no per-organization detail
  * Hiding is remembered per user in this browser (a convenience only: in a private window it shows again). The notice
  * itself goes out by email too (template §2) - the banner is not the legal notice.
  *
  * PREVIEW_SAMPLE_NOTICES (one A, one B) show on Vercel previews and local development only, always in their window, so
- * the banner and page can be reviewed; production builds leave them out.
+ * the banner and page can be reviewed; production builds leave them out. On previews the public version of a notice is
+ * viewable even while public is false (for review), marked "not published".
  * Layer: config (imports config/platform only).
  */
 import { IS_PREVIEW_BUILD } from './platform';
@@ -35,6 +43,20 @@ export const PREVIEW_SAMPLE_NOTICES = [
     template: 'A',
     companyIds: [],
     banner: '[[Provider]] reported a security incident. Your organization\'s Daloy data was not affected.',
+    statusLine: '[[Provider]] reported a security incident. Daloy data was not affected. Service is working normally.',
+    public: false,
+    publicTitle: 'Security notice: [[Provider]] incident - Daloy data was not affected',
+    publicSections: [
+      {
+        id: 'what-happened',
+        heading: 'What happened',
+        body: 'On [[date]], [[Provider]], one of Daloy\'s service providers, reported a security incident: [[one-sentence ' +
+          'summary, with a link to the provider\'s statement]]. The services and regions Daloy uses were not involved, and ' +
+          'our own review found no unusual access to Daloy data. Daloy is working normally; customers don\'t need to do ' +
+          'anything.'
+      },
+      { id: 'contact', heading: 'Contact', body: 'Questions: our Data Protection Officer at KRATIV.dpo@blueknight.xyz.' }
+    ],
     title: 'Security notice: [[Provider]] incident - your Daloy data was not affected',
     sections: [
       {
@@ -65,6 +87,45 @@ export const PREVIEW_SAMPLE_NOTICES = [
     template: 'B',
     companyIds: [],
     banner: '[[Provider]] reported a security incident that may involve your organization\'s Daloy data. Please read the notice.',
+    statusLine: '[[Provider]] reported a security incident that may involve Daloy data. Affected organizations have been ' +
+      'contacted directly. Next update: [[date / time]].',
+    public: false,
+    publicTitle: 'Notice of a security incident at [[Provider]], a Daloy service provider',
+    publicSections: [
+      {
+        id: 'what-happened',
+        heading: 'What happened',
+        body: 'On [[date]], [[Provider]], which provides [[what it does for Daloy]], informed us of a security incident: ' +
+          '[[what was accessed or exposed, the time window]]. Data of some organizations that use Daloy, and of their ' +
+          'users, may have been involved. We became aware of it on [[date and time, UTC+8]].'
+      },
+      {
+        id: 'data',
+        heading: 'What information may be involved',
+        body: '- [[Names and work email addresses]]\n' +
+          '- [[Content of workflow requests (tickets) of the organizations concerned]]\n\n' +
+          'Not involved: passwords - Daloy does not store passwords; sign-in is through Google.'
+      },
+      {
+        id: 'done',
+        heading: 'What we have done',
+        body: 'We have [[closed the access with the provider, changed our access keys and signed all users out]]. The ' +
+          'organizations concerned have been contacted directly, and we are helping them with their own notices.'
+      },
+      {
+        id: 'what-to-do',
+        heading: 'What you can do',
+        body: 'Be careful with emails or messages that mention Daloy or ask you to sign in. Daloy never asks for a password ' +
+          'by email. If you use Daloy through your employer or another organization, it can tell you whether your ' +
+          'information was involved.'
+      },
+      {
+        id: 'contact',
+        heading: 'Contact',
+        body: 'Our Data Protection Officer: KRATIV.dpo@blueknight.xyz. You may also contact the National Privacy Commission ' +
+          '(privacy.gov.ph). Next update on this page: [[date / time]].'
+      }
+    ],
     title: 'Important: [[Provider]] security incident - your organization\'s Daloy data may have been affected',
     sections: [
       {
@@ -132,6 +193,16 @@ export const isNoticeInWindow = (notice, now = Date.now()) => {
   if (Number.isNaN(start)) return false;
   return now >= start && now < start + (notice.days || NOTICE_DAYS) * DAY_MS;
 };
+
+/** The public version exists (publicTitle + publicSections filled in). */
+export const hasPublicVersion = notice =>
+  Boolean(notice && notice.publicTitle && notice.publicSections && notice.publicSections.length);
+
+/** /notices/<id>/public answers: published (public: true), or any notice with a public text on previews (for review). */
+export const isPublicVisible = notice => hasPublicVersion(notice) && (notice.public === true || IS_PREVIEW_BUILD);
+
+/** The /status lines now: every notice in its window with a statusLine (no company filter - the line names no one). */
+export const statusNotices = (now = Date.now()) => allNotices().filter(n => n.statusLine && isNoticeInWindow(n, now));
 
 /** The banners to show now for a user of these companies (hiding is applied by the banner). */
 export const activeNotices = (companyIds = [], now = Date.now()) =>
