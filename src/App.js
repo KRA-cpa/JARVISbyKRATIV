@@ -30,6 +30,7 @@ import RequesterDemoPage from './pages/RequesterDemoPage';
 import TermsPage, { TermsVersionsPage, TermsArchivedPage } from './pages/TermsPage';
 import StatusPage from './pages/StatusPage';
 import DataLocationPage from './pages/DataLocationPage';
+import SustainabilityPage from './pages/SustainabilityPage';
 import NoticePage from './pages/NoticePage';
 import { returnPathFrom, returnStateFor } from './utils/returnPath';
 import { IS_PREVIEW_BUILD } from './config/platform';
@@ -242,6 +243,9 @@ const AppRoutes = () => {
           {/* Where your data is stored - the statement for new clients (migration 0.10), public, no API */}
           <Route path="/data-location" element={<OpenRoute><DataLocationPage /></OpenRoute>} />
           <Route path="/data-location/draft" element={<OpenRoute><DataLocationPage draft /></OpenRoute>} />
+          {/* ESG page (PLAN_ESGPage_20261115.md): placeholder in production until published */}
+          <Route path="/sustainability" element={<OpenRoute><SustainabilityPage /></OpenRoute>} />
+          <Route path="/sustainability/draft" element={<OpenRoute><SustainabilityPage draft /></OpenRoute>} />
           {/* General Terms of Service (DRAFT_TermsOfService): current, draft, version history, archived versions - public, no API */}
           <Route path="/terms" element={<OpenRoute><TermsPage /></OpenRoute>} />
           <Route path="/terms/draft" element={<OpenRoute><TermsPage draft /></OpenRoute>} />

@@ -4,6 +4,8 @@ import { BRAND_NAME, BRAND_PARENT_LINE, BRAND_TAGLINE_LOCAL, BRAND_COPYRIGHT_OWN
 import { PRIVACY_POLICY } from '../../config/legal/privacy';
 import { TERMS_OF_SERVICE } from '../../config/legal/terms';
 import { PLATFORM_LOGIN_PATH } from '../../config/platformConsole';
+import { IS_PREVIEW_BUILD } from '../../config/platform';
+import { SUSTAINABILITY_STATEMENT } from '../../config/legal/sustainability';
 
 // A notice of an upcoming MAJOR change (config pendingChange) is linked from every page footer (user, 1 Nov 2026)
 const PENDING_CHANGES = [[TERMS_OF_SERVICE, '/terms'], [PRIVACY_POLICY, '/privacy']]
@@ -46,6 +48,10 @@ const Footer = ({ className = "", publicSite = false }) => {
               <Link to="/privacy" className="whitespace-nowrap font-medium text-blue-600 hover:underline">Privacy Policy</Link>
               {' · '}<Link to="/terms" className="whitespace-nowrap font-medium text-blue-600 hover:underline">Terms</Link>
               {' · '}<Link to="/status" className="whitespace-nowrap font-medium text-blue-600 hover:underline">Status</Link>
+              {/* ESG page: linked once published; on previews already, for review (PLAN_ESGPage_20261115.md) */}
+              {(SUSTAINABILITY_STATEMENT.status === 'published' || IS_PREVIEW_BUILD) && (
+                <>{' · '}<Link to="/sustainability" className="whitespace-nowrap font-medium text-blue-600 hover:underline">Sustainability</Link></>
+              )}
               {/* Public pages only: the KRAtiv staff sign-in of the Platform console - in the footer, where staff look for
                   it and customers don't mistake it for their sign-in (user, 15 Nov 2026: "best place in homepage to
                   situate the platform login") */}

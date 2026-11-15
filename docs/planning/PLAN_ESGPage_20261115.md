@@ -92,7 +92,7 @@ answer all three ESG questions honestly and link to the documents behind each an
 | Phase | Content | Needs | Done when |
 |---|---|---|---|
 | **E0** (now) | This plan | - | approved |
-| **E1** | `src/config/esg.js` + `SustainabilityPage` on previews (draft badge), footer link on previews, region figures + qualitative sections, accessibility check of the main screens (feeds the Social section) | E0 ok | page reviewable on the preview |
+| **E1** *(built 15 Nov 2026, except the accessibility check; content in `src/config/legal/sustainability.js`, rendered by `LegalPage`)* | `src/config/esg.js` + `SustainabilityPage` on previews (draft badge), footer link on previews, region figures + qualitative sections, accessibility check of the main screens (feeds the Social section) | E0 ok | page reviewable on the preview |
 | **E2** | Carbon Footprint set up; after the first full month, the measured figures + the Neon estimate | OPEN E-O1; one month of data | footprint section shows measured numbers |
 | **E3** | Publish (status published, production footer link) | counsel's look at the environmental wording; your approval | live on `daloy.blueknight.xyz/sustainability` |
 | **Yearly** | New Google region data, footprint for the year, review of the commitments | - | "Last updated" moves |

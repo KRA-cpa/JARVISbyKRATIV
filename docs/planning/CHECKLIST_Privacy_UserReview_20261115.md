@@ -52,7 +52,7 @@ Out of scope here: the text review of the Privacy Policy, the DPA and the Terms 
 | ☐ | D2 | **Previews on test data**: test Sheet + SEED + its web app + 2 Vercel Preview env vars | `docs/guides/GUIDE_Previews_TestData.md` |
 | ☐ | D3 | Firebase authorized domain: `jarvisbykrativity-git-preview-3623d2-kenneths-projects-bf949001.vercel.app` (or say "ok" and Claude adds it) | Firebase Console → Authentication → Settings |
 | ☐ | D4 | Cloud Logging bucket region → Singapore before step 3.1 (say "ok" and Claude does it) | migration plan |
-| ☐ | D6 | Apply migration `0003_privacy` (privacy acknowledgements, terms acceptances, rights-request log) to Neon `dev` - say "ok" and Claude runs `npm run db:migrate` | `migrations/postgres/0003_privacy.up.sql` |
+| ☑ done 15 Nov 2026 | D6 | Apply migration `0003_privacy` (privacy acknowledgements, terms acceptances, rights-request log) to Neon `dev` - say "ok" and Claude runs `npm run db:migrate` | `migrations/postgres/0003_privacy.up.sql` |
 | ☐ | D5 | First quarterly **access review** (Google Cloud, Firebase, Neon, Vercel team members, Secret Manager) - record date + changes | manual §4 |
 
 ## E. Counsel (confirm the current rules)
