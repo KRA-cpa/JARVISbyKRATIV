@@ -1,401 +1,137 @@
 /**
- * Tests for AdminCompanyManager Component
- * Tests CRUD operations, form handling, and API integration
+ * Tests for AdminCompanyManager - rewritten 15 Nov 2026 (session 461f9ea9) against the current screen. The old test
+ * mocked useCompanyMutations (removed - the screen saves through companyAPI), looked for labels tied to inputs and texts
+ * the screen no longer has, and failed on every case. Mocks are set in beforeEach: Create React App resets mock
+ * implementations before each test (resetMocks).
  */
 
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import AdminCompanyManager from './AdminCompanyManager';
-import { renderWithProviders, mockAPI, generateTestData, testHelpers } from '../../utils/testUtils';
+import { useCompanies } from '../../hooks/useAPI';
+import { companyAPI } from '../../api/googleSheet';
+import { useUser } from '../../contexts/UserContext';
+import { useToast } from '../shared/Toast';
 
-// Mock the API
+jest.mock('../../hooks/useAPI', () => ({ useCompanies: jest.fn() }));
 jest.mock('../../api/googleSheet', () => ({
-  API: {
-    Companies: {
-      getAll: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn()
-    }
-  }
+  companyAPI: { create: jest.fn(), update: jest.fn(), delete: jest.fn(), unlock: jest.fn() }
 }));
+jest.mock('../../contexts/UserContext', () => ({ useUser: jest.fn() }));
+jest.mock('../shared/Toast', () => ({ useToast: jest.fn() }));
+jest.mock('./CompanyEmailSettings', () => ({ __esModule: true, default: () => null }));
+jest.mock('./CompanyRegionSettings', () => ({ __esModule: true, default: () => null }));
 
-// Mock useAPI hooks
-jest.mock('../../hooks/useAPI', () => ({
-  useCompanies: jest.fn(),
-  useCompanyMutations: jest.fn()
-}));
+const COMPANIES = [
+  { id: 'c1', name: 'Acme Trading', code: 'ACME', code_locked: false },
+  { id: 'c2', name: 'Beta Foods', code: 'BETA', code_locked: true, code_locked_at: '2026-11-01T00:00:00Z' }
+];
 
-describe('AdminCompanyManager Component', () => {
-  const mockCompanies = [
-    generateTestData.company({ id: '1', name: 'Test Company 1', code: 'TC1' }),
-    generateTestData.company({ id: '2', name: 'Test Company 2', code: 'TC2' })
-  ];
+let refetch;
+let toast;
 
-  const mockUseCompanies = {
-    data: mockCompanies,
-    loading: false,
-    error: null,
-    refetch: jest.fn()
-  };
+const setup = (overrides = {}) => {
+  refetch = jest.fn();
+  toast = { ToastContainer: () => null, success: jest.fn(), error: jest.fn() };
+  useCompanies.mockReturnValue({ data: COMPANIES, loading: false, error: null, refetch, ...overrides });
+  useUser.mockReturnValue({ user: { uid: 'admin1' } });
+  useToast.mockReturnValue(toast);
+  companyAPI.create.mockResolvedValue({ id: 'c3' });
+  companyAPI.update.mockResolvedValue({});
+  companyAPI.delete.mockResolvedValue({});
+  return render(<AdminCompanyManager />);
+};
 
-  const mockUseCompanyMutations = {
-    createCompany: jest.fn(),
-    updateCompany: jest.fn(),
-    deleteCompany: jest.fn(),
-    loading: false,
-    error: null
-  };
+const openCreate = () => fireEvent.click(screen.getAllByText('Add Company')[0]);
+const fill = (name, code) => {
+  fireEvent.change(screen.getByPlaceholderText('Enter company name'), { target: { value: name } });
+  fireEvent.change(screen.getByPlaceholderText('Enter company code (e.g., MAIN, DEV)'), { target: { value: code } });
+};
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockAPI.setupMocks();
+describe('AdminCompanyManager', () => {
+  afterEach(() => jest.restoreAllMocks());
 
-    const { useCompanies, useCompanyMutations } = require('../../hooks/useAPI');
-    useCompanies.mockReturnValue(mockUseCompanies);
-    useCompanyMutations.mockReturnValue(mockUseCompanyMutations);
+  test('lists the companies with their codes', () => {
+    setup();
+    expect(screen.getByText('Acme Trading')).toBeInTheDocument();
+    expect(screen.getByText('Code: ACME')).toBeInTheDocument();
+    expect(screen.getByText('Beta Foods')).toBeInTheDocument();
+    expect(screen.getByTitle('Code locked - tickets exist')).toBeInTheDocument();
   });
 
-  describe('Rendering', () => {
-    it('should render company list', () => {
-      renderWithProviders(<AdminCompanyManager />);
-
-      expect(screen.getByText('Company Management')).toBeInTheDocument();
-      expect(screen.getByText('Test Company 1')).toBeInTheDocument();
-      expect(screen.getByText('Test Company 2')).toBeInTheDocument();
-      expect(screen.getByText('TC1')).toBeInTheDocument();
-      expect(screen.getByText('TC2')).toBeInTheDocument();
-    });
-
-    it('should render loading state', () => {
-      const { useCompanies } = require('../../hooks/useAPI');
-      useCompanies.mockReturnValue({
-        ...mockUseCompanies,
-        loading: true
-      });
-
-      renderWithProviders(<AdminCompanyManager />);
-
-      expect(screen.getByText(/loading/i)).toBeInTheDocument();
-    });
-
-    it('should render error state', () => {
-      const { useCompanies } = require('../../hooks/useAPI');
-      useCompanies.mockReturnValue({
-        ...mockUseCompanies,
-        error: 'Failed to load companies'
-      });
-
-      renderWithProviders(<AdminCompanyManager />);
-
-      expect(screen.getByText(/failed to load companies/i)).toBeInTheDocument();
-    });
-
-    it('should render empty state', () => {
-      const { useCompanies } = require('../../hooks/useAPI');
-      useCompanies.mockReturnValue({
-        ...mockUseCompanies,
-        data: []
-      });
-
-      renderWithProviders(<AdminCompanyManager />);
-
-      expect(screen.getByText(/no companies found/i)).toBeInTheDocument();
-    });
+  test('a load error offers a retry that refetches', () => {
+    setup({ data: [], error: 'Network down' });
+    fireEvent.click(screen.getAllByRole('button').find(b => /retry|refresh|try again/i.test(b.textContent)));
+    expect(refetch).toHaveBeenCalled();
   });
 
-  describe('Company Creation', () => {
-    it('should open create form when Add Company is clicked', async () => {
-      renderWithProviders(<AdminCompanyManager />);
-
-      await testHelpers.clickButton('Add Company');
-
-      expect(screen.getByText(/create new company/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/company name/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/company code/i)).toBeInTheDocument();
-    });
-
-    it('should create new company successfully', async () => {
-      mockUseCompanyMutations.createCompany.mockResolvedValue({
-        success: true,
-        data: generateTestData.company({ name: 'New Company', code: 'NEW' })
-      });
-
-      renderWithProviders(<AdminCompanyManager />);
-
-      // Open create form
-      await testHelpers.clickButton('Add Company');
-
-      // Fill form
-      await testHelpers.fillField('Company Name', 'New Company');
-      await testHelpers.fillField('Company Code', 'NEW');
-
-      // Submit form
-      await testHelpers.clickButton('Create Company');
-
-      await waitFor(() => {
-        expect(mockUseCompanyMutations.createCompany).toHaveBeenCalledWith({
-          name: 'New Company',
-          code: 'NEW'
-        });
-      });
-
-      expect(mockUseCompanies.refetch).toHaveBeenCalled();
-    });
-
-    it('should validate required fields', async () => {
-      renderWithProviders(<AdminCompanyManager />);
-
-      // Open create form
-      await testHelpers.clickButton('Add Company');
-
-      // Try to submit empty form
-      await testHelpers.clickButton('Create Company');
-
-      expect(screen.getByText(/company name is required/i)).toBeInTheDocument();
-      expect(screen.getByText(/company code is required/i)).toBeInTheDocument();
-    });
-
-    it('should validate company code format', async () => {
-      renderWithProviders(<AdminCompanyManager />);
-
-      // Open create form
-      await testHelpers.clickButton('Add Company');
-
-      // Fill invalid code
-      await testHelpers.fillField('Company Name', 'Test Company');
-      await testHelpers.fillField('Company Code', 'invalid code');
-
-      await testHelpers.clickButton('Create Company');
-
-      expect(screen.getByText(/company code must be 2-10 uppercase letters/i)).toBeInTheDocument();
-    });
-
-    it('should handle creation errors', async () => {
-      mockUseCompanyMutations.createCompany.mockRejectedValue(
-        new Error('Company code already exists')
-      );
-
-      renderWithProviders(<AdminCompanyManager />);
-
-      // Open create form and fill
-      await testHelpers.clickButton('Add Company');
-      await testHelpers.fillField('Company Name', 'Test Company');
-      await testHelpers.fillField('Company Code', 'TEST');
-      await testHelpers.clickButton('Create Company');
-
-      await waitFor(() => {
-        expect(screen.getByText(/company code already exists/i)).toBeInTheDocument();
-      });
-    });
+  test('creates a company and refreshes the list', async () => {
+    setup();
+    openCreate();
+    fill('  Gamma Logistics ', 'GAMMA');
+    fireEvent.click(screen.getByText('Create Company'));
+    await waitFor(() => expect(companyAPI.create).toHaveBeenCalledWith({ name: 'Gamma Logistics', code: 'GAMMA' }));
+    expect(refetch).toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith('Company created successfully!');
   });
 
-  describe('Company Editing', () => {
-    it('should open edit form when Edit is clicked', async () => {
-      renderWithProviders(<AdminCompanyManager />);
-
-      // Find and click edit button for first company
-      const editButtons = screen.getAllByText(/edit/i);
-      await userEvent.click(editButtons[0]);
-
-      expect(screen.getByText(/edit company/i)).toBeInTheDocument();
-      expect(screen.getByDisplayValue('Test Company 1')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('TC1')).toBeInTheDocument();
-    });
-
-    it('should update company successfully', async () => {
-      mockUseCompanyMutations.updateCompany.mockResolvedValue({
-        success: true,
-        data: generateTestData.company({ id: '1', name: 'Updated Company', code: 'UPD' })
-      });
-
-      renderWithProviders(<AdminCompanyManager />);
-
-      // Open edit form
-      const editButtons = screen.getAllByText(/edit/i);
-      await userEvent.click(editButtons[0]);
-
-      // Update fields
-      const nameField = screen.getByDisplayValue('Test Company 1');
-      await userEvent.clear(nameField);
-      await userEvent.type(nameField, 'Updated Company');
-
-      const codeField = screen.getByDisplayValue('TC1');
-      await userEvent.clear(codeField);
-      await userEvent.type(codeField, 'UPD');
-
-      // Submit
-      await testHelpers.clickButton('Update Company');
-
-      await waitFor(() => {
-        expect(mockUseCompanyMutations.updateCompany).toHaveBeenCalledWith('1', {
-          name: 'Updated Company',
-          code: 'UPD'
-        });
-      });
-    });
-
-    it('should cancel edit form', async () => {
-      renderWithProviders(<AdminCompanyManager />);
-
-      // Open edit form
-      const editButtons = screen.getAllByText(/edit/i);
-      await userEvent.click(editButtons[0]);
-
-      // Cancel
-      await testHelpers.clickButton('Cancel');
-
-      expect(screen.queryByText(/edit company/i)).not.toBeInTheDocument();
-    });
+  test.each([
+    ['', 'GAMMA', 'Company name is required'],
+    ['Gamma', '', 'Company code is required'],
+    ['Gamma', 'G', 'Company code must be 2-10 characters'],
+    ['Gamma', 'ACME', 'Company code already exists']
+  ])('validation: name "%s", code "%s" → %s', (name, code, message) => {
+    setup();
+    openCreate();
+    fill(name, code);
+    fireEvent.click(screen.getByText('Create Company'));
+    expect(screen.getByText(message)).toBeInTheDocument();
+    expect(companyAPI.create).not.toHaveBeenCalled();
   });
 
-  describe('Company Deletion', () => {
-    it('should show confirmation dialog when Delete is clicked', async () => {
-      renderWithProviders(<AdminCompanyManager />);
-
-      // Find and click delete button
-      const deleteButtons = screen.getAllByText(/delete/i);
-      await userEvent.click(deleteButtons[0]);
-
-      expect(screen.getByText(/are you sure you want to delete/i)).toBeInTheDocument();
-      expect(screen.getByText(/this action cannot be undone/i)).toBeInTheDocument();
-    });
-
-    it('should delete company when confirmed', async () => {
-      mockUseCompanyMutations.deleteCompany.mockResolvedValue({ success: true });
-
-      renderWithProviders(<AdminCompanyManager />);
-
-      // Click delete and confirm
-      const deleteButtons = screen.getAllByText(/delete/i);
-      await userEvent.click(deleteButtons[0]);
-
-      await testHelpers.clickButton('Delete');
-
-      await waitFor(() => {
-        expect(mockUseCompanyMutations.deleteCompany).toHaveBeenCalledWith('1');
-      });
-
-      expect(mockUseCompanies.refetch).toHaveBeenCalled();
-    });
-
-    it('should cancel deletion', async () => {
-      renderWithProviders(<AdminCompanyManager />);
-
-      // Click delete and cancel
-      const deleteButtons = screen.getAllByText(/delete/i);
-      await userEvent.click(deleteButtons[0]);
-
-      await testHelpers.clickButton('Cancel');
-
-      expect(mockUseCompanyMutations.deleteCompany).not.toHaveBeenCalled();
-    });
-
-    it('should handle deletion errors', async () => {
-      mockUseCompanyMutations.deleteCompany.mockRejectedValue(
-        new Error('Cannot delete company with active tickets')
-      );
-
-      renderWithProviders(<AdminCompanyManager />);
-
-      // Click delete and confirm
-      const deleteButtons = screen.getAllByText(/delete/i);
-      await userEvent.click(deleteButtons[0]);
-      await testHelpers.clickButton('Delete');
-
-      await waitFor(() => {
-        expect(screen.getByText(/cannot delete company with active tickets/i)).toBeInTheDocument();
-      });
-    });
+  test('the code field uppercases what is typed and drops other characters', () => {
+    setup();
+    openCreate();
+    fill('Gamma', 'ga-m ma_1');
+    expect(screen.getByPlaceholderText('Enter company code (e.g., MAIN, DEV)').value).toBe('GAMMA1');
   });
 
-  describe('Refresh Functionality', () => {
-    it('should refresh data when Refresh button is clicked', async () => {
-      renderWithProviders(<AdminCompanyManager />);
-
-      await testHelpers.clickButton('Refresh');
-
-      expect(mockUseCompanies.refetch).toHaveBeenCalled();
-    });
-
-    it('should show loading state during refresh', async () => {
-      const { useCompanies } = require('../../hooks/useAPI');
-      useCompanies.mockReturnValue({
-        ...mockUseCompanies,
-        loading: true
-      });
-
-      renderWithProviders(<AdminCompanyManager />);
-
-      expect(screen.getByText(/loading/i)).toBeInTheDocument();
-    });
+  test('a save error is shown in the form and as a toast', async () => {
+    setup();
+    companyAPI.create.mockRejectedValue(new Error('Backend refused'));
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    openCreate();
+    fill('Gamma', 'GAMMA');
+    fireEvent.click(screen.getByText('Create Company'));
+    expect(await screen.findByText('Backend refused')).toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalledWith('Backend refused');
   });
 
-  describe('Accessibility', () => {
-    it('should have proper ARIA labels', () => {
-      renderWithProviders(<AdminCompanyManager />);
-
-      expect(screen.getByRole('button', { name: /add company/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /refresh/i })).toBeInTheDocument();
-    });
-
-    it('should support keyboard navigation', async () => {
-      renderWithProviders(<AdminCompanyManager />);
-
-      const addButton = screen.getByRole('button', { name: /add company/i });
-      const refreshButton = screen.getByRole('button', { name: /refresh/i });
-
-      // Tab navigation
-      addButton.focus();
-      expect(addButton).toHaveFocus();
-
-      fireEvent.keyDown(addButton, { key: 'Tab' });
-      await waitFor(() => {
-        expect(refreshButton).toHaveFocus();
-      });
-    });
-
-    it('should announce form validation errors', async () => {
-      renderWithProviders(<AdminCompanyManager />);
-
-      await testHelpers.clickButton('Add Company');
-      await testHelpers.clickButton('Create Company');
-
-      const errorMessage = screen.getByText(/company name is required/i);
-      expect(errorMessage).toHaveAttribute('role', 'alert');
-    });
+  test('edits a company: the form is filled and Update saves it', async () => {
+    setup();
+    fireEvent.click(screen.getAllByTitle('Edit Company')[0]);
+    expect(screen.getByDisplayValue('Acme Trading')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('Enter company name'), { target: { value: 'Acme Trading Inc' } });
+    fireEvent.click(screen.getByText('Update Company'));
+    await waitFor(() => expect(companyAPI.update).toHaveBeenCalledWith('c1', { name: 'Acme Trading Inc', code: 'ACME' }));
   });
 
-  describe('Performance', () => {
-    it('should render large lists efficiently', () => {
-      const manyCompanies = Array.from({ length: 100 }, (_, i) =>
-        generateTestData.company({ id: `${i}`, name: `Company ${i}`, code: `C${i}` })
-      );
+  test('a locked company code cannot be changed', () => {
+    setup();
+    fireEvent.click(screen.getAllByTitle('Edit Company')[1]);
+    fireEvent.change(screen.getByPlaceholderText('Enter company code (e.g., MAIN, DEV)'), { target: { value: 'BETA2' } });
+    fireEvent.click(screen.getByText('Update Company'));
+    expect(screen.getByText('Cannot change code for locked company. Contact admin to unlock.')).toBeInTheDocument();
+    expect(companyAPI.update).not.toHaveBeenCalled();
+  });
 
-      const { useCompanies } = require('../../hooks/useAPI');
-      useCompanies.mockReturnValue({
-        ...mockUseCompanies,
-        data: manyCompanies
-      });
-
-      const start = performance.now();
-      renderWithProviders(<AdminCompanyManager />);
-      const end = performance.now();
-
-      expect(end - start).toBeLessThan(100); // Should render in under 100ms
-    });
-
-    it('should not re-render unnecessarily', () => {
-      const { rerender } = renderWithProviders(<AdminCompanyManager />);
-
-      const initialRenderCount = screen.getAllByText(/test company/i).length;
-
-      // Re-render with same props
-      rerender(<AdminCompanyManager />);
-
-      const afterRerenderCount = screen.getAllByText(/test company/i).length;
-      expect(afterRerenderCount).toBe(initialRenderCount);
-    });
+  test('deletes only after confirmation', async () => {
+    setup();
+    const confirm = jest.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    fireEvent.click(screen.getAllByTitle('Delete Company')[0]);
+    expect(companyAPI.delete).not.toHaveBeenCalled();
+    fireEvent.click(screen.getAllByTitle('Delete Company')[0]);
+    await waitFor(() => expect(companyAPI.delete).toHaveBeenCalledWith('c1'));
+    expect(confirm).toHaveBeenCalledTimes(2);
   });
 });

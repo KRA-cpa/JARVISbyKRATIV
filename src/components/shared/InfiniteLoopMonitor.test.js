@@ -3,20 +3,21 @@ import { render, screen, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import InfiniteLoopMonitor from './InfiniteLoopMonitor';
 
-// Mock Icons
-jest.mock('./Icons', () => ({
-  CheckCircle: ({ className }) => <div data-testid="check-circle" className={className}>✓</div>,
-  Warning: ({ className }) => <div data-testid="warning" className={className}>⚠</div>,
-  ChevronDown: ({ className }) => <div data-testid="chevron-down" className={className}>⌄</div>
-}));
+// Mock Icons - the component imports the DEFAULT export (15 Nov 2026 fix: the mock had none, so Icons was undefined)
+jest.mock('./Icons', () => {
+  const icons = {
+    CheckCircle: ({ className }) => <div data-testid="check-circle" className={className}>✓</div>,
+    Warning: ({ className }) => <div data-testid="warning" className={className}>⚠</div>,
+    ChevronDown: ({ className }) => <div data-testid="chevron-down" className={className}>⌄</div>
+  };
+  return { __esModule: true, default: icons, Icons: icons };
+});
 
-// Mock the infinite loop prevention hook
+// Mock the infinite loop prevention hook. Create React App resets every mock's implementation before each test
+// (resetMocks: true), so the implementations are set again in beforeEach (15 Nov 2026 fix - they were only set here)
+const statsNow = () => ({ api: {}, renders: {}, timestamp: new Date() });
 const mockHook = {
-  getSystemStats: jest.fn(() => ({
-    api: {},
-    renders: {},
-    timestamp: new Date()
-  })),
+  getSystemStats: jest.fn(statsNow),
   reset: jest.fn(),
   isSystemHealthy: jest.fn(() => true),
   config: {
@@ -34,6 +35,8 @@ jest.mock('../../utils/infiniteLoopPrevention', () => ({
 describe('InfiniteLoopMonitor', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockHook.getSystemStats.mockImplementation(statsNow);
+    mockHook.isSystemHealthy.mockImplementation(() => true);
     jest.useFakeTimers();
   });
 
