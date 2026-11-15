@@ -21,6 +21,7 @@ import CrossCompanyTicketLinker from '../components/admin/CrossCompanyTicketLink
 import AdminReportConfigManager from '../components/admin/AdminReportConfigManager';
 import AdminAuditLogViewer from '../components/admin/AdminAuditLogViewer';
 import AdminSecurityNotices from '../components/admin/AdminSecurityNotices';
+import AdminOrgTerms from '../components/admin/AdminOrgTerms';
 import { noticeHistory } from '../config/notices';
 import CompanySLAManager from '../components/admin/CompanySLAManager';
 import AdminSLAEscalationManager from '../components/admin/AdminSLAEscalationManager';
@@ -227,6 +228,13 @@ const AdminPage = () => {
       component: AdminSecurityNotices
     },
     {
+      id: 'org-terms',
+      name: 'Organization Terms',
+      icon: Icons.Document,
+      description: 'Accept the General Terms and the Data Processing Agreement for your organization; who accepted which version',
+      component: AdminOrgTerms
+    },
+    {
       id: 'sla-rules',
       name: 'SLA Rules',
       icon: Icons.Clock,
@@ -354,6 +362,8 @@ const AdminPage = () => {
         return 'Columns per type';
       case 'audit-log':
         return 'Who changed what';
+      case 'org-terms':
+        return 'Terms + DPA';
       case 'security-notices': {
         const count = noticeHistory((userCompanies || []).map(c => c.id)).length;
         return count === 1 ? '1 notice' : `${count} notices`;

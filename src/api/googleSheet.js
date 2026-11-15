@@ -3240,6 +3240,57 @@ class PlansAPI extends BaseAPI {
   }
 }
 
+/**
+ * /api/rpc - actions answered from Postgres only (api/_lib/handlers/: the privacy actions, 15 Nov 2026). Same origin
+ * and sign-in as the proxy: the proxy URL with `appscript-proxy` replaced by `rpc`. Until /api/rpc has the database in
+ * production (migration Phase 4) these calls fail (Apps Script doesn't know them; Vercel previews have no /api/rpc) -
+ * callers fall back (PrivacyNoticeGate remembers per browser). check:api-contract checks each name against the
+ * handler registry (gap kind rpc-missing).
+ */
+const RPC_URL = String(CONFIG.APPS_SCRIPT_URL || '').replace(/appscript-proxy\/?$/, 'rpc');
+
+export async function rpcRequest(action, payload = {}) {
+  if (payload && Object.prototype.hasOwnProperty.call(payload, 'action')) {
+    throw new Error(`rpcRequest('${action}'): the payload must not have an "action" key`);
+  }
+  // Its own fetch: no retries and NOT through the shared circuit breaker, so an answer of "not available yet" here
+  // (no database / no /api/rpc on a preview) can never block the normal API calls
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), CONFIG.TIMEOUT);
+  inFlight += 1;
+  try {
+    const idToken = await getIdToken();
+    const headers = { 'Content-Type': 'application/json', ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}) };
+    const res = await fetch(RPC_URL, { method: 'POST', headers, body: JSON.stringify({ action, ...(payload || {}) }), signal: controller.signal });
+    let body = null;
+    try {
+      body = await res.json();
+    } catch (parseError) {
+      body = null;
+    }
+    if (!res.ok || !body || body.status === 'error' || body.success === false) {
+      throw apiError((body && body.error) || `HTTP ${res.status}`, (body && body.code) || null, res.ok ? null : res.status);
+    }
+    return body.data;
+  } catch (error) {
+    announceAuthCode(backendCode(error), error.message);
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+    inFlight -= 1;
+  }
+}
+
+/** Privacy actions (Postgres, /api/rpc): notice acknowledgement, organization terms, Download my data, anonymization. */
+class PrivacyAPI {
+  getMyStatus() { return rpcRequest('getMyPrivacyStatus'); }
+  acknowledgeNotice(version) { return rpcRequest('acknowledgePrivacyNotice', { version }); }
+  getOrgTermsStatus(companyId) { return rpcRequest('getOrgTermsStatus', { company_id: companyId }); }
+  acceptOrgTerms(companyId, documents) { return rpcRequest('acceptOrgTerms', { company_id: companyId, documents }); }
+  exportMyData() { return rpcRequest('exportMyData'); }
+  anonymizeUser(userId, reason) { return rpcRequest('anonymizeUser', { user_id: userId, reason }); }
+}
+
 export const API = {
   Companies: new CompanyAPI(),
   Roles: new RoleAPI(),
@@ -3266,6 +3317,8 @@ export const API = {
   CountryCalendars: new CountryCalendarAPI(),
   // AppScript v10.2
   Plans: new PlansAPI(),
+  // /api/rpc (Postgres) - 15 Nov 2026
+  Privacy: new PrivacyAPI(),
   // Universal Entity Architecture APIs
   UserProfileTypes: new UserProfileTypesAPI(),
   RoleTypes: new RoleTypesAPI()

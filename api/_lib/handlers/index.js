@@ -10,7 +10,9 @@
  */
 
 const GROUPS = {
-  system: require('./system')
+  system: require('./system'),
+  // 15 Nov 2026: privacy records, Download my data, anonymization (docs/planning/CHECK_PrivacyCompliance_20261115.md)
+  privacy: require('./privacy')
 };
 
 /**

@@ -24,6 +24,8 @@
  *                       screen shows it (v9.0: the whole ticket UI - TicketDashboard, TicketForm, TicketDetail)
  *   missing-icon        <Icons.X> / Icons.X used but not defined in src/components/shared/Icons.js - renders
  *                       undefined, React error #130 (v9.0: Icons.Trash on the profile/role type list delete buttons)
+ *   rpc-missing         rpcRequest('<action>') (Postgres-only actions on /api/rpc, 15 Nov 2026) with no handler in
+ *                       api/_lib/handlers/index.js
  *
  * scripts/api-contract-known-gaps.txt lists gaps that are known and not fixed yet. It may only shrink:
  * the check fails on a gap that isn't listed, and on a listed gap that is fixed (remove it from the list).
@@ -178,6 +180,20 @@ function frontendCalls() {
     }
   }
   return { calls, actionKeys };
+}
+
+/** rpcRequest('<action>') calls in src/ (tests skipped): action -> [file:line]. */
+function rpcCalls() {
+  const calls = new Map();
+  for (const file of sourceFiles(SRC)) {
+    const text = fs.readFileSync(file, 'utf8').replace(/\r/g, '');
+    const rel = path.relative(ROOT, file).replace(/\\/g, '/');
+    for (const m of text.matchAll(/rpcRequest\(\s*'([A-Za-z0-9_]+)'/g)) {
+      if (!calls.has(m[1])) calls.set(m[1], []);
+      calls.get(m[1]).push(`${rel}:${text.slice(0, m.index).split('\n').length}`);
+    }
+  }
+  return calls;
 }
 
 function readActions() {
@@ -362,6 +378,9 @@ for (const file of unmountedScreens()) gaps.add(`unmounted-component ${file}`);
 const iconGaps = missingIcons();
 for (const icon of iconGaps.keys()) gaps.add(`missing-icon ${icon}`);
 for (const diff of planCopyDiffs()) gaps.add(`plan-copy ${diff}`);
+// /api/rpc actions (Postgres handlers) - checked against the handler registry, not the Apps Script routes
+const rpcHandlers = new Set(Object.keys(require('../api/_lib/handlers').handlers));
+for (const action of rpcCalls().keys()) if (!rpcHandlers.has(action)) gaps.add(`rpc-missing ${action}`);
 
 /**
  * v10.2: the public /plans page renders src/config/plans.js (no API call), so its TIERS / LIMITS must equal the server's

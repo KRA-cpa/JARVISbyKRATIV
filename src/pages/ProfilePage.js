@@ -9,6 +9,7 @@ import UserPreferencesPanel from '../components/shared/UserPreferencesPanel';
 import { useToast } from '../components/shared/Toast';
 import { useUserPreferences } from '../hooks/useAPI';
 import DisplayTimeZoneSelect from '../components/shared/DisplayTimeZoneSelect';
+import MyDataPanel from '../components/shared/MyDataPanel';
 import { DEFAULT_ZONE, formatDateTime } from '../utils/dateTime';
 
 /**
@@ -26,7 +27,7 @@ const ProfilePage = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['profile', 'preferences', 'notifications', 'security'].includes(tabParam)) {
+    if (tabParam && ['profile', 'preferences', 'notifications', 'security', 'data'].includes(tabParam)) {
       setActiveSection(tabParam);
     }
   }, [location.search]);
@@ -94,6 +95,12 @@ const ProfilePage = () => {
       name: 'Security',
       icon: Icons.Shield,
       description: 'Security settings and access management'
+    },
+    {
+      id: 'data',
+      name: 'Your data',
+      icon: Icons.Download,
+      description: 'Download a copy of your own data (Data Privacy Act right of access)'
     }
   ];
 
@@ -387,6 +394,8 @@ const ProfilePage = () => {
                   </div>
                 </div>
               )}
+
+              {activeSection === 'data' && <MyDataPanel />}
             </div>
           </div>
         </div>

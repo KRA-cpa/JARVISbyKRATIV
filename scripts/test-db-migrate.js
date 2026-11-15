@@ -81,11 +81,12 @@ function fakeClient({ applied = [], preflightRows = [], failOn = null } = {}) {
 const silent = () => {};
 
 (async () => {
-  await test('listMigrations: the repo folder has 0001 + 0002, 0002 has a preflight, both have a down', () => {
+  await test('listMigrations: the repo folder has 0001 - 0003, only 0002 has a preflight, all have a down', () => {
     const list = m.listMigrations();
-    assert.deepStrictEqual(list.map(x => x.version), ['0001', '0002']);
+    assert.deepStrictEqual(list.map(x => x.version), ['0001', '0002', '0003']);
     assert.strictEqual(list[0].name, 'initial_schema');
-    assert.ok(list[1].preflightSql && !list[0].preflightSql);
+    assert.strictEqual(list[2].name, 'privacy');
+    assert.ok(list[1].preflightSql && !list[0].preflightSql && !list[2].preflightSql);
     assert.ok(list.every(x => x.downSql));
     assert.ok(list.every(x => /^[0-9a-f]{64}$/.test(x.checksum)));
   });
@@ -229,7 +230,7 @@ const silent = () => {};
   });
 
   if (pgliteDir) {
-    await test('PGlite: real files - status, --to 0001, re-run is a no-op, preflight on empty, 0002, edited file refused, downs', async () => {
+    await test('PGlite: real files - status, --to 0001, re-run is a no-op, preflight on empty, 0002 + 0003, edited file refused, downs', async () => {
       const from = path.resolve(pgliteDir);
       const { PGlite } = require(require.resolve('@electric-sql/pglite', { paths: [from] }));
       const { pg_trgm } = require(require.resolve('@electric-sql/pglite/contrib/pg_trgm', { paths: [from] }));
@@ -249,14 +250,15 @@ const silent = () => {};
       assert.deepStrictEqual((await m.runCommand(client, list, { command: 'up', to: '0001', out: silent })).applied, ['0001']);
       assert.strictEqual(await tables(), 55);
       assert.deepStrictEqual((await m.runCommand(client, list, { command: 'up', to: '0001', out: silent })).applied, []);
-      assert.deepStrictEqual((await m.runCommand(client, list, { command: 'up', out: silent })).applied, ['0002']);
+      assert.deepStrictEqual((await m.runCommand(client, list, { command: 'up', out: silent })).applied, ['0002', '0003']);
       const rows = await m.readApplied(client);
-      assert.deepStrictEqual(rows.map(r => r.version), ['0001', '0002']);
+      assert.deepStrictEqual(rows.map(r => r.version), ['0001', '0002', '0003']);
       assert.strictEqual(rows[0].checksum, list[0].checksum);
 
       const edited = list.map(x => (x.version === '0001' ? { ...x, checksum: m.checksum(`${x.sql}\n-- edited`) } : x));
       await assert.rejects(m.runCommand(client, edited, { command: 'up', out: silent }), /checksum mismatch/);
 
+      await m.runCommand(client, list, { command: 'down', downVersion: '0003', out: silent });
       await m.runCommand(client, list, { command: 'down', downVersion: '0002', out: silent });
       await m.runCommand(client, list, { command: 'down', downVersion: '0001', out: silent });
       assert.strictEqual(await tables(), 0);

@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_DataReturnDeletion_20261115.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: GUIDE_DataReturnDeletion_20261115.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 15 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: The fixed process for the DPA "Return and deletion" clause (and Terms "Term and termination", Privacy "How long we keep it") - when an organization's subscription ends or it asks for deletion: what to send, when, what to export, what to delete where, how to confirm | Status: DRAFT - for review by the owner / DPO and counsel (with DPA v0.3)
 REVISION HISTORY:
+- v1.1.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Privacy check (user: "do all items c/o Claude"): T1 `scripts/db-export-company.js`, T2 `scripts/db-delete-company.js`, T4 = `/api/rpc` `anonymizeUser` built for Postgres (tested on PGlite, `npm run test:privacy-db -- --pglite <dir>`); the `companies` row stays as the billing anchor (FK from `company_subscriptions`), its contact settings cleared
 - v1.0.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 461f9ea9). User: "document a process for this so wont be done on the fly - re DPA return and deletion"
 ===============================================================================
 -->
@@ -119,10 +120,10 @@ records]]
 | Tool | Status | Needed for |
 |---|---|---|
 | Read-only per organization | Apps Script v10.2 `company_subscriptions` `read_only` (when deployed) | §3.1 |
-| T1 per-company full export | **missing** - build with migration 0.9 (reverse export) for Postgres; an editor-only Apps Script export like `EXPORT_ForPostgres` with a company filter until then | §3.2 |
-| T2 per-company delete (dry run / apply, counts, one transaction, every table with `company_id` + users in no other company) | **missing** - Postgres script `scripts/db-delete-company.js` + test; Apps Script editor-only file (pattern of `removeSeedData` / `removeSeedDataApply`, a fix-only tool - no new route) | §4.1, §4.2 |
+| T1 per-company full export | **Postgres: built** (15 Nov 2026) - `node scripts/db-export-company.js --company <id> --out <file outside the repo>`: every row in scope (`scripts/lib/companyScope.js`) + the companies / billing / contract rows, one JSON; changes nothing. Apps Script (before the move): still missing - an editor-only export like `EXPORT_ForPostgres` with a company filter, written for the case | §3.2 |
+| T2 per-company delete (dry run / apply, counts, one transaction, every table with `company_id` + users in no other company) | **Postgres: built** (15 Nov 2026) - `node scripts/db-delete-company.js --company <id>` (dry run) then `--apply --case <case id>`; follows foreign keys, **refuses** when another company's rows point at this company's data (listed in the dry run), keeps the `companies` row as the billing anchor (settings cleared, inactive) with `company_subscriptions` and `contract_acceptances`, checks 0 rows left, logs `DELETE_COMPANY_DATA`. Apps Script (before the move): editor-only file still to write for the case (pattern of `removeSeedDataApply`) | §4.1, §4.2 |
 | T3 read-only switch on Postgres | with the subscriptions port (Phase 4) | §3.1 |
-| T4 replace one person's details | **missing** - with T2 | §5 |
+| T4 replace one person's details | **Postgres: built** - `/api/rpc` `anonymizeUser` (organization admin of every organization the person is in; name / email / phone replaced, access ended, records stay linked, audit row). Screen: with the users screen on the new server | §5 |
 
 Until T1 / T2 exist, a case is handled by Claude writing the tool for it **before** day [[30]] - not by manual row
 deletion in the Sheet or SQL typed by hand.

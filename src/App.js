@@ -41,6 +41,7 @@ import ErrorBoundary130, { useError130Detection } from './components/shared/Erro
 import DevPanel from './components/shared/DevPanel';
 import LoginNoticeBanner from './components/shared/LoginNoticeBanner';
 import AnnouncementBanner from './components/shared/AnnouncementBanner';
+import PrivacyNoticeGate from './components/shared/PrivacyNoticeGate';
 
 // Admin-only, code-split: visitors and non-admins never load the DPA (user, 1 Nov 2026)
 const DpaPage = lazy(() => import('./pages/DpaPage'));
@@ -67,8 +68,9 @@ const SmartRedirect = () => {
 };
 
 // Every signed-in page starts with the sign-in notices (src/config/notices.js: 3 days for A, 7 for B / B2; the user can hide them)
-// and the announcements (maintenance / outage / info from /announcements.json - src/config/announcements.js)
-const WithNotices = ({ children }) => <><AnnouncementBanner /><LoginNoticeBanner />{children}</>;
+// and the announcements (maintenance / outage / info from /announcements.json - src/config/announcements.js), and the
+// privacy notice at first sign-in / when the policy version changes (acknowledgement, not consent - PrivacyNoticeGate)
+const WithNotices = ({ children }) => <><PrivacyNoticeGate /><AnnouncementBanner /><LoginNoticeBanner />{children}</>;
 
 // Protected Route Component with Development Toggle
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
