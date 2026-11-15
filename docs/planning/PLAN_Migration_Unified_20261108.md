@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.8.3
+Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.8.4
 Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: THE migration plan + step-by-step, top to bottom: Apps Script / Google Sheets → Google Cloud Run + Neon Postgres (all servers in Asia), previews on Vercel, Google Sheets kept as a customer option; then the remaining v10.2 features and organizations on the new server | Status: Active - current roadmap (Phase F done, H.3 production deployed - custom domain pending, 0.7 schema generated)
 REVISION HISTORY:
+- v1.8.4 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 1.1 started (user: option A): read-only service account `daloy-sheet-reader` + Sheets API; read half built (`scripts/lib/sheetsExport.js`); open: share the Sheet, the Sheet id, TS_UTC_SINCE, the write half (upsert with stable ids), the 2 scheduler jobs
 - v1.8.3 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 0.2 done: Cloud Run Tier 2 Singapore + data-transfer prices verified (CHECK_HostingPricing v1.2.0); Cloud Billing API enabled in krativ-daloy (user: "enable")
 - v1.8.2 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Platform manager final (PLAN_PlatformManager v2.0.0): PM1 after Phase 1, PM2-PM5 beside 4.1 / 4.2-4.3 / 4.4-4.5 / Phase 5; no projection into the Sheet
 - v1.8.1 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 2.1 / 2.2: the announcement is an entry in `public/announcements.json` (PLAN_Announcements_20261115.md, built) - banner + modal to open tabs, `/status`, the sign-in page
@@ -309,6 +310,18 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       night (the watermark). No SLA / outbox jobs on Postgres before 2.4. No Postgres backup job yet - Sheets stays the
       source of truth until Phase 2. **Gate:** lag < 5 min in working hours, < 60 min outside them; Neon CU-h on track
       for < 100 a month. *PLAN_Migration §6 Phase 0 item 5.*
+      **Started 15 Nov 2026 (user: option A - a read-only service account, no Apps Script change):**
+      - Done: Sheets API enabled in `krativ-daloy`; service account `daloy-sheet-reader@krativ-daloy.iam.gserviceaccount.com`
+        (no keys, no project roles); Cloud Run's identity may borrow it (Token Creator on that account only), scope
+        `spreadsheets.readonly`. Read half: `scripts/lib/sheetsExport.js` turns the Sheets API answer into the same
+        export v1 the 0.8 loader takes (`buildLoadPlan`: clean rows only); test `npm run test:sheets-export` (5).
+      - **You:** share the platform Sheet with that address as **Viewer**; give Claude the Sheet id (the part of its
+        address between `/d/` and `/edit`) and the `TS_UTC_SINCE` Script Property value (both go into Cloud Run settings,
+        neither is a secret).
+      - Left (Claude): the write half - upsert instead of the 0.8 one-time load (rows keyed by their Sheet ids; tables
+        without an id need a stable key, not a new random one per run), deletions, `/api/cron/sync` + the 2 Cloud Scheduler
+        jobs, the lag gate. Whole-Sheet read per run instead of a watermark at today's size (303 rows) - simpler and it
+        also catches edits that don't touch `updated_at`; switch to the watermark when a run takes > 10 s.
 - [ ] **1.2 Claude** - port the read groups (dashboard, reference data, users, reports, notifications, SLA reads);
       handler tests on a Neon branch per run (the `ROUTES_TEST_v9.x` scenarios); Vercel preview first, then production.
       **Gate:** every ported read meets its `Claude.md` p95 + query budget; `X-Backend: pg`. *PLAN_Migration §6 Phase 1, §8.*
