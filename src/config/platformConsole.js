@@ -8,6 +8,8 @@
  */
 
 export const PLATFORM_PATH = '/platform';
+/** The staff sign-in page of the console (src/pages/PlatformLoginPage.js). */
+export const PLATFORM_LOGIN_PATH = '/platform/login';
 
 export const PLATFORM_GROUPS = ['Operate', 'Commercial', 'Content', 'Governance'];
 

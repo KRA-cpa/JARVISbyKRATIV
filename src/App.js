@@ -50,6 +50,9 @@ import PrivacyNoticeGate from './components/shared/PrivacyNoticeGate';
 const DpaPage = lazy(() => import('./pages/DpaPage'));
 // Platform console (KRAtiv staff) - wireframe today, code-split like the DPA (PLAN_PlatformManager v2.0.0)
 const PlatformPage = lazy(() => import('./pages/PlatformPage'));
+const PlatformLoginPage = lazy(() => import('./pages/PlatformLoginPage'));
+// Preview of the reorganized sign-in page (user, 15 Nov 2026: "reorg login page, so theres no need to scroll down - create loginv2 as preview")
+const LoginPageV2 = lazy(() => import('./pages/LoginPageV2'));
 
 // Smart Redirect Component for Root Route
 const SmartRedirect = () => {
@@ -78,7 +81,7 @@ const SmartRedirect = () => {
 const WithNotices = ({ children }) => <><PrivacyNoticeGate /><AnnouncementBanner /><LoginNoticeBanner />{children}</>;
 
 // Protected Route Component with Development Toggle
-const ProtectedRoute = ({ children, requireAdmin = false }) => {
+const ProtectedRoute = ({ children, requireAdmin = false, loginPath = '/login' }) => {
   const { isAuthenticated, isAdmin, loading } = useUser();
   const location = useLocation();
 
@@ -94,7 +97,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
 
   // Sign-in comes back to this page (e.g. a notice link from an email), not the dashboard - src/utils/returnPath.js
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace state={returnStateFor(location)} />;
+    return <Navigate to={loginPath} replace state={returnStateFor(location)} />;
   }
 
   if (requireAdmin && !isAdmin) {
@@ -148,6 +151,9 @@ const AppRoutes = () => {
               </PublicRoute>
             }
           />
+          {IS_PREVIEW_BUILD && (
+            <Route path="/login/v2" element={<PublicRoute><Suspense fallback={<LoadingScreen />}><LoginPageV2 /></Suspense></PublicRoute>} />
+          )}
 
           {/* Protected Routes */}
           <Route
@@ -217,7 +223,10 @@ const AppRoutes = () => {
           {/* The notice a sign-in banner links to (src/config/notices.js) - signed-in users of the organizations addressed */}
           <Route path="/notices/:id" element={<ProtectedRoute><NoticePage /></ProtectedRoute>} />
           {/* Platform console: signed in here; the page itself allows platform admins (any signed-in user on previews) */}
-          <Route path="/platform" element={<ProtectedRoute><Suspense fallback={<PlatformLoadingScreen />}><PlatformPage /></Suspense></ProtectedRoute>} />
+          <Route path="/platform" element={<ProtectedRoute loginPath="/platform/login"><Suspense fallback={<PlatformLoadingScreen />}><PlatformPage /></Suspense></ProtectedRoute>} />
+          {/* The staff sign-in for the console (user, 15 Nov 2026: "platform login still goes to /login. why?") - its own
+              page; signed in already → /platform */}
+          <Route path="/platform/login" element={<OpenRoute><Suspense fallback={<PlatformLoadingScreen />}><PlatformLoginPage /></Suspense></OpenRoute>} />
           {/* Its public version - open to everyone, only once the notice has public: true (previews: always, for review) */}
           <Route path="/notices/:id/public" element={<OpenRoute><NoticePage publicView /></OpenRoute>} />
           {/* Provider status (list per src/config/platform.js) - public, no API (General Terms §10.2) */}
