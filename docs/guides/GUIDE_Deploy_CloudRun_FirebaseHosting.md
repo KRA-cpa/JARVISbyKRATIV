@@ -247,3 +247,6 @@ line on `/status` and the sign-in page.
   run with `--apply --allow-shrink`.
 - **Website deploys:** `SKIP_HOSTING=1 AUTH_MODE=enforce scripts/deploy-cloudrun.sh production` changes the server only and
   leaves Firebase Hosting (the website) as it is.
+- **Server images (Artifact Registry `cloud-run-source-deploy`, Singapore):** cleanup rule since 16 Nov 2026 (user: "ok") -
+  keep the **5 newest** images, delete older ones (more than a day old). A revision whose image was deleted can't be
+  rolled back to - roll back only to one of the last 5 deploys. Size then: 154 MB (free up to 0.5 GB / month).
