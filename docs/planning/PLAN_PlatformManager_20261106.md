@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_PlatformManager_20261106.md | Author: Kenneth R. Advento | Version: 1.1.0
+Document: PLAN_PlatformManager_20261106.md | Author: Kenneth R. Advento | Version: 1.2.0
 Created: 6 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: One plan for the Platform manager - the software owner's console (KRATIV / platform admins): customers, plans + subscriptions, usage + statements, prices, leads, template library, health, support access, platform admins, audit | Status: Draft (cloud session 017zmKfA) - decisions PM-D1..D10 open, not built
 REVISION HISTORY:
+- v1.2.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | M9 banner control = announcements A3 (PLAN_Announcements_20261115.md); until then `public/announcements.json` + `firebase deploy --only hosting`
 - v1.1.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Session 461f9ea9: M14 Security notices (user: "security notices should be available historically in platform admin and for all admin users" - the customer side built now: Admin → Security Notices) and M15 Sessions (user: "might need forced logged out in platform admin for breaches" + "a check of all signed in users and force logout will still be needed" - interim built now: scripts/list-signed-in.sh, scripts/revoke-sessions.sh, server cutoff SESSIONS_VALID_AFTER); §4 tables, §7 PM1, PM-D11 / PM-D12
 - v1.0.0 | 6 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created; user: "Plan the platform manager". Collects the "Platform → ..." screens scattered over PLAN_PlanTiers_Subscriptions (§2a, §2c, §4a, §6), PLAN_PlatformWebsite (W2, W3), PLAN_ServerCore_OrgSheetBridge (§2, §4a, §6a, §6b) and PLAN_CountryCalendars (§4), and adds what none of them covers (support access, platform roles, re-auth, the coexistence with the Apps Script gate)
 ===============================================================================
@@ -79,7 +80,7 @@ A section of the app at **`/platform`**, for **platform admins only** (KRATIV st
 | M6 | **Exchange rates** | One row per month: BSP weighted average rate, source, entered by; the rate a statement used is frozen on the statement | PlanTiers §2c | PM2 |
 | M7 | **Leads** | List, filter, mark contacted / discarded, **Convert** → customer + company + region + trial + invite to the contact | PlatformWebsite W2 | PM3 |
 | M8 | **Template library + packs** | The library company opened in the normal builders; publish / private-to-a-customer; `template_min_plan`; Payroll / HR packs | PlanTiers §2a, §2b, TEMPLATES_* | PM3 |
-| M9 | **Health & incidents** | Per customer store: last ping, down at / back at, cause (store unavailable vs provider outage); open incidents; banner control; goodwill-credit hours | ServerCore §6a, §6b | PM4 |
+| M9 | **Health & incidents** | Per customer store: last ping, down at / back at, cause (store unavailable vs provider outage); open incidents; **banner control** = KRAtiv's announcements on screen (maintenance / outage / info; PLAN_Announcements A3 - until then the file `public/announcements.json`, built 15 Nov 2026); goodwill-credit hours | ServerCore §6a, §6b, PLAN_Announcements | PM4 (banner control: PM1) |
 | M10 | **Support access** | Grants from customers, open sessions, break-glass log (§5) | new | PM4 |
 | M11 | **Reference data** | Country calendars + holiday packs (today in Admin → Country Calendars: they are global, so they move here), plan catalogue (read-only view of `PLAN_CATALOG`) | CountryCalendars §4 | PM1 (move), PM2 |
 | M12 | **Contract records** | Per customer: accepted General Terms / DPA versions + acceptance record, tax profile (withholding agent, CWT rate, Form 2307 received), notices sent (price changes need [[30]] days' notice - Terms §5.1b) | General Terms §0a, §5.1b; DPA | PM2 |

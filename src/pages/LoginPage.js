@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import { clearSessionNotice, takeSessionNotice } from '../utils/sessionGuard';
 import { returnPathFrom } from '../utils/returnPath';
+import { AnnouncementLines } from '../components/shared/AnnouncementBanner';
 import Icons from '../components/shared/Icons';
 import BrandMark from '../components/shared/BrandMark';
 import LoadingScreen from '../components/shared/LoadingScreen';
@@ -74,6 +75,9 @@ const LoginPage = () => {
             Please sign in to continue
           </p>
         </div>
+
+        {/* Maintenance / outage starting within 15 minutes or in progress (/announcements.json) */}
+        <AnnouncementLines liveOnly />
 
         {/* v9.6: session notice (only after the app ended the session) */}
         {notice && (

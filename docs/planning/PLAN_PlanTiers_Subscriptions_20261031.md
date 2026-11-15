@@ -1,11 +1,12 @@
 <!--
 ===============================================================================
-JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
+JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_PlanTiers_Subscriptions_20261031.md | Author: Kenneth R. Advento | Version: 1.8.0
-Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 10 November 2026 UTC+8 (Philippine Standard Time)
+Document: PLAN_PlanTiers_Subscriptions_20261031.md | Author: Kenneth R. Advento | Version: 1.9.0
+Created: 31 October 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: AppScript v10.2 - Basic / Advanced / Enterprise plans per company: feature + limit catalogue, server gate, subscription lifecycle (trial end, grace, read-only), invoices without payment, owner template library for Basic, ticket uploader | Status: Approved (session ff4c803f), not built
 REVISION HISTORY:
+- v1.9.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2 catalogue: **announcements** (`announcements` Advanced, `announcements_targeting` Enterprise) - an organization's own announcements to its users (user: "company needs to announce downtime", "for enterprise only?" → default Advanced + Enterprise); KRAtiv's maintenance announcements are every plan. Design: PLAN_Announcements_20261115.md
 - v1.8.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Snooze: ends no later than the step deadline, and no snooze once the step has exceeded its SLA (user); **Pause SLA** (`sla_pause`, per step, not on head-level approvals) proposed for Advanced + Enterprise - design `docs/design/DESIGN_SnoozePauseSLA_20261110.md`
 - v1.7.0 | 10 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2 catalogue: **Snooze** (`snooze`) - Enterprise only (user, session 5f83b40e: "Snooze function, but only in enterprise"); built on the cloud server with the v10.3 approver features
 - v1.6.0 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §2 catalogue: `drive_attachments` (every tier; the client pays for the Drive storage) + limit `attachment_max_mb` 10 / 25 / 100 - PLAN_Attachments_ClientDrive_20261109.md, unified step 4.7
@@ -73,6 +74,8 @@ There is no tier, plan or feature-flag concept in the code today. The closest pa
 | Tags + sharing, report configuration, expiring-assignments view | – | ✓ | ✓ |
 | Ticket uploader, self (`bulk_upload`, ≤ 200 rows per upload) | – | ✓ | ✓ |
 | Head approval, delegation, bulk approve (v10.3); comments / mentions / watchers, drafts (v10.4) | – | ✓ | ✓ |
+| *(15 Nov 2026, user)* **Announcements to the organization's users** (`announcements`): one company-wide banner at a time (maintenance / downtime / information), start and end; Admin → Announcements. Server (`PLAN_Announcements_20261115.md` §3). KRAtiv's own maintenance announcements reach every plan | – | ✓ | ✓ |
+| *(15 Nov 2026, user)* **Targeted announcements** (`announcements_targeting`): by role / ticket type, scheduled ahead, email copy, "require acknowledgement" (a modal at a safe moment; the admin sees who acknowledged) | – | – | ✓ |
 | Ticket uploader, on behalf (`bulk_upload_on_behalf`, ≤ 2,000 rows, saved mappings, scheduled / API import later) | – | – | ✓ |
 | *(10 Nov 2026, user)* **Snooze** (`snooze`): an approver snoozes a ticket on their Your turn list until a time they pick (later today, tomorrow 08:00, next working day, a date) - never past the step deadline, and not offered once the step is overdue (counted SLA time, paused time excluded). It leaves the list and comes back at that time with a bell notification. **The SLA keeps running** (safe default: snooze never hides lateness), and the ticket comes back early when an SLA escalation fires on it or when it falls due before the snooze ends. Logged in `ticket_action_logs` (`SNOOZE` / `UNSNOOZE`); not shown to the requester. Design: `docs/design/DESIGN_SnoozePauseSLA_20261110.md` §1. Server, with the v10.3 approver features | – | – | ✓ |
 | *(10 Nov 2026, user + Claude's tier proposal)* **Pause SLA** (`sla_pause`): on steps where Admin allows it, a holder of one of the ticket type's pause roles (not necessarily an approver of the step) stops the SLA clock while the step waits on someone outside the company - reason + who + expected resume required, visible to the requester, max days / max count per ticket, the deadline moves by paused working time. Never on the immediate head step or department-head approver steps. Design §2 | – | ✓ | ✓ |

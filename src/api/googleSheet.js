@@ -199,9 +199,22 @@ const requestQueue = new RequestQueue(2); // Limit to 2 concurrent requests
 // Actions that already logged a [MOCK] fallback warning
 const mockWarnedActions = new Set();
 
+// API requests running now - announcements wait for 0 before opening a modal (src/hooks/useSafeMoment.js)
+let inFlight = 0;
+export const requestsInFlight = () => inFlight;
+
 // HTTP Client with retry logic, circuit breaker, and request queue
 class HTTPClient {
   static async request(url, options = {}) {
+    inFlight += 1;
+    try {
+      return await HTTPClient.queued(url, options);
+    } finally {
+      inFlight -= 1;
+    }
+  }
+
+  static async queued(url, options = {}) {
     return await requestQueue.add(async () => {
       return await circuitBreaker.execute(async () => {
       const config = {

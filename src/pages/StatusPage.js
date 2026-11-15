@@ -6,6 +6,7 @@ import Icons from '../components/shared/Icons';
 import { STATUS } from '../config/site';
 import { statusNotices, isPublicVisible, isResolved } from '../config/notices';
 import { formatDateOnly } from '../utils/dateTime';
+import { AnnouncementLines } from '../components/shared/AnnouncementBanner';
 
 /**
  * StatusPage - /status, PUBLIC, no API call (General Terms §10.2; ServerCore plan §6b). Links the providers' own status
@@ -14,6 +15,8 @@ import { formatDateOnly } from '../utils/dateTime';
  * feeds is a later step (plan §6b). Above the list: the one-line notices of src/config/notices.js in their banner days (A 3, B 7)
  * (statusLine; no customer names), with a link to the public version only when it is published (public: true) or on
  * previews (user, 15 Nov 2026: default - no separate public breach page; public notice ready to publish).
+ * Announcements for everyone (maintenance / outage / info, /announcements.json - src/config/announcements.js) come first;
+ * the file is re-read every 5 minutes (one static fetch, no API call).
  * Layer: page (imports shared components + config only).
  */
 const StatusPage = () => {
@@ -30,6 +33,7 @@ const StatusPage = () => {
             {STATUS.previewNote}
           </p>
         )}
+        <AnnouncementLines className="mt-6" />
         {notices.length > 0 && (
           <section className="mt-6 space-y-2" aria-label="Notices">
             {notices.map(n => (

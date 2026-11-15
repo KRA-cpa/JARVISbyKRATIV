@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_Deploy_CloudRun_FirebaseHosting.md | Author: Kenneth R. Advento | Version: 1.4.0
+Document: GUIDE_Deploy_CloudRun_FirebaseHosting.md | Author: Kenneth R. Advento | Version: 1.5.0
 Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Move PRODUCTION from Vercel to Google Cloud Run (asia-southeast1, Singapore) behind Firebase Hosting at daloy.blueknight.xyz; Vercel keeps the previews. Backend unchanged (Apps Script) - the Postgres move follows CHECKLIST_Deploy_PostgresNeon_20261108.md | Status: Ready to run (nothing deployed yet) - the runbook for Phase H of docs/planning/PLAN_Migration_Unified_20261108.md
 REVISION HISTORY:
+- v1.5.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §I announce maintenance / an outage (public/announcements.json, firebase deploy --only hosting)
 - v1.4.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §H who is signed in + forced sign-out (scripts/list-signed-in.sh, scripts/revoke-sessions.sh, env SESSIONS_VALID_AFTER); deploy-cloudrun.sh v1.3 keeps the cutoff
 - v1.3.0 | 14 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §G database for `/api/rpc` (migration 0.6): `DATABASE_URL` from Secret Manager when a phase needs it; without it `/api/rpc` = Apps Script. Session 92b85189
 - v1.2.1 | 9 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §F: the Git Bash path-rewrite catch (deploy-cloudrun.sh v1.2); $10 budget example
@@ -194,3 +195,25 @@ stay as they are.
 
 Limits: a tab that sends no request keeps showing what it already loaded until its next request. Per organization /
 per user and an on-screen list come with Platform manager M15 (`docs/planning/PLAN_PlatformManager_20261106.md`).
+
+---
+
+## I. Announce maintenance or an outage (banner + modal to signed-in users)
+
+Design: `docs/planning/PLAN_Announcements_20261115.md`. Open tabs pick it up within 5 minutes (or when the tab is
+shown again); no Cloud Run deploy; works while Cloud Run / Apps Script is down.
+
+1. **Claude** edits `public/announcements.json` - one entry per announcement: `id` (unique, e.g. `MAINT-2026-12-01`),
+   `kind` (`maintenance` | `outage` | `info`), `title`, `message`, `startsAt`, `endsAt` (ISO **with** `+08:00`; `null`
+   = until removed), `readOnly` (true when changes can't be saved), `companyIds` (`[]` = everyone). No customer
+   names - the file is public. Commit.
+2. **You** publish it: `firebase deploy --only hosting --project krativ-daloy` (repo root, after `firebase login`).
+   This publishes the current `build/` folder - run it right after a normal deploy's build, or rebuild first with the
+   production values (`scripts/deploy-cloudrun.sh` step 1 does that), so the app files match production.
+3. **Check:** `https://daloy.blueknight.xyz/announcements.json` shows the entry; `/status` lists it; an open signed-in
+   tab shows the banner within 5 minutes.
+4. **End it:** let `endsAt` pass, or remove the entry and publish again.
+
+What users see: the banner at once (maintenance from 3 days before), a modal at a safe moment (not while typing or
+saving), "save your work" 15 minutes before, a banner that can't be hidden while a maintenance window runs, and the
+line on `/status` and the sign-in page.

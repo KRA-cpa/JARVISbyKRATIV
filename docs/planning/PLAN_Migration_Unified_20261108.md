@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.8.0
+Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.8.1
 Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: THE migration plan + step-by-step, top to bottom: Apps Script / Google Sheets → Google Cloud Run + Neon Postgres (all servers in Asia), previews on Vercel, Google Sheets kept as a customer option; then the remaining v10.2 features and organizations on the new server | Status: Active - current roadmap (Phase F done, H.3 production deployed - custom domain pending, 0.7 schema generated)
 REVISION HISTORY:
+- v1.8.1 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 2.1 / 2.2: the announcement is an entry in `public/announcements.json` (PLAN_Announcements_20261115.md, built) - banner + modal to open tabs, `/status`, the sign-in page
 - v1.8.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Order changed (user: "0.9 is required?" → "go with default"): **0.10 first**, 0.9 moved to just before 2.4. 0.10 drafted: DPA v0.3, Privacy (15 Nov), Terms v0.16 + DRAFT doc v0.16.0 describe the platform after the move. **No Sub-processor notice** (user: "no notice needed. no payng clients for now. or word it for new clients") → `DISCLOSURE_DataLocation_NewClients_20261115.md`; the 30-day wait before Phase 2 is dropped. User: "update status pages as well. ready all components when full migrate is complete" → `src/config/platform.js` `MIGRATION_COMPLETE` (flip in 3.1): /status before / after lists (previews show after), admin diagnostics label the backend from `X-Backend` (exposed by the proxy), 3.6 panel rewritten, sign-in wording neutral. Session 461f9ea9
 - v1.7.2 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 0.8 done (user: "ok"): 303 clean rows loaded on Neon `dev`, 28 skipped, gate met; `0002` applied. 0.7 done: `db:explain` → `docs/perf/EXPLAIN_HotPaths_20261115.md` (17 / 17 indexed at scale). Rules v1.2 (`email_enabled` text). Session 92b85189
 - v1.7.1 | 14 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 0.8 built (user: "next"; "get unbroken data only"; "seed data is ok"): editor-only export file + `db:load-sheets` loader (clean rows only, skip report, lock repair on the copy); waiting for the export run. Session 92b85189
@@ -310,8 +311,10 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
       tickets. *PLAN_Migration §3.*
 
 ### Phase 2 — Write cutover (no 30-day wait while there is no paying client - 0.10)
-- [ ] **2.1 You** - announce the maintenance window.
-- [ ] **2.2 You** - freeze writes: Script Property `READ_ONLY=true` (the app shows a maintenance banner).
+- [ ] **2.1 You** - announce the maintenance window: Claude adds a `maintenance` entry with `readOnly: true` to
+  `public/announcements.json` and you run `firebase deploy --only hosting` (deploy guide §I) - users see the banner
+  3 days ahead, a modal at a safe moment, "save your work" 15 minutes before, plus `/status` and the sign-in page.
+- [ ] **2.2 You** - freeze writes: Script Property `READ_ONLY=true` (the announcement is in progress by then).
 - [ ] **2.3 Claude** - final sync; row counts; spot checks.
 - [ ] **2.4 Claude** - one deploy: **all** write groups (ticket loop, workflow admin, users and roles, company admin,
       tags and sharing, SLA escalation) + Scheduler jobs (SLA every **30 min on Neon Free** / 5–15 min on Launch, the
