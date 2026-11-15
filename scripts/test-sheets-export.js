@@ -25,6 +25,7 @@ const sheet = (title, rows) => ({ properties: { title }, data: [{ rowData: rows.
   await test('serial dates: wall clock in the sheet zone → instant + local tag', async () => {
     // 46341 = 15 Nov 2026; .5 = 12:00
     assert.strictEqual(S.serialToLocal(46341.5), '2026-11-15T12:00:00');
+    assert.strictEqual(S.serialToLocal(46341.5 + 1.234 / 86400), '2026-11-15T12:00:01.234', 'milliseconds kept');
     assert.deepStrictEqual(S.encodeCell(date(46341.5), 'Asia/Manila'), { $d: '2026-11-15T04:00:00.000Z', $l: '2026-11-15T12:00:00' });
     assert.deepStrictEqual(S.encodeCell(date(46341, 'DATE'), 'Asia/Manila').$l, '2026-11-15T00:00:00');
     assert.strictEqual(S.encodeCell(num(46341.5), 'Asia/Manila'), 46341.5, 'a plain number stays a number');

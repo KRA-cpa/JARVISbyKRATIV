@@ -28,10 +28,15 @@ const SERIAL_EPOCH_MS = Date.UTC(1899, 11, 30);
 const DAY_MS = 24 * 60 * 60 * 1000;
 const pad = (n, w = 2) => String(n).padStart(w, '0');
 
-/** A Sheets serial date (days since 30 Dec 1899, wall clock) → 'yyyy-MM-ddTHH:mm:ss'. */
+/**
+ * A Sheets serial date (days since 30 Dec 1899, wall clock) → 'yyyy-MM-ddTHH:mm:ss[.SSS]' - milliseconds kept (Apps Script
+ * writes new Date() with them; dropping them made every timestamp look changed on each sync run).
+ */
 function serialToLocal(serial) {
-  const d = new Date(SERIAL_EPOCH_MS + Math.round(serial * DAY_MS / 1000) * 1000);
-  return `${pad(d.getUTCFullYear(), 4)}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+  const d = new Date(SERIAL_EPOCH_MS + Math.round(serial * DAY_MS));
+  const ms = d.getUTCMilliseconds();
+  return `${pad(d.getUTCFullYear(), 4)}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}` +
+    (ms ? `.${pad(ms, 3)}` : '');
 }
 
 /** One API cell → the export's cell (as encodePostgresExportCell_). */

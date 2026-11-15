@@ -40,6 +40,8 @@
     "test:signed-in-users": "node scripts/test-signed-in-users.js",
     "test:privacy-db": "node scripts/test-privacy-db.js",
     "test:sheets-export": "node scripts/test-sheets-export.js",
+    "test:sheets-sync": "node scripts/test-sheets-sync.js",
+    "db:sync-sheets": "node scripts/db-sync-sheets.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "test:setup": "node scripts/setup-tests.js",

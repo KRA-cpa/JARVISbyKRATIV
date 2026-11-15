@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.8.4
+Document: PLAN_Migration_Unified_20261108.md | Author: Kenneth R. Advento | Version: 1.8.5
 Created: 8 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: THE migration plan + step-by-step, top to bottom: Apps Script / Google Sheets → Google Cloud Run + Neon Postgres (all servers in Asia), previews on Vercel, Google Sheets kept as a customer option; then the remaining v10.2 features and organizations on the new server | Status: Active - current roadmap (Phase F done, H.3 production deployed - custom domain pending, 0.7 schema generated)
 REVISION HISTORY:
+- v1.8.5 | 16 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 1.1: write half built + first real sync into Neon dev (322 clean rows, +20 / -1, then a repeat run changes nothing); left: `/api/cron/sync` on Cloud Run + the 2 scheduler jobs (production change - on the user's go) and removing the developer's borrow grant afterwards
 - v1.8.4 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 1.1 started (user: option A): read-only service account `daloy-sheet-reader` + Sheets API; read half built (`scripts/lib/sheetsExport.js`); open: share the Sheet, the Sheet id, TS_UTC_SINCE, the write half (upsert with stable ids), the 2 scheduler jobs
 - v1.8.3 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | 0.2 done: Cloud Run Tier 2 Singapore + data-transfer prices verified (CHECK_HostingPricing v1.2.0); Cloud Billing API enabled in krativ-daloy (user: "enable")
 - v1.8.2 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Platform manager final (PLAN_PlatformManager v2.0.0): PM1 after Phase 1, PM2-PM5 beside 4.1 / 4.2-4.3 / 4.4-4.5 / Phase 5; no projection into the Sheet
@@ -317,8 +318,16 @@ After 5:      + Sheet organizations: Cloud Run ─► storage adapter ─► bri
         export v1 the 0.8 loader takes (`buildLoadPlan`: clean rows only); test `npm run test:sheets-export` (5).
       - **Shared 15 Nov 2026 (user):** the Sheet is shared with that address as Viewer. Settings for the sync (not
         secrets; set on Cloud Run with the sync's deploy): `SYNC_SHEET_ID=1EjFpr_yktSU6QAeBSAvcr6iWVtmaOCV1t5unvImmot4`,
-        `TS_UTC_SINCE=2026-10-31T08:13:50.821Z`. First real read: pending - the developer account can't borrow the
-        reader yet (needs Token Creator on it, or the read runs from Cloud Run).
+        `TS_UTC_SINCE=2026-10-31T08:13:50.821Z`. The developer account (Kenneth's) may borrow the reader too - granted
+        15 Nov 2026 (user: "proceed") for tests from the PC; **remove it once the sync runs on Cloud Run**.
+      - **Write half built (15-16 Nov 2026):** `scripts/lib/sheetsSync.js` + `npm run db:sync-sheets` (dry run by default,
+        `--apply`): one transaction; upsert parents first (unchanged rows not rewritten), remove rows gone from the Sheet
+        (tables nothing points at first, the rest children first); refuses when a table would lose > 20 % (bad read);
+        never deletes for a tab that wasn't read; tables the Sheet doesn't own untouched; stable ids for keys the Sheet
+        never had (comment_requirements); Sheet date-times keep milliseconds. Tests: `test:sheets-sync` (8, PGlite),
+        `test:sheets-export` (5).
+      - **First real sync, Neon `dev`, 16 Nov 2026:** read 1-3 s; 322 clean rows, 28 left out (the 0.8 rule); +20 (19
+        sign-ins since the export + 1 stable id), -1 (its random id), 0 changed; a repeat run: 0 / 0 / 0.
       - Left (Claude): the write half - upsert instead of the 0.8 one-time load (rows keyed by their Sheet ids; tables
         without an id need a stable key, not a new random one per run), deletions, `/api/cron/sync` + the 2 Cloud Scheduler
         jobs, the lag gate. Whole-Sheet read per run instead of a watermark at today's size (303 rows) - simpler and it
