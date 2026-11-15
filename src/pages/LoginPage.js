@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import { clearSessionNotice, takeSessionNotice } from '../utils/sessionGuard';
 import { returnPathFrom } from '../utils/returnPath';
+import { PLATFORM_PATH } from '../config/platformConsole';
 import { AnnouncementLines } from '../components/shared/AnnouncementBanner';
 import Icons from '../components/shared/Icons';
 import BrandMark from '../components/shared/BrandMark';
@@ -32,8 +33,11 @@ const LoginPage = () => {
     }
   }, [isAuthenticated, user, navigate, returnTo]);
 
-  const handleGoogleSignIn = async () => {
+  // target: where to go after sign-in instead of the page first opened - the Platform console button passes /platform.
+  // It goes into the router state (as ProtectedRoute does), so PublicRoute and the effect above both send the user there.
+  const handleGoogleSignIn = async (target = null) => {
     try {
+      if (target) navigate(location.pathname, { replace: true, state: { from: target } });
       setIsSigningIn(true);
       clearError();
       setNotice(null);
@@ -116,7 +120,7 @@ const LoginPage = () => {
         <div className="space-y-6">
           <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
             <button
-              onClick={handleGoogleSignIn}
+              onClick={() => handleGoogleSignIn()}
               disabled={isSigningIn}
               className="group relative w-full flex justify-center items-center space-x-3 py-3 px-4 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
             >
@@ -151,6 +155,16 @@ const LoginPage = () => {
             </button>
 
             <div className="mt-4 text-center">
+              {/* Platform console (KRAtiv staff) - same Google sign-in, then /platform (PLAN_PlatformManager v2.0.0);
+                  the server decides who may use it */}
+              <button
+                type="button"
+                onClick={() => handleGoogleSignIn(PLATFORM_PATH)}
+                disabled={isSigningIn}
+                className="mb-3 inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                <Icons.Shield size={14} /> Platform admin sign-in (KRAtiv staff)
+              </button>
               {/* Notice at collection (privacy check #9): both documents linked; the acknowledgement itself is recorded at
                   first sign-in (PrivacyNoticeGate) - no consent checkbox: the user's organization decides the use */}
               <p className="text-xs text-gray-500">

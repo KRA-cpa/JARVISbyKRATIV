@@ -45,6 +45,8 @@ import PrivacyNoticeGate from './components/shared/PrivacyNoticeGate';
 
 // Admin-only, code-split: visitors and non-admins never load the DPA (user, 1 Nov 2026)
 const DpaPage = lazy(() => import('./pages/DpaPage'));
+// Platform console (KRAtiv staff) - wireframe today, code-split like the DPA (PLAN_PlatformManager v2.0.0)
+const PlatformPage = lazy(() => import('./pages/PlatformPage'));
 
 // Smart Redirect Component for Root Route
 const SmartRedirect = () => {
@@ -211,6 +213,8 @@ const AppRoutes = () => {
           />
           {/* The notice a sign-in banner links to (src/config/notices.js) - signed-in users of the organizations addressed */}
           <Route path="/notices/:id" element={<ProtectedRoute><NoticePage /></ProtectedRoute>} />
+          {/* Platform console: signed in here; the page itself allows platform admins (any signed-in user on previews) */}
+          <Route path="/platform" element={<ProtectedRoute><Suspense fallback={<LoadingScreen />}><PlatformPage /></Suspense></ProtectedRoute>} />
           {/* Its public version - open to everyone, only once the notice has public: true (previews: always, for review) */}
           <Route path="/notices/:id/public" element={<OpenRoute><NoticePage publicView /></OpenRoute>} />
           {/* Provider status (list per src/config/platform.js) - public, no API (General Terms §10.2) */}
