@@ -2,10 +2,11 @@
 ===============================================================================
 JARVIS / DALOY by KRAtiv — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: PLAN_ESGPage_20261115.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: PLAN_ESGPage_20261115.md | Author: Kenneth R. Advento | Version: 1.0.1
 Created: 15 November 2026 UTC+8 (Philippine Standard Time) | Modified: 15 November 2026 UTC+8 (Philippine Standard Time)
 Purpose: Plan for a public ESG page (environmental, social, governance) for Daloy - what it says, where the numbers come from, honesty rules, where it lives, phases | Status: PLAN ONLY (user: "draft a ESG page. plan only") - defaults proposed, nothing built
 REVISION HISTORY:
+- v1.0.1 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | E-O1 done (user's "ok"): no switch needed - Google computes Carbon Footprint for every billing account; `krativ-daloy` is billed to the open account "Firebase Payment" (0126C7-...); BigQuery export only if E2 needs it
 - v1.0.0 | 15 November 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Created (session 461f9ea9) after the US-vs-Singapore hosting and ESG comparison (user: "impact of moving to US cheapest", "check ESG impact of both", "draft a ESG page. plan only")
 ===============================================================================
 -->
@@ -101,7 +102,7 @@ Effort: E1 S (1), E2 S (1). Not in the roadmap progress (website content, like t
 ## §6 Open items (defaults in use)
 | # | Item | Default | Needed by |
 |---|---|---|---|
-| E-O1 | Turn on Google Cloud Carbon Footprint for the billing account (console; may need the Billing Account Viewer role) | you do it, or say "ok" and Claude sets it up with gcloud where possible | E2 |
+| E-O1 | ~~Turn on Google Cloud Carbon Footprint~~ **Done 15 Nov 2026:** nothing to switch on - Google computes it for every billing account (history included); `krativ-daloy` → billing account "Firebase Payment"; view: console → Carbon Footprint; monthly data around the 15th of the next month. BigQuery export (dataset + Data Transfer) only if E2 needs more than the dashboard | - | E2 |
 | E-O2 | Counsel's review of environmental claims | before publishing | E3 |
 | E-O3 | Contact for ESG questions | the DPO mailbox | E1 |
 | E-O4 | Any company-level ESG facts to include (office energy, remote work, community work) | none - service only | E1 |
