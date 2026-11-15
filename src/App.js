@@ -51,8 +51,6 @@ const DpaPage = lazy(() => import('./pages/DpaPage'));
 // Platform console (KRAtiv staff) - wireframe today, code-split like the DPA (PLAN_PlatformManager v2.0.0)
 const PlatformPage = lazy(() => import('./pages/PlatformPage'));
 const PlatformLoginPage = lazy(() => import('./pages/PlatformLoginPage'));
-// Preview of the reorganized sign-in page (user, 15 Nov 2026: "reorg login page, so theres no need to scroll down - create loginv2 as preview")
-const LoginPageV2 = lazy(() => import('./pages/LoginPageV2'));
 
 // Smart Redirect Component for Root Route
 const SmartRedirect = () => {
@@ -155,9 +153,8 @@ const AppRoutes = () => {
               </PublicRoute>
             }
           />
-          {IS_PREVIEW_BUILD && (
-            <Route path="/login/v2" element={<PublicRoute><Suspense fallback={<LoadingScreen />}><LoginPageV2 /></Suspense></PublicRoute>} />
-          )}
+          {/* The /login/v2 preview became /login (15 Nov 2026) - old links still land on the sign-in page */}
+          <Route path="/login/v2" element={<Navigate to="/login" replace />} />
 
           {/* Protected Routes */}
           <Route

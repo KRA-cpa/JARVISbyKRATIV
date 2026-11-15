@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import useSignInFlow from '../hooks/useSignInFlow';
 import { PlatformMark } from '../components/shared/PlatformLoadingScreen';
 import PlatformLoadingScreen from '../components/shared/PlatformLoadingScreen';
-import { GoogleG } from './LoginPageV2';
+import { GoogleG } from './LoginPage';
 import { PLATFORM_PATH } from '../config/platformConsole';
 
 /**
@@ -12,7 +12,7 @@ import { PLATFORM_PATH } from '../config/platformConsole';
  * amber edge - PlatformMark), so it never looks like the customers' sign-in; the same Google sign-in, then /platform.
  * Signed in already → straight to /platform. Opening /platform signed out comes here (App.js ProtectedRoute loginPath).
  * Who may use the console is decided by the server (PLAN_PlatformManager v2.0.0 §4), not by this page.
- * One screen, no scrolling (the LoginPageV2 layout rule). Kept out of search engines.
+ * One screen, no scrolling (the LoginPage layout rule). Kept out of search engines.
  * Layer: page (hooks, shared components, config).
  */
 

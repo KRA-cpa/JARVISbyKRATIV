@@ -4,9 +4,9 @@ import { useUser } from '../contexts/UserContext';
 import { clearSessionNotice, takeSessionNotice } from '../utils/sessionGuard';
 
 /**
- * useSignInFlow - the Google sign-in steps shared by the sign-in pages (LoginPageV2 preview, PlatformLoginPage):
+ * useSignInFlow - the Google sign-in steps shared by the sign-in pages (LoginPage, PlatformLoginPage):
  * the one-time session notice (why the app signed the user out), the sign-in itself, and going on to `returnTo` once
- * signed in (also when the page opens with a session already). LoginPage keeps its own copy until v2 replaces it.
+ * signed in (also when the page opens with a session already).
  * @param {string} returnTo - where to go after sign-in
  * @returns {{ loading, error, clearError, notice, isSigningIn, signIn }}
  */
